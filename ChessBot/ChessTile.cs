@@ -21,6 +21,8 @@ namespace ChessBot
         public ChessPiece Piece =>
             HasPiece ? _piece : throw new InvalidOperationException();
 
+        public ChessTile WithPiece(ChessPiece? piece) => new ChessTile(Location, piece);
+
         public override string ToString()
         {
             return HasPiece ? $"{Location} - {_piece}" : $"{Location} - empty";

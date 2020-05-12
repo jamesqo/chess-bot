@@ -139,6 +139,7 @@ namespace ChessBot
         {
             switch (promotionKind)
             {
+                case null:
                 case PieceKind.Bishop:
                 case PieceKind.Knight:
                 case PieceKind.Queen:

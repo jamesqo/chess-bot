@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using static ChessBot.ChessPiece;
 
@@ -62,46 +63,79 @@ namespace ChessBot
             }
         }
 
+        private static ChessTile[,] CreateBoard(IDictionary<BoardLocation, ChessPiece> pieceMap)
+        {
+            var board = new ChessTile[8, 8];
+            for (int c = 0; c < 8; c++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    var location = (c, r);
+                    board[c, r] = (pieceMap != null && pieceMap.TryGetValue(location, out var piece))
+                        ? new ChessTile(location, piece)
+                        : new ChessTile(location);
+                }
+            }
+            return board;
+        }
+
         private readonly ChessTile[,] _board; // todo: this should use an immutable array?
+
+        private ChessState(
+            ChessTile[,] board,
+            PlayerColor nextPlayer,
+            bool hasWhiteCastled,
+            bool hasBlackCastled)
+        {
+            _board = board;
+            NextPlayer = nextPlayer;
+            HasWhiteCastled = hasWhiteCastled;
+            HasBlackCastled = hasBlackCastled;
+        }
 
         public ChessState(
             IDictionary<BoardLocation, ChessPiece> pieceMap = null,
             PlayerColor nextPlayer = PlayerColor.White,
             bool hasWhiteCastled = false,
             bool hasBlackCastled = false)
+            : this(CreateBoard(pieceMap), nextPlayer, hasWhiteCastled, hasBlackCastled)
         {
-            _board = new ChessTile[8, 8];
-
-            for (int c = 0; c < 8; c++)
-            {
-                for (int r = 0; r < 8; r++)
-                {
-                    var location = (c, r);
-                    _board[c, r] = (pieceMap != null && pieceMap.TryGetValue(location, out var piece))
-                        ? new ChessTile(location, piece)
-                        : new ChessTile(location);
-                }
-            }
-
-            NextPlayer = nextPlayer;
-            HasWhiteCastled = hasWhiteCastled;
-            HasBlackCastled = hasBlackCastled;
         }
 
         public PlayerColor NextPlayer { get; }
         public bool HasWhiteCastled { get; }
         public bool HasBlackCastled { get; }
 
-        public bool IsCheck => throw new NotImplementedException();
-        public bool IsCheckmate => throw new NotImplementedException();
-        public bool IsStalemate => throw new NotImplementedException();
+        public bool IsCheck => false; // todo
+        public bool IsCheckmate => false; // todo
+        public bool IsStalemate => false; // todo
 
         public ChessTile this[int column, int row] => _board[column, row];
         public ChessTile this[BoardLocation location] => this[location.Column, location.Row];
 
         public ChessState ApplyMove(ChessMove move)
         {
-            throw new NotImplementedException();
+            // todo: verify lots of stuff
+
+            var (source, destination) = (move.Source, move.Destination);
+            var piece = this[source].Piece;
+
+            var newBoard = (ChessTile[,])_board.Clone();
+            var (sx, sy, dx, dy) = (source.Column, source.Row, destination.Column, destination.Row);
+            newBoard[sx, sy] = this[source].WithPiece(null);
+            newBoard[dx, dy] = this[destination].WithPiece(piece);
+
+            var newNextPlayer = (NextPlayer == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
+
+            bool castled = (piece.Kind == PieceKind.King && (destination == source.Right(2) || destination == source.Left(2)));
+            bool newHasWhiteCastled = HasWhiteCastled || (NextPlayer == PlayerColor.White && castled);
+            bool newHasBlackCastled = HasBlackCastled || (NextPlayer == PlayerColor.Black && castled);
+
+            return new ChessState(
+                newBoard,
+                newNextPlayer,
+                newHasWhiteCastled,
+                newHasBlackCastled);
         }
 
         public IEnumerable<ChessState> GetSucessors()

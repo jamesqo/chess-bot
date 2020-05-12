@@ -30,21 +30,27 @@ namespace ChessBot
             Console.WriteLine("Have fun!");
 
             var game = new ChessGame();
+            Console.WriteLine();
+            Console.WriteLine(GetDisplayString(game.State));
+            Console.WriteLine();
+
             while (true)
             {
-                Console.WriteLine();
                 Console.WriteLine($"<< Turn {game.Turn} >>");
-                Console.WriteLine();
-
-                Console.WriteLine(GetDisplayString(game.State));
                 Console.WriteLine();
 
                 Console.WriteLine("It's White's turn.");
                 game.ApplyMove(whitePlayer.GetNextMove(game.State));
+                Console.WriteLine();
+                Console.WriteLine(GetDisplayString(game.State));
+                Console.WriteLine();
                 CheckForEnd(game);
 
                 Console.WriteLine("It's Black's turn.");
                 game.ApplyMove(blackPlayer.GetNextMove(game.State));
+                Console.WriteLine();
+                Console.WriteLine(GetDisplayString(game.State));
+                Console.WriteLine();
                 CheckForEnd(game);
             }
         }
@@ -79,7 +85,7 @@ namespace ChessBot
                 for (int c = 0; c < 8; c++)
                 {
                     sb.Append('|');
-                    sb.Append(GetDisplayString(state[r, c]));
+                    sb.Append(GetDisplayString(state[c, r]));
                 }
                 sb.Append('|');
                 sb.AppendLine();
