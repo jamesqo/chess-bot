@@ -65,7 +65,6 @@ namespace ChessBot
         private readonly ChessTile[,] _board; // todo: this should use an immutable array?
 
         public ChessState(
-            // todo: implement iequatable
             IDictionary<BoardLocation, ChessPiece> pieceMap = null,
             PlayerColor nextPlayer = PlayerColor.White,
             bool hasWhiteCastled = false,
@@ -98,6 +97,7 @@ namespace ChessBot
         public bool IsStalemate => throw new NotImplementedException();
 
         public ChessTile this[int row, int column] => _board[row, column];
+        public ChessTile this[BoardLocation location] => this[location.Row, location.Column];
 
         public ChessState ApplyMove(ChessMove move)
         {
@@ -107,6 +107,17 @@ namespace ChessBot
         public IEnumerable<ChessState> GetSucessors()
         {
             throw new NotImplementedException();
+        }
+
+        public IEnumerable<ChessTile> IterateTiles()
+        {
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    yield return this[r, c];
+                }
+            }
         }
     }
 }

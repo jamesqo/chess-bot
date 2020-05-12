@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -124,8 +125,9 @@ namespace ChessBot
                 {
                     return ChessMove.Parse(input, state);
                 }
-                catch
+                catch (AlgebraicNotationParseException e)
                 {
+                    Debug.WriteLine(e.ToString());
                     Console.WriteLine("Sorry, try again.");
                 }
             }

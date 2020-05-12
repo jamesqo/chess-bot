@@ -32,7 +32,6 @@ namespace ChessBot
 
         public override string ToString()
         {
-
             return $"{Color.ToString().ToLowerInvariant()} {Kind.ToString().ToLowerInvariant()}";
         }
     }

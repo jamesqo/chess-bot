@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ChessBot
 {
-    public struct BoardLocation
+    public struct BoardLocation : IEquatable<BoardLocation>
     {
         public static implicit operator BoardLocation((int, int) tuple)
         {
@@ -12,9 +12,27 @@ namespace ChessBot
             return new BoardLocation(row, column);
         }
 
+        public static bool operator ==(BoardLocation left, BoardLocation right)
+            => (left.Row == right.Row && left.Column == right.Column);
+
+        public static bool operator !=(BoardLocation left, BoardLocation right) => !(left == right);
+
         public static BoardLocation Parse(string algebraicNotation)
         {
-            throw new NotImplementedException();
+            if (algebraicNotation?.Length != 2)
+            {
+                throw new AlgebraicNotationParseException("Expected input of length 2");
+            }
+
+            int column = (algebraicNotation[0] - 'a');
+            int row = (algebraicNotation[1] - '1');
+
+            if ((column < 0 || column >= 8) || (row < 0 || row >= 8))
+            {
+                throw new AlgebraicNotationParseException("Invalid rank or file specified");
+            }
+
+            return (row, column);
         }
 
         public BoardLocation(int row, int column)
@@ -41,11 +59,23 @@ namespace ChessBot
             column = Column;
         }
 
+        public BoardLocation Up(int count) => (Row + count, Column);
+        public BoardLocation Down(int count) => Up(-count);
+        public BoardLocation Left(int count) => Right(-count);
+        public BoardLocation Right(int count) => (Row, Column + count);
+
+        public override bool Equals(object obj)
+            => obj is BoardLocation other && Equals(other);
+
+        public bool Equals(BoardLocation other) => this == other;
+
+        public override int GetHashCode() => HashCode.Combine(Row, Column);
+
         public override string ToString()
         {
-            var fileChar = (Column + 'a');
-            var rankChar = (Row + 1);
-            return $"{fileChar}{rankChar}";
+            var file = (char)(Column + 'a');
+            var rank = (char)(Row + '1');
+            return $"{file}{rank}";
         }
     }
 }
