@@ -8,12 +8,12 @@ namespace ChessBot
     {
         public static implicit operator BoardLocation((int, int) tuple)
         {
-            var (row, column) = tuple;
-            return new BoardLocation(row, column);
+            var (column, row) = tuple;
+            return new BoardLocation(column, row);
         }
 
         public static bool operator ==(BoardLocation left, BoardLocation right)
-            => (left.Row == right.Row && left.Column == right.Column);
+            => (left.Column == right.Column && left.Row == right.Row);
 
         public static bool operator !=(BoardLocation left, BoardLocation right) => !(left == right);
 
@@ -32,44 +32,44 @@ namespace ChessBot
                 throw new AlgebraicNotationParseException("Invalid rank or file specified");
             }
 
-            return (row, column);
+            return (column, row);
         }
 
-        public BoardLocation(int row, int column)
+        public BoardLocation(int column, int row)
         {
-            if (row < 0 || row >= 8)
-            {
-                throw new ArgumentOutOfRangeException(nameof(row));
-            }
             if (column < 0 || column >= 8)
             {
                 throw new ArgumentOutOfRangeException(nameof(column));
             }
+            if (row < 0 || row >= 8)
+            {
+                throw new ArgumentOutOfRangeException(nameof(row));
+            }
 
-            Row = row;
             Column = column;
+            Row = row;
         }
 
-        public int Row { get; }
         public int Column { get; }
+        public int Row { get; }
 
-        public void Deconstruct(out int row, out int column)
+        public void Deconstruct(out int column, out int row)
         {
-            row = Row;
             column = Column;
+            row = Row;
         }
 
-        public BoardLocation Up(int count) => (Row + count, Column);
+        public BoardLocation Up(int count) => (Column, Row + count);
         public BoardLocation Down(int count) => Up(-count);
         public BoardLocation Left(int count) => Right(-count);
-        public BoardLocation Right(int count) => (Row, Column + count);
+        public BoardLocation Right(int count) => (Column + count, Row);
 
         public override bool Equals(object obj)
             => obj is BoardLocation other && Equals(other);
 
         public bool Equals(BoardLocation other) => this == other;
 
-        public override int GetHashCode() => HashCode.Combine(Row, Column);
+        public override int GetHashCode() => HashCode.Combine(Column, Row);
 
         public override string ToString()
         {

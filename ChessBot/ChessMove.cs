@@ -40,7 +40,7 @@ namespace ChessBot
                 return false;
             }
 
-            var delta = (x: destination.Row - source.Row, y: destination.Column - source.Column);
+            var delta = (x: destination.Column - source.Column, y: destination.Row - source.Row);
             switch (piece.Kind)
             {
                 case PieceKind.Bishop:
