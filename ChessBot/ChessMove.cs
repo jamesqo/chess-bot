@@ -33,7 +33,8 @@ namespace ChessBot
         private static bool CanMoveFrom(
             ChessPiece piece,
             BoardLocation source,
-            BoardLocation destination)
+            BoardLocation destination,
+            bool isCapture)
         {
             if (source == destination)
             {
@@ -46,14 +47,15 @@ namespace ChessBot
                 case PieceKind.Bishop:
                     return Math.Abs(delta.x) == Math.Abs(delta.y);
                 case PieceKind.King:
-                    // note: We ignore the possibility of castling since that's already accounted for by 0-0 / O-O
+                    // note: We ignore the possibility of castling since we already have logic to handle that
                     return Math.Abs(delta.x) <= 1 && Math.Abs(delta.y) <= 1;
                 case PieceKind.Knight:
                     return (Math.Abs(delta.x) == 1 && Math.Abs(delta.y) == 2) || (Math.Abs(delta.x) == 2 && Math.Abs(delta.y) == 1);
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    return (delta.y == forward && Math.Abs(delta.x) <= 1)
-                        || (delta.y == forward * 2 && delta.x == 0);
+                    return isCapture
+                        ? (Math.Abs(delta.x) == 1 && delta.y == forward)
+                        : (delta.x == 0 && (delta.y == forward || delta.y == forward * 2));
                 case PieceKind.Queen:
                     return delta.x == 0 || delta.y == 0 || Math.Abs(delta.x) == Math.Abs(delta.y);
                 case PieceKind.Rook:
@@ -67,7 +69,8 @@ namespace ChessBot
             SourceContext sourceNode,
             ChessState state,
             PieceKind pieceKind,
-            BoardLocation destination)
+            BoardLocation destination,
+            bool isCapture)
         {
             var possibleSources = state.IterateTiles();
             var sourceSquareNode = sourceNode?.square();
@@ -90,7 +93,7 @@ namespace ChessBot
                 possibleSources = possibleSources.Where(t => t.Location.Row == sourceRow);
             }
 
-            var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece.Kind == pieceKind && CanMoveFrom(t.Piece, t.Location, destination));
+            var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece.Kind == pieceKind && CanMoveFrom(t.Piece, t.Location, destination, isCapture));
             return sourceTile.Location;
         }
 
@@ -114,29 +117,54 @@ namespace ChessBot
                     t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.NextPlayer);
                 var source = kingsTile.Location;
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
-                return new ChessMove(source, destination);
+                return new ChessMove(
+                    source,
+                    destination,
+                    isKingsideCastle: (kingsideCastleNode != null),
+                    isQueensideCastle: (queensideCastleNode != null));
             }
             else
             {
                 var ordinaryMoveDescNode = moveDescNode.ordinaryMoveDesc();
                 var pieceKindNode = ordinaryMoveDescNode.pieceKind();
                 var sourceNode = ordinaryMoveDescNode.source();
-                // todo: enforce this if it's specified
                 var captureNode = ordinaryMoveDescNode.CAPTURE();
                 var destinationNode = ordinaryMoveDescNode.destination();
                 var promotionKindNode = ordinaryMoveDescNode.promotionKind();
 
                 var pieceKind = (pieceKindNode != null) ? _pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
+                bool isCapture = (captureNode != null);
                 var destination = BoardLocation.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? _pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
-                var source = InferSourceLocation(sourceNode, state, pieceKind, destination);
+                var source = InferSourceLocation(sourceNode, state, pieceKind, destination, isCapture);
 
-                return new ChessMove(source, destination, promotionKind);
+                return new ChessMove(
+                    source,
+                    destination,
+                    isCapture: isCapture,
+                    promotionKind: promotionKind);
             }
         }
 
-        public ChessMove(BoardLocation source, BoardLocation destination, PieceKind? promotionKind = null)
+        public ChessMove(
+            BoardLocation source,
+            BoardLocation destination,
+            bool isCapture = false,
+            bool isKingsideCastle = false,
+            bool isQueensideCastle = false,
+            PieceKind? promotionKind = null)
         {
+            if (source == destination)
+            {
+                // todo: throw error
+            }
+
+            if ((isKingsideCastle && destination != source.Right(2)) ||
+                (isQueensideCastle && destination != source.Left(2)))
+            {
+                // todo: throw error
+            }
+
             switch (promotionKind)
             {
                 case null:
@@ -151,11 +179,17 @@ namespace ChessBot
 
             Source = source;
             Destination = destination;
+            IsCapture = isCapture;
+            IsKingsideCastle = isKingsideCastle;
+            IsQueensideCastle = isQueensideCastle;
             PromotionKind = promotionKind;
         }
 
         public BoardLocation Source { get; }
         public BoardLocation Destination { get; }
+        public bool IsCapture { get; }
+        public bool IsKingsideCastle { get; }
+        public bool IsQueensideCastle { get; }
         public PieceKind? PromotionKind { get; }
 
         public override string ToString()
