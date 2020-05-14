@@ -19,43 +19,43 @@ namespace ChessBot
             {
                 if (_initial == null)
                 {
-                    var pieceMap = new Dictionary<BoardLocation, ChessPiece>
+                    var pieceMap = new Dictionary<string, ChessPiece>
                     {
-                        [(0, 0)] = WhiteRook,
-                        [(1, 0)] = WhiteKnight,
-                        [(2, 0)] = WhiteBishop,
-                        [(3, 0)] = WhiteQueen,
-                        [(4, 0)] = WhiteKing,
-                        [(5, 0)] = WhiteBishop,
-                        [(6, 0)] = WhiteKnight,
-                        [(7, 0)] = WhiteRook,
+                        ["a1"] = WhiteRook,
+                        ["b1"] = WhiteKnight,
+                        ["c1"] = WhiteBishop,
+                        ["d1"] = WhiteQueen,
+                        ["e1"] = WhiteKing,
+                        ["f1"] = WhiteBishop,
+                        ["g1"] = WhiteKnight,
+                        ["h1"] = WhiteRook,
 
-                        [(0, 1)] = WhitePawn,
-                        [(1, 1)] = WhitePawn,
-                        [(2, 1)] = WhitePawn,
-                        [(3, 1)] = WhitePawn,
-                        [(4, 1)] = WhitePawn,
-                        [(5, 1)] = WhitePawn,
-                        [(6, 1)] = WhitePawn,
-                        [(7, 1)] = WhitePawn,
+                        ["a2"] = WhitePawn,
+                        ["b2"] = WhitePawn,
+                        ["c2"] = WhitePawn,
+                        ["d2"] = WhitePawn,
+                        ["e2"] = WhitePawn,
+                        ["f2"] = WhitePawn,
+                        ["g2"] = WhitePawn,
+                        ["h2"] = WhitePawn,
 
-                        [(0, 6)] = BlackPawn,
-                        [(1, 6)] = BlackPawn,
-                        [(2, 6)] = BlackPawn,
-                        [(3, 6)] = BlackPawn,
-                        [(4, 6)] = BlackPawn,
-                        [(5, 6)] = BlackPawn,
-                        [(6, 6)] = BlackPawn,
-                        [(7, 6)] = BlackPawn,
+                        ["a7"] = BlackPawn,
+                        ["b7"] = BlackPawn,
+                        ["c7"] = BlackPawn,
+                        ["d7"] = BlackPawn,
+                        ["e7"] = BlackPawn,
+                        ["f7"] = BlackPawn,
+                        ["g7"] = BlackPawn,
+                        ["h7"] = BlackPawn,
 
-                        [(0, 7)] = BlackRook,
-                        [(1, 7)] = BlackKnight,
-                        [(2, 7)] = BlackBishop,
-                        [(3, 7)] = BlackQueen,
-                        [(4, 7)] = BlackKing,
-                        [(5, 7)] = BlackBishop,
-                        [(6, 7)] = BlackKnight,
-                        [(7, 7)] = BlackRook,
+                        ["a8"] = BlackRook,
+                        ["b8"] = BlackKnight,
+                        ["c8"] = BlackBishop,
+                        ["d8"] = BlackQueen,
+                        ["e8"] = BlackKing,
+                        ["f8"] = BlackBishop,
+                        ["g8"] = BlackKnight,
+                        ["h8"] = BlackRook,
                     };
                     _initial = new ChessState(pieceMap);
                 }
@@ -63,17 +63,24 @@ namespace ChessBot
             }
         }
 
-        private static ChessTile[,] CreateBoard(IDictionary<BoardLocation, ChessPiece> pieceMap)
+        private static ChessTile[,] CreateBoard(IDictionary<string, ChessPiece> pieceMap)
         {
             var board = new ChessTile[8, 8];
+
+            foreach (var (locationString, piece) in pieceMap)
+            {
+                var (c, r) = BoardLocation.Parse(locationString);
+                board[c, r] = new ChessTile((c, r), piece);
+            }
+
             for (int c = 0; c < 8; c++)
             {
                 for (int r = 0; r < 8; r++)
                 {
-                    var location = (c, r);
-                    board[c, r] = (pieceMap != null && pieceMap.TryGetValue(location, out var piece))
-                        ? new ChessTile(location, piece)
-                        : new ChessTile(location);
+                    if (board[c, r] == null)
+                    {
+                        board[c, r] = new ChessTile((c, r));
+                    }
                 }
             }
             return board;
@@ -94,7 +101,7 @@ namespace ChessBot
         }
 
         public ChessState(
-            IDictionary<BoardLocation, ChessPiece> pieceMap = null,
+            IDictionary<string, ChessPiece> pieceMap = null,
             PlayerColor nextPlayer = PlayerColor.White,
             bool hasWhiteCastled = false,
             bool hasBlackCastled = false)
