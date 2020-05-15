@@ -70,6 +70,7 @@ namespace ChessBot
         private static ChessTile[,] CreateBoard(IDictionary<string, ChessPiece> pieceMap)
         {
             var pieces = pieceMap.Values;
+            // todo: add tests for this
             if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
             {
                 throw new ArgumentException("Cannot have more than 1 king of a given color", nameof(pieceMap));
@@ -173,11 +174,11 @@ namespace ChessBot
             newBoard[sx, sy] = this[source].WithPiece(null);
             newBoard[dx, dy] = this[destination].WithPiece(piece);
 
-            var newCurrentPlayer = (togglePlayer ? OpposingPlayer : ActivePlayer);
+            var newActivePlayer = (togglePlayer ? OpposingPlayer : ActivePlayer);
 
             return new ChessState(
                 board: newBoard,
-                activePlayer: newCurrentPlayer,
+                activePlayer: newActivePlayer,
                 white: White,
                 black: Black);
         }
@@ -210,13 +211,14 @@ namespace ChessBot
 
         public IEnumerable<ChessMove> GetMoves() => GetMovesAndSuccessors().Select(t => t.Item1);
 
-        public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.Item2);
-
-
         public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
         {
             throw new NotImplementedException();
         }
+
+        public IEnumerable<ChessTile> GetOccupiedTiles() => GetTiles().Where(t => t.HasPiece);
+
+        public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.Item2);
 
         public IEnumerable<ChessTile> GetTiles()
         {
@@ -229,7 +231,7 @@ namespace ChessBot
             }
         }
 
-        // todo: override ToString()
+        public override string ToString() => string.Join(Environment.NewLine, GetOccupiedTiles());
 
         /// <summary>
         /// Checks whether it's possible to move the piece on <paramref name="source"/> to <paramref name="destination"/>.

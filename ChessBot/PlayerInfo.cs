@@ -39,7 +39,7 @@ namespace ChessBot
         }
 
         public IEnumerable<ChessTile> GetOccupiedTiles()
-            => _state.GetTiles().Where(t => t.HasPiece && t.Piece.Color == Color);
+            => _state.GetOccupiedTiles().Where(t => t.Piece.Color == Color);
 
         internal PlayerInfo WithState(ChessState state)
         {

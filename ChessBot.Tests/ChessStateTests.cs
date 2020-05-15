@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Xunit;
 using static ChessBot.ChessPiece;
 
 namespace ChessBot.Tests
 {
+    // todo: all of the assert.throws w/ AlgebraicNotationParseException should be moved to the ChessMove tests
     public class ChessStateTests
     {
         [Fact]
