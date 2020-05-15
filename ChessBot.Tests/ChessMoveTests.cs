@@ -23,7 +23,7 @@ namespace ChessBot.Tests
             // todo: what should we do for "e5" here
         }
 
-        [Fact(Skip = "not implemented yet")]
+        [Fact]
         public void Parse_ShouldResolveAmbiguityIfPawnIsBlocked()
         {
             var state = new ChessState(new Dictionary<string, ChessPiece>
@@ -36,7 +36,7 @@ namespace ChessBot.Tests
             Assert.Equal(BoardLocation.Parse("e3"), move.Source);
         }
 
-        [Fact(Skip = "not implemented yet")]
+        [Fact]
         public void Parse_ShouldResolveAmbiguityIfBishopIsBlocked()
         {
             var state = new ChessState(new Dictionary<string, ChessPiece>
@@ -61,7 +61,7 @@ namespace ChessBot.Tests
             Assert.Equal(BoardLocation.Parse("c5"), move.Source);
         }
 
-        [Fact(Skip = "not implemented yet")]
+        [Fact]
         public void Parse_ShouldResolveAmbiguityIfRookIsBlocked()
         {
             var state = new ChessState(new Dictionary<string, ChessPiece>
