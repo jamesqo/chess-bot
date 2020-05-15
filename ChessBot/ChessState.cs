@@ -270,7 +270,8 @@ namespace ChessBot
                     break;
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || delta.y == forward * 2));
+                    int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
+                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || (delta.y == forward * 2 && source.Row == homeRow)));
                     bool isValidCapture = (destinationTile.HasPiece && Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
 
                     canMoveIfUnblocked = (isValidAdvance || isValidCapture);

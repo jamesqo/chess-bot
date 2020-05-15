@@ -54,8 +54,16 @@ namespace ChessBot
                 possibleSources = possibleSources.Where(t => t.Location.Row == sourceRow);
             }
 
-            var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece.Kind == pieceKind && state.IsMovePossible(t.Location, destination));
-            return sourceTile.Location;
+            try
+            {
+                var targetPiece = new ChessPiece(state.ActivePlayer, pieceKind);
+                var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece == targetPiece && state.IsMovePossible(t.Location, destination));
+                return sourceTile.Location;
+            }
+            catch (InvalidOperationException e)
+            {
+                throw new AlgebraicNotationParseException("Could not infer source location", e);
+            }
         }
 
         // note: This method only checks that the specified piece occupies the source square.
