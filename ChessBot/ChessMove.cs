@@ -75,7 +75,7 @@ namespace ChessBot
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 var kingsTile = state.EnumerateTiles().Single(
-                    t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.NextPlayer);
+                    t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.CurrentPlayer);
                 var source = kingsTile.Location;
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new ChessMove(

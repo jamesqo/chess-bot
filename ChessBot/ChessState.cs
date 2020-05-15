@@ -69,6 +69,12 @@ namespace ChessBot
 
         private static ChessTile[,] CreateBoard(IDictionary<string, ChessPiece> pieceMap)
         {
+            var pieces = pieceMap.Values;
+            if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
+            {
+                throw new ArgumentException("Cannot have more than 1 king of a given color", nameof(pieceMap));
+            }
+
             var board = new ChessTile[8, 8];
 
             foreach (var (locationString, piece) in pieceMap)
@@ -95,27 +101,29 @@ namespace ChessBot
         private ChessState(
             ChessTile[,] board,
             PlayerColor nextPlayer,
-            bool hasWhiteCastled,
-            bool hasBlackCastled)
+            PlayerInfo white,
+            PlayerInfo black)
         {
             _board = board;
-            NextPlayer = nextPlayer;
-            HasWhiteCastled = hasWhiteCastled;
-            HasBlackCastled = hasBlackCastled;
+            CurrentPlayer = nextPlayer;
+            White = white ?? new PlayerInfo(PlayerColor.White);
+            Black = black ?? new PlayerInfo(PlayerColor.Black);
         }
 
         public ChessState(
             IDictionary<string, ChessPiece> pieceMap = null,
             PlayerColor nextPlayer = PlayerColor.White,
-            bool hasWhiteCastled = false,
-            bool hasBlackCastled = false)
-            : this(CreateBoard(pieceMap), nextPlayer, hasWhiteCastled, hasBlackCastled)
+            PlayerInfo white = null,
+            PlayerInfo black = null)
+            : this(CreateBoard(pieceMap), nextPlayer, white, black)
         {
         }
 
-        public PlayerColor NextPlayer { get; }
-        public bool HasWhiteCastled { get; }
-        public bool HasBlackCastled { get; }
+        public PlayerColor CurrentPlayer { get; }
+        public PlayerInfo White { get; }
+        public PlayerInfo Black { get; }
+
+        public PlayerColor OpposingPlayer => (CurrentPlayer == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
 
         public bool IsCheck => false; // todo
         public bool IsCheckmate => false; // todo
@@ -151,7 +159,7 @@ namespace ChessBot
                 throw new InvalidChessMoveException($"{nameof(move.IsCapture)} property is not set properly");
             }
 
-            // todo: handle castling
+            // todo: handle castling here
 
             // todo:
             // - first check with IsMovePossible() fn.
@@ -165,17 +173,12 @@ namespace ChessBot
             newBoard[sx, sy] = this[source].WithPiece(null);
             newBoard[dx, dy] = this[destination].WithPiece(piece);
 
-            var newNextPlayer = (NextPlayer == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
-
-            bool castled = (piece.Kind == PieceKind.King && (destination == source.Right(2) || destination == source.Left(2)));
-            bool newHasWhiteCastled = HasWhiteCastled || (NextPlayer == PlayerColor.White && castled);
-            bool newHasBlackCastled = HasBlackCastled || (NextPlayer == PlayerColor.Black && castled);
-
             return new ChessState(
                 board: newBoard,
-                nextPlayer: newNextPlayer,
-                hasWhiteCastled: newHasWhiteCastled,
-                hasBlackCastled: newHasBlackCastled);
+                nextPlayer: OpposingPlayer,
+                // todo: update fields of white / black PlayerInfos
+                white: White,
+                black: Black);
         }
 
         public IEnumerable<ChessTile> EnumerateTiles()
@@ -194,9 +197,9 @@ namespace ChessBot
         {
             if (other == null) return false;
 
-            if (NextPlayer != other.NextPlayer ||
-                HasWhiteCastled != other.HasWhiteCastled ||
-                HasBlackCastled != other.HasBlackCastled)
+            if (CurrentPlayer != other.CurrentPlayer ||
+                !White.Equals(other.White) ||
+                !Black.Equals(other.Black))
             {
                 return false;
             }
@@ -257,7 +260,7 @@ namespace ChessBot
                     canPieceBeBlocked = true;
                     break;
                 case PieceKind.King:
-                    // note: We ignore the possibility of castling since we already have logic to handle that
+                    // note: We ignore the possibility of castling since we already have logic in place to handle that
                     canMoveIfUnblocked = (Math.Abs(delta.x) <= 1 && Math.Abs(delta.y) <= 1);
                     break;
                 case PieceKind.Knight:
@@ -265,11 +268,11 @@ namespace ChessBot
                     break;
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    bool isAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || delta.y == forward * 2));
-                    bool isCapture = (destinationTile.HasPiece && Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
+                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || delta.y == forward * 2));
+                    bool isValidCapture = (destinationTile.HasPiece && Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
 
-                    canMoveIfUnblocked = (isAdvance || isCapture);
-                    canPieceBeBlocked = isAdvance;
+                    canMoveIfUnblocked = (isValidAdvance || isValidCapture);
+                    canPieceBeBlocked = isValidAdvance;
                     break;
                 case PieceKind.Queen:
                     canMoveIfUnblocked = (delta.x == 0 || delta.y == 0 || Math.Abs(delta.x) == Math.Abs(delta.y));

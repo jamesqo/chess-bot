@@ -60,8 +60,7 @@ namespace ChessBot
             var state = game.State;
             if (state.IsCheckmate)
             {
-                var lastPlayer = (state.NextPlayer == PlayerColor.White ? PlayerColor.Black : PlayerColor.White);
-                Console.WriteLine($"{lastPlayer} wins!");
+                Console.WriteLine($"{state.OpposingPlayer} wins!");
                 Environment.Exit(0);
             }
 
