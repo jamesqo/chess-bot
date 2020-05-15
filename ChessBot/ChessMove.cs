@@ -1,13 +1,9 @@
 ﻿using Antlr4.Runtime;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using ChessBot.AlgebraicNotation;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 using System.Linq;
-using System.Reflection;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace ChessBot
 {
@@ -31,119 +27,13 @@ namespace ChessBot
             return parser.move();
         }
 
-        // Returns the tiles along a vertical, horizontal, or diagonal line between
-        // `source` and `destination`, exclusive.
-        private static IEnumerable<BoardLocation> GetLocationsBetween(
-            BoardLocation source,
-            BoardLocation destination)
-        {
-            Debug.Assert(source != destination);
-            var delta = (x: destination.Column - source.Column, y: destination.Row - source.Row);
-
-            if (delta.x == 0)
-            {
-                // Vertical
-                var start = (delta.y > 0) ? source : destination;
-                int shift = Math.Abs(delta.y);
-                for (int dy = 1; dy < shift; dy++)
-                {
-                    yield return start.Up(dy);
-                }
-            }
-            else if (delta.y == 0)
-            {
-                // Horizontal
-                var start = (delta.x > 0) ? source : destination;
-                int shift = Math.Abs(delta.x);
-                for (int dx = 1; dx < shift; dx++)
-                {
-                    yield return start.Right(dx);
-                }
-            }
-            else
-            {
-                // Diagonal
-                Debug.Assert(Math.Abs(delta.x) == Math.Abs(delta.y));
-
-                var start = (delta.x > 0) ? source : destination;
-                int shift = Math.Abs(delta.x);
-                int slope = (delta.x == delta.y) ? 1 : -1;
-                for (int dx = 1; dx < shift; dx++)
-                {
-                    int dy = dx * slope;
-                    yield return start.Right(dx).Up(dy);
-                }
-            }
-        }
-
-        // Checks whether it's possible to move the piece on `source` to `destination`.
-        // Ignores whether we would create an illegal position by, for example, putting our king in check.
-        private static bool IsMovePossible(
-            ChessState state,
-            BoardLocation source,
-            BoardLocation destination)
-        {
-            if (source == destination)
-            {
-                return false;
-            }
-
-            var sourceTile = state[source];
-            var destinationTile = state[destination];
-            var piece = sourceTile.Piece;
-
-            if (destinationTile.HasPiece && destinationTile.Piece.Color == piece.Color)
-            {
-                return false;
-            }
-
-            bool canMoveIfUnblocked;
-            bool canPieceBeBlocked = false;
-            var delta = (x: destination.Column - source.Column, y: destination.Row - source.Row);
-
-            switch (piece.Kind)
-            {
-                case PieceKind.Bishop:
-                    canMoveIfUnblocked = (Math.Abs(delta.x) == Math.Abs(delta.y));
-                    canPieceBeBlocked = true;
-                    break;
-                case PieceKind.King:
-                    // note: We ignore the possibility of castling since we already have logic to handle that
-                    canMoveIfUnblocked = (Math.Abs(delta.x) <= 1 && Math.Abs(delta.y) <= 1);
-                    break;
-                case PieceKind.Knight:
-                    canMoveIfUnblocked = (Math.Abs(delta.x) == 1 && Math.Abs(delta.y) == 2) || (Math.Abs(delta.x) == 2 && Math.Abs(delta.y) == 1);
-                    break;
-                case PieceKind.Pawn:
-                    int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    bool isAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || delta.y == forward * 2));
-                    bool isCapture = (destinationTile.HasPiece && Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
-
-                    canMoveIfUnblocked = (isAdvance || isCapture);
-                    canPieceBeBlocked = isAdvance;
-                    break;
-                case PieceKind.Queen:
-                    canMoveIfUnblocked = (delta.x == 0 || delta.y == 0 || Math.Abs(delta.x) == Math.Abs(delta.y));
-                    canPieceBeBlocked = true;
-                    break;
-                case PieceKind.Rook:
-                    canMoveIfUnblocked = (delta.x == 0 || delta.y == 0);
-                    canPieceBeBlocked = true;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-
-            return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !state[loc].HasPiece));
-        }
-
         private static BoardLocation InferSourceLocation(
             SourceContext sourceNode,
             ChessState state,
             PieceKind pieceKind,
             BoardLocation destination)
         {
-            var possibleSources = state.IterateTiles();
+            var possibleSources = state.EnumerateTiles();
             var sourceSquareNode = sourceNode?.square();
             var sourceFileNode = sourceNode?.FILE();
             var sourceRankNode = sourceNode?.RANK();
@@ -164,7 +54,7 @@ namespace ChessBot
                 possibleSources = possibleSources.Where(t => t.Location.Row == sourceRow);
             }
 
-            var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece.Kind == pieceKind && IsMovePossible(state, t.Location, destination));
+            var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece.Kind == pieceKind && state.IsMovePossible(t.Location, destination));
             return sourceTile.Location;
         }
 
@@ -184,7 +74,7 @@ namespace ChessBot
             var queensideCastleNode = moveDescNode.QUEENSIDE_CASTLE();
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
-                var kingsTile = state.IterateTiles().Single(
+                var kingsTile = state.EnumerateTiles().Single(
                     t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.NextPlayer);
                 var source = kingsTile.Location;
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
