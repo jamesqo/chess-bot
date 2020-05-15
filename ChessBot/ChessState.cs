@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
@@ -13,7 +14,7 @@ namespace ChessBot
     /// <summary>
     /// Immutable class representing the state of the chess board.
     /// </summary>
-    public class ChessState
+    public class ChessState : IEquatable<ChessState>
     {
         private static ChessState _initial;
         public static ChessState Initial
@@ -122,6 +123,9 @@ namespace ChessBot
 
         public ChessTile this[int column, int row] => _board[column, row];
         public ChessTile this[BoardLocation location] => this[location.Column, location.Row];
+        public ChessTile this[string location] => this[BoardLocation.Parse(location)];
+
+        public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
 
         public ChessState ApplyMove(ChessMove move)
         {
@@ -151,7 +155,9 @@ namespace ChessBot
 
             // todo:
             // - first check with IsMovePossible() fn.
-            // - then, create the new state, but with the same current player, and see if our king is currently in check.
+            // - then, create the new state, but with the same current player, and see if our king becomes checked.
+            //   - as an optimization, we could probably narrow our search if our king is currently checked: only bother for moves
+            //     that follow one of the three moves that could possibly get us out of check.
             // - if not, we're successful; otherwise, we fail.
 
             var newBoard = (ChessTile[,])_board.Clone();
@@ -182,15 +188,43 @@ namespace ChessBot
                 }
             }
         }
+        public override bool Equals(object obj) => Equals(obj as ChessState);
+
+        public bool Equals([AllowNull] ChessState other)
+        {
+            if (other == null) return false;
+
+            if (NextPlayer != other.NextPlayer ||
+                HasWhiteCastled != other.HasWhiteCastled ||
+                HasBlackCastled != other.HasBlackCastled)
+            {
+                return false;
+            }
+
+            for (int c = 0; c < 8; c++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    if (!this[c, r].Equals(other[c, r])) return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override int GetHashCode() => throw new NotImplementedException();
 
         public IEnumerable<ChessMove> GetMoves() => GetMovesAndSuccessors().Select(t => t.Item1);
 
         public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.Item2);
 
+
         public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
         {
             throw new NotImplementedException();
         }
+
+        // todo: override ToString()
 
         /// <summary>
         /// Checks whether it's possible to move the piece on <paramref name="source"/> to <paramref name="destination"/>.

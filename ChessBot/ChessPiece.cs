@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using static ChessBot.PieceKind;
 using static ChessBot.PlayerColor;
 
 namespace ChessBot
 {
-    public struct ChessPiece
+    public struct ChessPiece : IEquatable<ChessPiece>
     {
         public static ChessPiece BlackPawn { get; } = new ChessPiece(Black, Pawn);
         public static ChessPiece BlackKnight { get; } = new ChessPiece(Black, Knight);
@@ -21,6 +22,9 @@ namespace ChessBot
         public static ChessPiece WhiteQueen { get; } = new ChessPiece(White, Queen);
         public static ChessPiece WhiteKing { get; } = new ChessPiece(White, King);
 
+        public static bool operator ==(ChessPiece left, ChessPiece right) => left.Equals(right);
+        public static bool operator !=(ChessPiece left, ChessPiece right) => !(left == right);
+
         public ChessPiece(PlayerColor color, PieceKind kind)
         {
             Color = Enum.IsDefined(typeof(PlayerColor), color) ? color : throw new ArgumentOutOfRangeException(nameof(color));
@@ -29,6 +33,13 @@ namespace ChessBot
 
         public PlayerColor Color { get; }
         public PieceKind Kind { get; }
+
+        public override bool Equals(object obj) => obj is ChessPiece other && Equals(other);
+
+        public bool Equals(ChessPiece other)
+            => Color == other.Color && Kind == other.Kind;
+
+        public override int GetHashCode() => HashCode.Combine(Color, Kind);
 
         public override string ToString()
         {

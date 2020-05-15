@@ -7,6 +7,46 @@ namespace ChessBot.Tests
 {
     public class ChessMoveTests
     {
+        [Theory]
+        [InlineData("O-O")]
+        [InlineData("0-0")]
+        public void Parse_KingsideCastle(string moveString)
+        {
+            var state = new ChessState(new Dictionary<string, ChessPiece>
+            {
+                ["a1"] = WhiteRook,
+                ["e1"] = WhiteKing,
+                ["h1"] = WhiteRook,
+            });
+
+            var move = ChessMove.Parse(moveString, state);
+            Assert.True(move.IsKingsideCastle);
+            Assert.False(move.IsQueensideCastle);
+            Assert.False(move.IsCapture);
+            Assert.Equal(BoardLocation.Parse("e1"), move.Source);
+            Assert.Equal(BoardLocation.Parse("g1"), move.Destination);
+        }
+
+        [Theory]
+        [InlineData("O-O-O")]
+        [InlineData("0-0-0")]
+        public void Parse_QueensideCastle(string moveString)
+        {
+            var state = new ChessState(new Dictionary<string, ChessPiece>
+            {
+                ["a1"] = WhiteRook,
+                ["e1"] = WhiteKing,
+                ["h1"] = WhiteRook,
+            });
+
+            var move = ChessMove.Parse(moveString, state);
+            Assert.True(move.IsQueensideCastle);
+            Assert.False(move.IsKingsideCastle);
+            Assert.False(move.IsCapture);
+            Assert.Equal(BoardLocation.Parse("e1"), move.Source);
+            Assert.Equal(BoardLocation.Parse("c1"), move.Destination);
+        }
+
         [Fact]
         public void Parse_ShouldResolveAmbiguityFromPawnCapture()
         {
