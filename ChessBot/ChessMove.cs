@@ -33,7 +33,7 @@ namespace ChessBot
             PieceKind pieceKind,
             BoardLocation destination)
         {
-            var possibleSources = state.EnumerateTiles();
+            var possibleSources = state.GetTiles();
             var sourceSquareNode = sourceNode?.square();
             var sourceFileNode = sourceNode?.FILE();
             var sourceRankNode = sourceNode?.RANK();
@@ -74,8 +74,8 @@ namespace ChessBot
             var queensideCastleNode = moveDescNode.QUEENSIDE_CASTLE();
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
-                var kingsTile = state.EnumerateTiles().Single(
-                    t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.CurrentPlayer);
+                var kingsTile = state.GetTiles().Single(
+                    t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.ActivePlayer);
                 var source = kingsTile.Location;
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new ChessMove(

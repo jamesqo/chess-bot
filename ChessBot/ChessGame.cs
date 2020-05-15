@@ -23,7 +23,7 @@ namespace ChessBot
         {
             State = State.ApplyMove(move);
             // todo: check for checkmate, stalemate, etc
-            if (State.CurrentPlayer == PlayerColor.White) Turn++;
+            if (State.ActivePlayer == PlayerColor.White) Turn++;
             _history.Add(move);
         }
     }

@@ -55,6 +55,7 @@ namespace ChessBot
             }
         }
 
+        // todo: HasEnded
         static void CheckForEnd(ChessGame game)
         {
             var state = game.State;

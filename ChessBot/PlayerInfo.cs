@@ -1,19 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Text;
+﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace ChessBot
 {
-    public class PlayerInfo : IEquatable<PlayerInfo>
+    public class PlayerInfo
     {
-        public PlayerInfo(
+        private ChessState _state;
+
+        internal PlayerInfo(
+            ChessState state,
             PlayerColor color,
             bool hasCastled = false,
             bool hasMovedKing = false,
             bool hasMovedKingsideRook = false,
             bool hasMovedQueensideRook = false)
         {
+            _state = state;
             Color = color;
             HasCastled = hasCastled;
             HasMovedKing = hasMovedKing;
@@ -27,14 +29,23 @@ namespace ChessBot
         public bool HasMovedKingsideRook { get; }
         public bool HasMovedQueensideRook { get; }
 
-        public override bool Equals(object obj) => Equals(obj as PlayerInfo);
-
-        public bool Equals([AllowNull] PlayerInfo other)
+        internal bool EqualsIgnoreState(PlayerInfo other)
         {
-            if (other == null) return false;
-            throw new NotImplementedException();
+            return Color == other.Color
+                && HasCastled == other.HasCastled
+                && HasMovedKing == other.HasMovedKing
+                && HasMovedKingsideRook == other.HasMovedKingsideRook
+                && HasMovedQueensideRook == other.HasMovedQueensideRook;
         }
 
-        public override int GetHashCode() => throw new NotImplementedException();
+        public IEnumerable<ChessTile> GetOccupiedTiles()
+            => _state.GetTiles().Where(t => t.HasPiece && t.Piece.Color == Color);
+
+        internal PlayerInfo WithState(ChessState state)
+        {
+            var clone = (PlayerInfo)MemberwiseClone();
+            clone._state = state;
+            return clone;
+        }
     }
 }

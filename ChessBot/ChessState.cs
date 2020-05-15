@@ -100,30 +100,30 @@ namespace ChessBot
 
         private ChessState(
             ChessTile[,] board,
-            PlayerColor nextPlayer,
+            PlayerColor activePlayer,
             PlayerInfo white,
             PlayerInfo black)
         {
             _board = board;
-            CurrentPlayer = nextPlayer;
-            White = white ?? new PlayerInfo(PlayerColor.White);
-            Black = black ?? new PlayerInfo(PlayerColor.Black);
+            ActivePlayer = activePlayer;
+            White = white?.WithState(this) ?? new PlayerInfo(this, PlayerColor.White);
+            Black = black?.WithState(this) ?? new PlayerInfo(this, PlayerColor.Black);
         }
 
         public ChessState(
             IDictionary<string, ChessPiece> pieceMap = null,
-            PlayerColor nextPlayer = PlayerColor.White,
+            PlayerColor activePlayer = PlayerColor.White,
             PlayerInfo white = null,
             PlayerInfo black = null)
-            : this(CreateBoard(pieceMap), nextPlayer, white, black)
+            : this(CreateBoard(pieceMap), activePlayer, white, black)
         {
         }
 
-        public PlayerColor CurrentPlayer { get; }
+        public PlayerColor ActivePlayer { get; }
         public PlayerInfo White { get; }
         public PlayerInfo Black { get; }
 
-        public PlayerColor OpposingPlayer => (CurrentPlayer == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
+        public PlayerColor OpposingPlayer => (ActivePlayer == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
 
         public bool IsCheck => false; // todo
         public bool IsCheckmate => false; // todo
@@ -133,9 +133,9 @@ namespace ChessBot
         public ChessTile this[BoardLocation location] => this[location.Column, location.Row];
         public ChessTile this[string location] => this[BoardLocation.Parse(location)];
 
-        public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
+        public ChessState ApplyMove(string move, bool togglePlayer = true) => ApplyMove(ChessMove.Parse(move, this), togglePlayer);
 
-        public ChessState ApplyMove(ChessMove move)
+        public ChessState ApplyMove(ChessMove move, bool togglePlayer = true)
         {
             if (move == null)
             {
@@ -173,33 +173,24 @@ namespace ChessBot
             newBoard[sx, sy] = this[source].WithPiece(null);
             newBoard[dx, dy] = this[destination].WithPiece(piece);
 
+            var newCurrentPlayer = (togglePlayer ? OpposingPlayer : ActivePlayer);
+
             return new ChessState(
                 board: newBoard,
-                nextPlayer: OpposingPlayer,
-                // todo: update fields of white / black PlayerInfos
+                activePlayer: newCurrentPlayer,
                 white: White,
                 black: Black);
         }
 
-        public IEnumerable<ChessTile> EnumerateTiles()
-        {
-            for (int c = 0; c < 8; c++)
-            {
-                for (int r = 0; r < 8; r++)
-                {
-                    yield return this[c, r];
-                }
-            }
-        }
         public override bool Equals(object obj) => Equals(obj as ChessState);
 
         public bool Equals([AllowNull] ChessState other)
         {
             if (other == null) return false;
 
-            if (CurrentPlayer != other.CurrentPlayer ||
-                !White.Equals(other.White) ||
-                !Black.Equals(other.Black))
+            if (ActivePlayer != other.ActivePlayer ||
+                !White.EqualsIgnoreState(other.White) ||
+                !Black.EqualsIgnoreState(other.Black))
             {
                 return false;
             }
@@ -225,6 +216,17 @@ namespace ChessBot
         public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
         {
             throw new NotImplementedException();
+        }
+
+        public IEnumerable<ChessTile> GetTiles()
+        {
+            for (int c = 0; c < 8; c++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    yield return this[c, r];
+                }
+            }
         }
 
         // todo: override ToString()
