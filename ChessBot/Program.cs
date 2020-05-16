@@ -61,7 +61,7 @@ namespace ChessBot
             var state = game.State;
             if (state.IsCheckmate)
             {
-                Console.WriteLine($"{state.OpposingPlayer} wins!");
+                Console.WriteLine($"{state.OpposingColor} wins!");
                 Environment.Exit(0);
             }
 

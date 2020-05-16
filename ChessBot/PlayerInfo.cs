@@ -41,7 +41,7 @@ namespace ChessBot
         public IEnumerable<ChessTile> GetOccupiedTiles()
             => _state.GetOccupiedTiles().Where(t => t.Piece.Color == Color);
 
-        internal PlayerInfo WithState(ChessState state)
+        internal PlayerInfo SetState(ChessState state)
         {
             var clone = (PlayerInfo)MemberwiseClone();
             clone._state = state;

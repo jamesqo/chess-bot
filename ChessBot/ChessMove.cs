@@ -33,7 +33,7 @@ namespace ChessBot
             PieceKind pieceKind,
             BoardLocation destination)
         {
-            var possibleSources = state.GetTiles();
+            var possibleSources = state.ActivePlayer.GetOccupiedTiles();
             var sourceSquareNode = sourceNode?.square();
             var sourceFileNode = sourceNode?.FILE();
             var sourceRankNode = sourceNode?.RANK();
@@ -56,8 +56,7 @@ namespace ChessBot
 
             try
             {
-                var targetPiece = new ChessPiece(state.ActivePlayer, pieceKind);
-                var sourceTile = possibleSources.Single(t => t.HasPiece && t.Piece == targetPiece && state.IsMovePossible(t.Location, destination));
+                var sourceTile = possibleSources.Single(t => t.Piece.Kind == pieceKind && state.IsMovePossible(t.Location, destination));
                 return sourceTile.Location;
             }
             catch (InvalidOperationException e)
@@ -82,9 +81,8 @@ namespace ChessBot
             var queensideCastleNode = moveDescNode.QUEENSIDE_CASTLE();
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
-                var kingsTile = state.GetTiles().Single(
-                    t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == state.ActivePlayer);
-                var source = kingsTile.Location;
+                // todo: add a test for when we try to castle but there's no king / multiple kings
+                var source = state.GetKingsLocation() ?? throw new AlgebraicNotationParseException("Attempt to castle without exactly 1 king");
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new ChessMove(
                     source,

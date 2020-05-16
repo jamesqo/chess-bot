@@ -101,34 +101,37 @@ namespace ChessBot
 
         private ChessState(
             ChessTile[,] board,
-            PlayerColor activePlayer,
+            PlayerColor activeColor,
             PlayerInfo white,
             PlayerInfo black)
         {
             _board = board;
-            ActivePlayer = activePlayer;
-            White = white?.WithState(this) ?? new PlayerInfo(this, PlayerColor.White);
-            Black = black?.WithState(this) ?? new PlayerInfo(this, PlayerColor.Black);
+            ActiveColor = activeColor;
+            White = white?.SetState(this) ?? new PlayerInfo(this, PlayerColor.White);
+            Black = black?.SetState(this) ?? new PlayerInfo(this, PlayerColor.Black);
         }
 
         public ChessState(
             IDictionary<string, ChessPiece> pieceMap = null,
-            PlayerColor activePlayer = PlayerColor.White,
+            PlayerColor activeColor = PlayerColor.White,
             PlayerInfo white = null,
             PlayerInfo black = null)
-            : this(CreateBoard(pieceMap), activePlayer, white, black)
+            : this(CreateBoard(pieceMap), activeColor, white, black)
         {
         }
 
-        public PlayerColor ActivePlayer { get; }
+        public PlayerColor ActiveColor { get; }
         public PlayerInfo White { get; }
         public PlayerInfo Black { get; }
 
-        public PlayerColor OpposingPlayer => (ActivePlayer == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
+        public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
+        public PlayerColor OpposingColor => (ActiveColor == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
+        public PlayerInfo OpposingPlayer => GetPlayer(OpposingColor);
 
-        public bool IsCheck => false; // todo
-        public bool IsCheckmate => false; // todo
-        public bool IsStalemate => false; // todo
+        public bool IsCheck => GetKingsLocation() is BoardLocation loc && IsAttackedBy(OpposingColor, loc);
+        public bool IsCheckmate => IsCheck && HasNoMoves;
+        public bool IsStalemate => !IsCheck && HasNoMoves;
+        public bool HasNoMoves => !GetMoves().Any();
 
         public ChessTile this[int column, int row] => _board[column, row];
         public ChessTile this[BoardLocation location] => this[location.Column, location.Row];
@@ -169,18 +172,25 @@ namespace ChessBot
             //     that follow one of the three moves that could possibly get us out of check.
             // - if not, we're successful; otherwise, we fail.
 
-            var newBoard = (ChessTile[,])_board.Clone();
-            var (sx, sy, dx, dy) = (source.Column, source.Row, destination.Column, destination.Row);
-            newBoard[sx, sy] = this[source].WithPiece(null);
-            newBoard[dx, dy] = this[destination].WithPiece(piece);
-
-            var newActivePlayer = (togglePlayer ? OpposingPlayer : ActivePlayer);
+            var newBoard = ApplyMoveInternal(_board, source, destination);
+            var newActiveColor = (togglePlayer ? OpposingColor : ActiveColor);
+            var newPlayer = ActivePlayer; // todo: update as appropriate
 
             return new ChessState(
                 board: newBoard,
-                activePlayer: newActivePlayer,
-                white: White,
-                black: Black);
+                activeColor: newActiveColor,
+                white: (ActiveColor == PlayerColor.White) ? newPlayer : White,
+                black: (ActiveColor == PlayerColor.Black) ? newPlayer : Black); // todo: check if our king is (still?) in check)
+        }
+
+        private static ChessTile[,] ApplyMoveInternal(ChessTile[,] board, BoardLocation source, BoardLocation destination)
+        {
+            var (sx, sy, dx, dy) = (source.Column, source.Row, destination.Column, destination.Row);
+            var newBoard = (ChessTile[,])board.Clone();
+
+            newBoard[sx, sy] = newBoard[sx, sy].SetPiece(null);
+            newBoard[dx, dy] = newBoard[dx, dy].SetPiece(board[sx, sy].Piece);
+            return newBoard;
         }
 
         public override bool Equals(object obj) => Equals(obj as ChessState);
@@ -189,7 +199,7 @@ namespace ChessBot
         {
             if (other == null) return false;
 
-            if (ActivePlayer != other.ActivePlayer ||
+            if (ActiveColor != other.ActiveColor ||
                 !White.EqualsIgnoreState(other.White) ||
                 !Black.EqualsIgnoreState(other.Black))
             {
@@ -213,10 +223,17 @@ namespace ChessBot
 
         public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
         {
-            throw new NotImplementedException();
+            foreach (var tile in ActivePlayer.GetOccupiedTiles())
+            {
+                GetPossibleDestinations(tile.Location);
+            }
+
+            throw new NotImplementedException(); // todo
         }
 
         public IEnumerable<ChessTile> GetOccupiedTiles() => GetTiles().Where(t => t.HasPiece);
+
+        public PlayerInfo GetPlayer(PlayerColor color) => (color == PlayerColor.White) ? White : Black;
 
         public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.Item2);
 
@@ -233,9 +250,19 @@ namespace ChessBot
 
         public override string ToString() => string.Join(Environment.NewLine, GetOccupiedTiles());
 
+        internal BoardLocation? GetKingsLocation(PlayerColor? color = null)
+        {
+            // todo: fix impl so it doesn't throw if there are 2+ matches
+            return GetTiles()
+                .SingleOrDefault(t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == (color ?? ActiveColor))?
+                .Location;
+        }
+
         /// <summary>
         /// Checks whether it's possible to move the piece on <paramref name="source"/> to <paramref name="destination"/>.
         /// Ignores whether we would create an illegal position by putting our king in check.
+        /// <br/>
+        /// This is basically equivalent to checking whether GetPossibleDestinations(<paramref name="source"/>) contains <paramref name="destination"/>.
         /// </summary>
         internal bool IsMovePossible(BoardLocation source, BoardLocation destination)
         {
@@ -293,6 +320,173 @@ namespace ChessBot
 
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
+
+        private IEnumerable<BoardLocation> GetPossibleDestinations(BoardLocation source)
+        {
+            var sourceTile = this[source];
+            var piece = sourceTile.Piece;
+            var destinations = new List<BoardLocation>();
+
+            switch (piece.Kind)
+            {
+                case PieceKind.Bishop:
+                    destinations.AddRange(GetDiagonalExtension(source));
+                    break;
+                case PieceKind.King:
+                    if (source.Row > 0)
+                    {
+                        if (source.Column > 0) destinations.Add(source.Down(1).Left(1));
+                        destinations.Add(source.Down(1));
+                        if (source.Column < 7) destinations.Add(source.Down(1).Right(1));
+                    }
+                    if (source.Column > 0) destinations.Add(source.Left(1));
+                    if (source.Column < 7) destinations.Add(source.Right(1));
+                    if (source.Row < 7)
+                    {
+                        if (source.Column > 0) destinations.Add(source.Up(1).Left(1));
+                        destinations.Add(source.Up(1));
+                        if (source.Column < 7) destinations.Add(source.Up(1).Right(1));
+                    }
+                    break;
+                case PieceKind.Knight:
+                    if (source.Row > 0 && source.Column > 1) destinations.Add(source.Down(1).Left(2));
+                    if (source.Row < 7 && source.Column > 1) destinations.Add(source.Up(1).Left(2));
+                    if (source.Row > 0 && source.Column < 6) destinations.Add(source.Down(1).Right(2));
+                    if (source.Row < 7 && source.Column < 6) destinations.Add(source.Up(1).Right(2));
+                    if (source.Row > 1 && source.Column > 0) destinations.Add(source.Down(2).Left(1));
+                    if (source.Row < 6 && source.Column > 0) destinations.Add(source.Up(2).Left(1));
+                    if (source.Row > 1 && source.Column < 7) destinations.Add(source.Down(2).Right(1));
+                    if (source.Row < 6 && source.Column < 7) destinations.Add(source.Up(2).Right(1));
+                    break;
+                case PieceKind.Pawn:
+                    int forward = (piece.Color == PlayerColor.White ? 1 : -1);
+                    int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
+
+                    var (n1, n2) = (source.Up(forward), source.Up(forward * 2));
+                    if (!this[n1].HasPiece) destinations.Add(n1);
+                    if (!this[n1].HasPiece && !this[n2].HasPiece && source.Row == homeRow) destinations.Add(n2);
+
+                    if (source.Column > 0)
+                    {
+                        var nw = n1.Left(1);
+                        if (this[nw].HasPiece && this[nw].Piece.Color != piece.Color)
+                        {
+                            destinations.Add(nw);
+                        }
+                    }
+
+                    if (source.Column < 7)
+                    {
+                        var ne = n1.Right(1);
+                        if (this[ne].HasPiece && this[ne].Piece.Color != piece.Color)
+                        {
+                            destinations.Add(ne);
+                        }
+                    }
+                    break;
+                case PieceKind.Queen:
+                    destinations.AddRange(GetDiagonalExtension(source));
+                    destinations.AddRange(GetOrthogonalExtension(source));
+                    break;
+                case PieceKind.Rook:
+                    destinations.AddRange(GetOrthogonalExtension(source));
+                    break;
+            }
+
+            return destinations.Where(d => !this[d].HasPiece || this[d].Piece.Color != piece.Color);
+        }
+
+        // note: May include squares occupied by friendly pieces
+        private IEnumerable<BoardLocation> GetDiagonalExtension(BoardLocation source)
+        {
+            var prev = source;
+
+            // Northeast
+            while (prev.Row < 7 && prev.Column < 7)
+            {
+                var next = prev.Up(1).Right(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+
+            // Southeast
+            while (prev.Row > 0 && prev.Column < 7)
+            {
+                var next = prev.Down(1).Right(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+
+            // Southwest
+            while (prev.Row > 0 && prev.Column > 0)
+            {
+                var next = prev.Down(1).Left(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+
+            // Northwest
+            while (prev.Row < 7 && prev.Column > 0)
+            {
+                var next = prev.Up(1).Left(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+        }
+
+        // note: May include squares occupied by friendly pieces
+        private IEnumerable<BoardLocation> GetOrthogonalExtension(BoardLocation source)
+        {
+            var prev = source;
+
+            // East
+            while (prev.Column < 7)
+            {
+                var next = prev.Right(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+
+            // West
+            while (prev.Column > 0)
+            {
+                var next = prev.Left(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+
+            // North
+            while (prev.Row < 7)
+            {
+                var next = prev.Up(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+
+            // South
+            while (prev.Row > 0)
+            {
+                var next = prev.Down(1);
+                yield return next;
+                if (this[next].HasPiece) break;
+                prev = next;
+            }
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="location"/> is attacked by an enemy piece.
+        /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
+        /// </summary>
+        private bool IsAttackedBy(PlayerColor color, BoardLocation location)
+            // It's ok that IsMovePossible() ignores castling, since the rook/king cannot perform captures while castling.
+            => GetPlayer(color).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location));
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.

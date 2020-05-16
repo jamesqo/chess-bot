@@ -34,7 +34,7 @@ namespace ChessBot
 
         public override int GetHashCode() => throw new NotImplementedException();
 
-        public ChessTile WithPiece(ChessPiece? piece) => new ChessTile(Location, piece);
+        public ChessTile SetPiece(ChessPiece? piece) => new ChessTile(Location, piece);
 
         public override string ToString()
         {
