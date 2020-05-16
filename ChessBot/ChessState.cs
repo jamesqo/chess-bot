@@ -165,18 +165,57 @@ namespace ChessBot
                 throw new InvalidChessMoveException($"{nameof(move.IsCapture)} property is not set properly");
             }
 
-            // todo: handle castling here
+            // Step 1: Update the board
+            var newBoard = _board;
+
+            bool castled = (move.IsKingsideCastle || move.IsQueensideCastle);
+            if (castled)
+            {
+                // todo: we don't enforce the requirement that both pieces must be on the first rank.
+                // we assume that you're starting from the initial chess position, for which this is true as long as they have not moved.
+                bool hasMovedRook = (move.IsKingsideCastle ? ActivePlayer.HasMovedKingsideRook : ActivePlayer.HasMovedQueensideRook);
+                bool kingPassesThroughAttackedLocation = GetLocationsBetween(source, destination).Any(loc => IsAttackedBy(OpposingColor, loc));
+                if (ActivePlayer.HasCastled || ActivePlayer.HasMovedKing || hasMovedRook || IsCheck || kingPassesThroughAttackedLocation)
+                {
+                    throw new InvalidChessMoveException("Requirements for castling not met");
+                }
+
+                var rookSource = /* location of kingside or queenside rook of the active player */;
+                var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
+                newBoard = ApplyMoveInternal(newBoard, rookSource, rookDestination);
+            }
 
             // todo:
-            // - first check with IsMovePossible() fn.
+            // - first check with castled || IsMovePossible() fn.
             // - then, create the new state, but with the same current player, and see if our king becomes checked.
             //   - as an optimization, we could probably narrow our search if our king is currently checked: only bother for moves
             //     that follow one of the three moves that could possibly get us out of check.
             // - if not, we're successful; otherwise, we fail.
 
-            var newBoard = ApplyMoveInternal(_board, source, destination);
+            // Step 2: Ensure our king isn't in check after making the changes
+            // todo
+            // (may want to consider adding this verification to the ctor as well)
+
+            // Step 3: Update other fields
             var newActiveColor = (togglePlayer ? OpposingColor : ActiveColor);
-            var newPlayer = ActivePlayer; // todo: update as appropriate
+            var newPlayer = ActivePlayer;
+
+            switch (piece.Kind)
+            {
+                case PieceKind.King:
+                    newPlayer = newPlayer.SetHasMovedKing(true);
+                    break;
+                case PieceKind.Rook:
+                    if (!newPlayer.HasMovedKingsideRook && /* has square of kingside rook */) newPlayer.SetHasMovedKingsideRook(true);
+                    if (!newPlayer.HasMovedQueensideRook && /* has square of queenside rook */) newPlayer.SetHasMovedKingsideRook(true);
+                    break;
+            }
+
+            if (castled)
+            {
+                newPlayer = newPlayer.SetHasCastled(true);
+                newPlayer = move.IsKingsideCastle ? newPlayer.SetHasMovedKingsideRook(true) : newPlayer.SetHasMovedQueensideRook(true);
+            }
 
             return new ChessState(
                 board: newBoard,
