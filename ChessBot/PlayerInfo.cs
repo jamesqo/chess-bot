@@ -23,11 +23,20 @@ namespace ChessBot
             HasMovedQueensideRook = hasMovedQueensideRook;
         }
 
-        public PlayerColor Color { get; }
-        public bool HasCastled { get; }
-        public bool HasMovedKing { get; }
-        public bool HasMovedKingsideRook { get; }
-        public bool HasMovedQueensideRook { get; }
+        private PlayerInfo(PlayerInfo other) : this(
+            other._state,
+            other.Color,
+            other.HasCastled,
+            other.HasMovedKing,
+            other.HasMovedKingsideRook,
+            other.HasMovedQueensideRook)
+        { }
+
+        public PlayerColor Color { get; private set; }
+        public bool HasCastled { get; private set; }
+        public bool HasMovedKing { get; private set; }
+        public bool HasMovedKingsideRook { get; private set; }
+        public bool HasMovedQueensideRook { get; private set; }
 
         internal bool EqualsIgnoreState(PlayerInfo other)
         {
@@ -41,11 +50,12 @@ namespace ChessBot
         public IEnumerable<ChessTile> GetOccupiedTiles()
             => _state.GetOccupiedTiles().Where(t => t.Piece.Color == Color);
 
-        internal PlayerInfo SetState(ChessState state)
-        {
-            var clone = (PlayerInfo)MemberwiseClone();
-            clone._state = state;
-            return clone;
-        }
+        public PlayerInfo SetColor(PlayerColor value) => new PlayerInfo(this) { Color = value };
+        public PlayerInfo SetHasCastled(bool value) => new PlayerInfo(this) { HasCastled = value };
+        public PlayerInfo SetHasMovedKing(bool value) => new PlayerInfo(this) { HasMovedKing = value };
+        public PlayerInfo SetHasMovedKingsideRook(bool value) => new PlayerInfo(this) { HasMovedKingsideRook = value };
+        public PlayerInfo SetHasMovedQueensideRook(bool value) => new PlayerInfo(this) { HasMovedQueensideRook = value };
+
+        internal PlayerInfo SetState(ChessState value) => new PlayerInfo(this) { _state = value };
     }
 }

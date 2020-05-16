@@ -27,7 +27,7 @@ namespace ChessBot
             return parser.move();
         }
 
-        private static BoardLocation InferSourceLocation(
+        private static BoardLocation InferSource(
             SourceContext sourceNode,
             ChessState state,
             PieceKind pieceKind,
@@ -103,7 +103,7 @@ namespace ChessBot
                 bool isCapture = (captureNode != null); // todo: enforce this. take en passant captures into account.
                 var destination = BoardLocation.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? _pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
-                var source = InferSourceLocation(sourceNode, state, pieceKind, destination);
+                var source = InferSource(sourceNode, state, pieceKind, destination);
 
                 return new ChessMove(
                     source,

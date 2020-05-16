@@ -11,6 +11,8 @@ using static ChessBot.ChessPiece;
 
 namespace ChessBot
 {
+    // todo: enforce, for Parse() and ApplyMove(), that if a pawn reaches the back rank it *must* be promoted
+
     /// <summary>
     /// Immutable class representing the state of the chess board.
     /// </summary>
@@ -223,12 +225,7 @@ namespace ChessBot
 
         public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
         {
-            foreach (var tile in ActivePlayer.GetOccupiedTiles())
-            {
-                GetPossibleDestinations(tile.Location);
-            }
-
-            throw new NotImplementedException(); // todo
+            throw new NotImplementedException();
         }
 
         public IEnumerable<ChessTile> GetOccupiedTiles() => GetTiles().Where(t => t.HasPiece);
@@ -253,8 +250,8 @@ namespace ChessBot
         internal BoardLocation? GetKingsLocation(PlayerColor? color = null)
         {
             // todo: fix impl so it doesn't throw if there are 2+ matches
-            return GetTiles()
-                .SingleOrDefault(t => t.HasPiece && t.Piece.Kind == PieceKind.King && t.Piece.Color == (color ?? ActiveColor))?
+            return GetOccupiedTiles()
+                .SingleOrDefault(t => t.Piece.Kind == PieceKind.King && t.Piece.Color == (color ?? ActiveColor))?
                 .Location;
         }
 

@@ -20,7 +20,7 @@ namespace ChessBot
 
         public bool HasPiece { get; }
         public ChessPiece Piece =>
-            HasPiece ? _piece : throw new InvalidOperationException();
+            HasPiece ? _piece : throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
 
         public override bool Equals(object obj) => Equals(obj as ChessTile);
 
