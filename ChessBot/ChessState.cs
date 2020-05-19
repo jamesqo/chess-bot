@@ -182,7 +182,7 @@ namespace ChessBot
                     throw new InvalidChessMoveException("Requirements for castling not met");
                 }
 
-                var rookSource = /* location of kingside or queenside rook of the active player */;
+                var rookSource = move.IsKingsideCastle ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation;
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 newBoard = ApplyMoveInternal(newBoard, rookSource, rookDestination);
             }
@@ -203,10 +203,8 @@ namespace ChessBot
                     newPlayer = newPlayer.SetHasMovedKing(true);
                     break;
                 case PieceKind.Rook:
-                    var kingsideRookLocation = ActiveColor == PlayerColor.White ? BoardLocation.Parse("h1") : BoardLocation.Parse("h8");
-                    var queensideRookLocation = ActiveColor == PlayerColor.White ? BoardLocation.Parse("a1") : BoardLocation.Parse("a8");
-                    if (!newPlayer.HasMovedKingsideRook && source == kingsideRookLocation) newPlayer.SetHasMovedKingsideRook(true);
-                    if (!newPlayer.HasMovedQueensideRook && source == queensideRookLocation) newPlayer.SetHasMovedQueensideRook(true);
+                    if (!newPlayer.HasMovedKingsideRook && source == newPlayer.InitialKingsideRookLocation) newPlayer.SetHasMovedKingsideRook(true);
+                    if (!newPlayer.HasMovedQueensideRook && source == newPlayer.InitialQueensideRookLocation) newPlayer.SetHasMovedQueensideRook(true);
                     break;
             }
 
@@ -216,6 +214,8 @@ namespace ChessBot
                 newPlayer = move.IsKingsideCastle ? newPlayer.SetHasMovedKingsideRook(true) : newPlayer.SetHasMovedQueensideRook(true);
             }
 
+            newBoard = ApplyMoveInternal(newBoard, source, destination);
+
             // Step 3: Ensure our king isn't in check after applying the changes
             var result = new ChessState(
                 board: newBoard,
@@ -223,7 +223,7 @@ namespace ChessBot
                 white: (ActiveColor == PlayerColor.White) ? newPlayer : White,
                 black: (ActiveColor == PlayerColor.Black) ? newPlayer : Black);
 
-            if (IsInCheck(result))
+            if (result.IsInvalidDueToCheck)
             {
                 throw new InvalidChessMoveException("todo");
             }
@@ -241,11 +241,8 @@ namespace ChessBot
             return newBoard;
         }
 
-        private static bool IsInCheck(ChessState state)
-        {
-            // It's not possible to capture by castling, so it's OK that IsMovePossible() ignores that possibility
-            return state.OpposingPlayer.GetOccupiedTiles().Any(tile => state.IsMovePossible(tile.Location, state.GetKingsLocation().Value));
-        }
+        private bool IsInvalidDueToCheck =>
+            GetKingsLocation() is BoardLocation loc && OpposingPlayer.GetOccupiedTiles().Any(tile => IsMovePossible(tile.Location, loc));
 
         public override bool Equals(object obj) => Equals(obj as ChessState);
 

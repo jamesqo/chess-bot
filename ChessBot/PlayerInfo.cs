@@ -38,6 +38,11 @@ namespace ChessBot
         public bool HasMovedKingsideRook { get; private set; }
         public bool HasMovedQueensideRook { get; private set; }
 
+        public BoardLocation InitialKingsideRookLocation =>
+            Color == PlayerColor.White ? BoardLocation.Parse("h1") : BoardLocation.Parse("h8");
+        public BoardLocation InitialQueensideRookLocation =>
+            Color == PlayerColor.White ? BoardLocation.Parse("a1") : BoardLocation.Parse("a8");
+
         internal bool EqualsIgnoreState(PlayerInfo other)
         {
             return Color == other.Color

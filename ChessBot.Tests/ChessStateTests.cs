@@ -127,7 +127,7 @@ namespace ChessBot.Tests
                 ["h1"] = WhiteRook,
             });
 
-            state = state.ApplyMove("O-O");
+            state = state.ApplyMove("O-O", togglePlayer: false);
             Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["a1"] = WhiteRook,
@@ -146,7 +146,7 @@ namespace ChessBot.Tests
                 ["h1"] = WhiteRook,
             });
 
-            state = state.ApplyMove("O-O");
+            state = state.ApplyMove("O-O", togglePlayer: false);
             Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["c1"] = WhiteKing,
