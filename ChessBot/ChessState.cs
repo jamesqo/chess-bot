@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using static ChessBot.ChessPiece;
 
 namespace ChessBot
@@ -73,6 +74,7 @@ namespace ChessBot
         {
             var pieces = pieceMap.Values;
             // todo: add tests for this
+            // todo: should be != 1 instead?
             if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
             {
                 throw new ArgumentException("Cannot have more than 1 king of a given color", nameof(pieceMap));
@@ -184,19 +186,14 @@ namespace ChessBot
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 newBoard = ApplyMoveInternal(newBoard, rookSource, rookDestination);
             }
+            else if (!IsMovePossible(source, destination))
+            {
+                throw new InvalidChessMoveException("todo");
+            }
+            // todo: as an optimization, we could narrow our search if our king is currently in check:
+            // only bother for the three types of moves that could possibly get us out of check.
 
-            // todo:
-            // - first check with castled || IsMovePossible() fn.
-            // - then, create the new state, but with the same current player, and see if our king becomes checked.
-            //   - as an optimization, we could probably narrow our search if our king is currently checked: only bother for moves
-            //     that follow one of the three moves that could possibly get us out of check.
-            // - if not, we're successful; otherwise, we fail.
-
-            // Step 2: Ensure our king isn't in check after making the changes
-            // todo
-            // (may want to consider adding this verification to the ctor as well)
-
-            // Step 3: Update other fields
+            // Step 2: Update other fields
             var newActiveColor = (togglePlayer ? OpposingColor : ActiveColor);
             var newPlayer = ActivePlayer;
 
@@ -206,8 +203,10 @@ namespace ChessBot
                     newPlayer = newPlayer.SetHasMovedKing(true);
                     break;
                 case PieceKind.Rook:
-                    if (!newPlayer.HasMovedKingsideRook && /* has square of kingside rook */) newPlayer.SetHasMovedKingsideRook(true);
-                    if (!newPlayer.HasMovedQueensideRook && /* has square of queenside rook */) newPlayer.SetHasMovedKingsideRook(true);
+                    var kingsideRookLocation = ActiveColor == PlayerColor.White ? BoardLocation.Parse("h1") : BoardLocation.Parse("h8");
+                    var queensideRookLocation = ActiveColor == PlayerColor.White ? BoardLocation.Parse("a1") : BoardLocation.Parse("a8");
+                    if (!newPlayer.HasMovedKingsideRook && source == kingsideRookLocation) newPlayer.SetHasMovedKingsideRook(true);
+                    if (!newPlayer.HasMovedQueensideRook && source == queensideRookLocation) newPlayer.SetHasMovedQueensideRook(true);
                     break;
             }
 
@@ -217,11 +216,19 @@ namespace ChessBot
                 newPlayer = move.IsKingsideCastle ? newPlayer.SetHasMovedKingsideRook(true) : newPlayer.SetHasMovedQueensideRook(true);
             }
 
-            return new ChessState(
+            // Step 3: Ensure our king isn't in check after applying the changes
+            var result = new ChessState(
                 board: newBoard,
                 activeColor: newActiveColor,
                 white: (ActiveColor == PlayerColor.White) ? newPlayer : White,
-                black: (ActiveColor == PlayerColor.Black) ? newPlayer : Black); // todo: check if our king is (still?) in check)
+                black: (ActiveColor == PlayerColor.Black) ? newPlayer : Black);
+
+            if (IsInCheck(result))
+            {
+                throw new InvalidChessMoveException("todo");
+            }
+
+            return result;
         }
 
         private static ChessTile[,] ApplyMoveInternal(ChessTile[,] board, BoardLocation source, BoardLocation destination)
@@ -232,6 +239,12 @@ namespace ChessBot
             newBoard[sx, sy] = newBoard[sx, sy].SetPiece(null);
             newBoard[dx, dy] = newBoard[dx, dy].SetPiece(board[sx, sy].Piece);
             return newBoard;
+        }
+
+        private static bool IsInCheck(ChessState state)
+        {
+            // It's not possible to capture by castling, so it's OK that IsMovePossible() ignores that possibility
+            return state.OpposingPlayer.GetOccupiedTiles().Any(tile => state.IsMovePossible(tile.Location, state.GetKingsLocation().Value));
         }
 
         public override bool Equals(object obj) => Equals(obj as ChessState);
