@@ -111,8 +111,8 @@ namespace ChessBot
         {
             _board = board;
             ActiveColor = activeColor;
-            White = white?.SetState(this) ?? new PlayerInfo(this, PlayerColor.White);
-            Black = black?.SetState(this) ?? new PlayerInfo(this, PlayerColor.Black);
+            White = (white ?? new PlayerInfo(PlayerColor.White)).SetState(this);
+            Black = (black ?? new PlayerInfo(PlayerColor.Black)).SetState(this);
         }
 
         public ChessState(
@@ -251,8 +251,8 @@ namespace ChessBot
             if (other == null) return false;
 
             if (ActiveColor != other.ActiveColor ||
-                !White.EqualsIgnoreState(other.White) ||
-                !Black.EqualsIgnoreState(other.Black))
+                !White.Equals(other.White) ||
+                !Black.Equals(other.Black))
             {
                 return false;
             }
@@ -294,6 +294,7 @@ namespace ChessBot
             }
         }
 
+        // todo: include fields of each playerinfo
         public override string ToString() => string.Join(Environment.NewLine, GetOccupiedTiles());
 
         internal BoardLocation? GetKingsLocation(PlayerColor? color = null)

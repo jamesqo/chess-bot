@@ -117,7 +117,7 @@ namespace ChessBot.Tests
 
         // todo: trying to capture when nothing is there
 
-        [Fact(Skip = "not implemented yet")]
+        [Fact]
         public void ApplyMove_KingsideCastle()
         {
             var state = new ChessState(new Dictionary<string, ChessPiece>
@@ -133,10 +133,11 @@ namespace ChessBot.Tests
                 ["a1"] = WhiteRook,
                 ["f1"] = WhiteRook,
                 ["g1"] = WhiteKing,
-            }), state);
+            },
+            white: new PlayerInfo(PlayerColor.White, hasCastled: true, hasMovedKing: true, hasMovedKingsideRook: true)), state);
         }
 
-        [Fact(Skip = "not implemented yet")]
+        [Fact]
         public void ApplyMove_QueensideCastle()
         {
             var state = new ChessState(new Dictionary<string, ChessPiece>
@@ -146,13 +147,14 @@ namespace ChessBot.Tests
                 ["h1"] = WhiteRook,
             });
 
-            state = state.ApplyMove("O-O", togglePlayer: false);
+            state = state.ApplyMove("O-O-O", togglePlayer: false);
             Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["c1"] = WhiteKing,
                 ["d1"] = WhiteRook,
                 ["h1"] = WhiteRook,
-            }), state);
+            },
+            white: new PlayerInfo(PlayerColor.White, hasCastled: true, hasMovedKing: true, hasMovedQueensideRook: true)), state);
         }
     }
 }

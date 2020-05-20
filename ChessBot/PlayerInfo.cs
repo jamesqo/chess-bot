@@ -1,21 +1,22 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 
 namespace ChessBot
 {
-    public class PlayerInfo
+    public class PlayerInfo : IEquatable<PlayerInfo>
     {
         private ChessState _state;
 
-        internal PlayerInfo(
-            ChessState state,
+        public PlayerInfo(
             PlayerColor color,
             bool hasCastled = false,
             bool hasMovedKing = false,
             bool hasMovedKingsideRook = false,
             bool hasMovedQueensideRook = false)
         {
-            _state = state;
             Color = color;
             HasCastled = hasCastled;
             HasMovedKing = hasMovedKing;
@@ -24,13 +25,14 @@ namespace ChessBot
         }
 
         private PlayerInfo(PlayerInfo other) : this(
-            other._state,
             other.Color,
             other.HasCastled,
             other.HasMovedKing,
             other.HasMovedKingsideRook,
             other.HasMovedQueensideRook)
-        { }
+        {
+            _state = other._state;
+        }
 
         public PlayerColor Color { get; private set; }
         public bool HasCastled { get; private set; }
@@ -43,14 +45,17 @@ namespace ChessBot
         public BoardLocation InitialQueensideRookLocation =>
             Color == PlayerColor.White ? BoardLocation.Parse("a1") : BoardLocation.Parse("a8");
 
-        internal bool EqualsIgnoreState(PlayerInfo other)
+        public bool Equals([AllowNull] PlayerInfo other)
         {
+            if (other == null) return false;
             return Color == other.Color
                 && HasCastled == other.HasCastled
                 && HasMovedKing == other.HasMovedKing
                 && HasMovedKingsideRook == other.HasMovedKingsideRook
                 && HasMovedQueensideRook == other.HasMovedQueensideRook;
         }
+
+        public override int GetHashCode() => throw new NotImplementedException();
 
         public IEnumerable<ChessTile> GetOccupiedTiles()
             => _state.GetOccupiedTiles().Where(t => t.Piece.Color == Color);
