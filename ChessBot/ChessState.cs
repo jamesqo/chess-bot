@@ -1,13 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Threading;
 using static ChessBot.ChessPiece;
 
 namespace ChessBot
@@ -19,6 +15,7 @@ namespace ChessBot
     /// </summary>
     public class ChessState : IEquatable<ChessState>
     {
+        #region Initial piece arrangement
         private static ChessState _initial;
         public static ChessState Initial
         {
@@ -69,12 +66,12 @@ namespace ChessBot
                 return _initial;
             }
         }
+        #endregion
 
         private static ChessTile[,] CreateBoard(IDictionary<string, ChessPiece> pieceMap)
         {
             var pieces = pieceMap.Values;
             // todo: add tests for this
-            // todo: should be != 1 instead?
             if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
             {
                 throw new ArgumentException("Cannot have more than 1 king of a given color", nameof(pieceMap));
@@ -115,6 +112,13 @@ namespace ChessBot
             Black = (black ?? new PlayerInfo(PlayerColor.Black)).SetState(this);
         }
 
+        private ChessState(ChessState other) : this(
+            other._board,
+            other.ActiveColor,
+            other.White,
+            other.Black)
+        { }
+
         public ChessState(
             IDictionary<string, ChessPiece> pieceMap = null,
             PlayerColor activeColor = PlayerColor.White,
@@ -124,26 +128,32 @@ namespace ChessBot
         {
         }
 
-        public PlayerColor ActiveColor { get; }
-        public PlayerInfo White { get; }
-        public PlayerInfo Black { get; }
+        public PlayerColor ActiveColor { get; private set; }
+        public PlayerInfo White { get; private set; }
+        public PlayerInfo Black { get; private set; }
+
+        public ChessState SetActiveColor(PlayerColor value) => new ChessState(this) { ActiveColor = value };
+        public ChessState SetWhite(PlayerInfo value) => new ChessState(this) { White = value };
+        public ChessState SetBlack(PlayerInfo value) => new ChessState(this) { Black = value };
 
         public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
         public PlayerColor OpposingColor => (ActiveColor == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
         public PlayerInfo OpposingPlayer => GetPlayer(OpposingColor);
 
-        public bool IsCheck => GetKingsLocation() is BoardLocation loc && IsAttackedBy(OpposingColor, loc);
+        public bool IsCheck => GetKingsLocation(ActiveColor) is BoardLocation loc && IsAttackedBy(OpposingColor, loc);
         public bool IsCheckmate => IsCheck && HasNoMoves;
         public bool IsStalemate => !IsCheck && HasNoMoves;
         public bool HasNoMoves => !GetMoves().Any();
+
+        private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is BoardLocation loc && IsAttackedBy(ActiveColor, loc);
 
         public ChessTile this[int column, int row] => _board[column, row];
         public ChessTile this[BoardLocation location] => this[location.Column, location.Row];
         public ChessTile this[string location] => this[BoardLocation.Parse(location)];
 
-        public ChessState ApplyMove(string move, bool togglePlayer = true) => ApplyMove(ChessMove.Parse(move, this), togglePlayer);
+        public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
 
-        public ChessState ApplyMove(ChessMove move, bool togglePlayer = true)
+        public ChessState ApplyMove(ChessMove move)
         {
             if (move == null)
             {
@@ -161,8 +171,7 @@ namespace ChessBot
             {
                 throw new InvalidChessMoveException("Destination tile is already occupied by a piece of the same color");
             }
-            // todo: support en passant captures
-            if (move.IsCapture != this[destination].HasPiece)
+            if (move.IsCapture != this[destination].HasPiece) // todo: en passant captures
             {
                 throw new InvalidChessMoveException($"{nameof(move.IsCapture)} property is not set properly");
             }
@@ -173,8 +182,8 @@ namespace ChessBot
             bool castled = (move.IsKingsideCastle || move.IsQueensideCastle);
             if (castled)
             {
-                // todo: we don't enforce the requirement that both pieces must be on the first rank.
-                // we assume that you're starting from the initial chess position, for which this is true as long as they have not moved.
+                // we don't enforce the requirement that both pieces must be on the first rank
+                // since we assume that we have started from the initial chess position.
                 bool hasMovedRook = (move.IsKingsideCastle ? ActivePlayer.HasMovedKingsideRook : ActivePlayer.HasMovedQueensideRook);
                 bool kingPassesThroughAttackedLocation = GetLocationsBetween(source, destination).Any(loc => IsAttackedBy(OpposingColor, loc));
                 if (ActivePlayer.HasCastled || ActivePlayer.HasMovedKing || hasMovedRook || IsCheck || kingPassesThroughAttackedLocation)
@@ -188,13 +197,12 @@ namespace ChessBot
             }
             else if (!IsMovePossible(source, destination))
             {
-                throw new InvalidChessMoveException("todo");
+                throw new InvalidChessMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}");
             }
-            // todo: as an optimization, we could narrow our search if our king is currently in check:
-            // only bother for the three types of moves that could possibly get us out of check.
+            // todo: as an optimization, we could narrow our search if our king is currently in check.
+            // we may only bother for the three types of moves that could possibly get us out of check.
 
-            // Step 2: Update other fields
-            var newActiveColor = (togglePlayer ? OpposingColor : ActiveColor);
+            // Step 2: Update player infos
             var newPlayer = ActivePlayer;
 
             switch (piece.Kind)
@@ -216,16 +224,16 @@ namespace ChessBot
 
             newBoard = ApplyMoveInternal(newBoard, source, destination);
 
-            // Step 3: Ensure our king isn't in check after applying the changes
+            // Step 3: Ensure our king isn't attacked after applying the changes
             var result = new ChessState(
                 board: newBoard,
-                activeColor: newActiveColor,
+                activeColor: OpposingColor,
                 white: (ActiveColor == PlayerColor.White) ? newPlayer : White,
                 black: (ActiveColor == PlayerColor.Black) ? newPlayer : Black);
 
-            if (result.IsInvalidDueToCheck)
+            if (result.IsOpposingKingAttacked)
             {
-                throw new InvalidChessMoveException("todo");
+                throw new InvalidChessMoveException($"Move is invalid since it lets {ActiveColor}'s king be attacked");
             }
 
             return result;
@@ -240,9 +248,6 @@ namespace ChessBot
             newBoard[dx, dy] = newBoard[dx, dy].SetPiece(board[sx, sy].Piece);
             return newBoard;
         }
-
-        private bool IsInvalidDueToCheck =>
-            GetKingsLocation() is BoardLocation loc && OpposingPlayer.GetOccupiedTiles().Any(tile => IsMovePossible(tile.Location, loc));
 
         public override bool Equals(object obj) => Equals(obj as ChessState);
 
@@ -295,13 +300,21 @@ namespace ChessBot
         }
 
         // todo: include fields of each playerinfo
-        public override string ToString() => string.Join(Environment.NewLine, GetOccupiedTiles());
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendJoin(Environment.NewLine, GetOccupiedTiles()).AppendLine();
+            sb.Append("White: ").AppendLine(White.ToString());
+            sb.Append("Black: ").AppendLine(Black.ToString());
+            return sb.ToString();
+        }
 
-        internal BoardLocation? GetKingsLocation(PlayerColor? color = null)
+        internal BoardLocation? GetKingsLocation(PlayerColor color)
         {
             // todo: fix impl so it doesn't throw if there are 2+ matches
-            return GetOccupiedTiles()
-                .SingleOrDefault(t => t.Piece.Kind == PieceKind.King && t.Piece.Color == (color ?? ActiveColor))?
+            return GetPlayer(color)
+                .GetOccupiedTiles()
+                .SingleOrDefault(t => t.Piece.Kind == PieceKind.King)?
                 .Location;
         }
 

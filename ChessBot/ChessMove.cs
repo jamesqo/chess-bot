@@ -82,7 +82,7 @@ namespace ChessBot
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 // todo: add a test for when we try to castle but there's no king / multiple kings
-                var source = state.GetKingsLocation() ?? throw new AlgebraicNotationParseException("Attempt to castle without exactly 1 king");
+                var source = state.GetKingsLocation(state.ActiveColor) ?? throw new AlgebraicNotationParseException("Attempt to castle without exactly 1 king");
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new ChessMove(
                     source,

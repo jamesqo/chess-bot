@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading;
+using System.Reflection;
 
 namespace ChessBot
 {
@@ -67,5 +67,13 @@ namespace ChessBot
         public PlayerInfo SetHasMovedQueensideRook(bool value) => new PlayerInfo(this) { HasMovedQueensideRook = value };
 
         internal PlayerInfo SetState(ChessState value) => new PlayerInfo(this) { _state = value };
+
+        public override string ToString()
+        {
+            var propStrings = GetType()
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Select(prop => $"{prop.Name}: {prop.GetValue(this)}");
+            return "{" + string.Join(Environment.NewLine, propStrings) + "}";
+        }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Xunit;
 using static ChessBot.ChessPiece;
+using static ChessBot.Tests.Utils;
 
 namespace ChessBot.Tests
 {
@@ -15,21 +16,21 @@ namespace ChessBot.Tests
                 ["e2"] = WhitePawn,
             });
 
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["e3"] = WhitePawn,
-            }), state.ApplyMove("e3", togglePlayer: false));
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            }), state.ApplyMove("e3"));
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["e4"] = WhitePawn,
-            }), state.ApplyMove("e4", togglePlayer: false));
+            }), state.ApplyMove("e4"));
 
-            state = state.ApplyMove("e3", togglePlayer: false);
+            state = state.ApplyMove("e3").SetActiveColor(PlayerColor.White);
 
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["e4"] = WhitePawn,
-            }), state.ApplyMove("e4", togglePlayer: false));
+            }), state.ApplyMove("e4"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e5"));
         }
 
@@ -43,19 +44,19 @@ namespace ChessBot.Tests
             });
 
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e3"));
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["e2"] = WhitePawn,
                 ["e4"] = WhitePawn,
-            }), state.ApplyMove("e4", togglePlayer: false));
+            }), state.ApplyMove("e4"));
 
-            state = state.ApplyMove("e4", togglePlayer: false);
+            state = state.ApplyMove("e4").SetActiveColor(PlayerColor.White);
 
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["e3"] = WhitePawn,
                 ["e4"] = WhitePawn,
-            }), state.ApplyMove("e3", togglePlayer: false));
+            }), state.ApplyMove("e3"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e4"));
         }
 
@@ -77,11 +78,11 @@ namespace ChessBot.Tests
                 ["e4"] = BlackPawn,
             });
 
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["e3"] = WhitePawn,
                 ["e4"] = BlackPawn,
-            }), state.ApplyMove("e3", togglePlayer: false));
+            }), state.ApplyMove("e3"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e4"));
         }
 
@@ -95,11 +96,11 @@ namespace ChessBot.Tests
                 ["d5"] = BlackPawn,
             });
 
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["d4"] = WhitePawn,
                 ["d5"] = WhitePawn,
-            }), state.ApplyMove("xd5", togglePlayer: false));
+            }), state.ApplyMove("xd5"));
 
             state = new ChessState(new Dictionary<string, ChessPiece>
             {
@@ -108,11 +109,11 @@ namespace ChessBot.Tests
                 ["f5"] = BlackPawn,
             });
 
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["f4"] = WhitePawn,
                 ["f5"] = WhitePawn,
-            }), state.ApplyMove("xf5", togglePlayer: false));
+            }), state.ApplyMove("xf5"));
         }
 
         // todo: trying to capture when nothing is there
@@ -127,8 +128,8 @@ namespace ChessBot.Tests
                 ["h1"] = WhiteRook,
             });
 
-            state = state.ApplyMove("O-O", togglePlayer: false);
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            state = state.ApplyMove("O-O");
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["a1"] = WhiteRook,
                 ["f1"] = WhiteRook,
@@ -147,8 +148,8 @@ namespace ChessBot.Tests
                 ["h1"] = WhiteRook,
             });
 
-            state = state.ApplyMove("O-O-O", togglePlayer: false);
-            Assert.Equal(new ChessState(new Dictionary<string, ChessPiece>
+            state = state.ApplyMove("O-O-O");
+            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
             {
                 ["c1"] = WhiteKing,
                 ["d1"] = WhiteRook,
