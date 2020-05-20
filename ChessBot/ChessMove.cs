@@ -18,6 +18,13 @@ namespace ChessBot
             ["K"] = PieceKind.King,
         };
 
+        internal static ChessMove Castle(PlayerColor color, bool kingside)
+        {
+            var source = BoardLocation.Parse(color == PlayerColor.White ? "e1" : "e8");
+            var destination = kingside ? source.Right(2) : source.Left(2);
+            return new ChessMove(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside)
+        }
+
         private static MoveContext ParseInternal(string algebraicNotation)
         {
             var inputStream = new AntlrInputStream(algebraicNotation);
@@ -100,7 +107,7 @@ namespace ChessBot
                 var promotionKindNode = ordinaryMoveDescNode.promotionKind();
 
                 var pieceKind = (pieceKindNode != null) ? _pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
-                bool isCapture = (captureNode != null); // todo: enforce this. take en passant captures into account.
+                bool isCapture = (captureNode != null); // todo: enforce this if true. take en passant captures into account.
                 var destination = BoardLocation.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? _pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
                 var source = InferSource(sourceNode, state, pieceKind, destination);
@@ -161,7 +168,7 @@ namespace ChessBot
 
         public override string ToString()
         {
-            // todo: add more fields
+            // todo: add info about more fields
             return $"{Source} > {Destination}";
         }
     }

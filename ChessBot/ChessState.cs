@@ -176,21 +176,19 @@ namespace ChessBot
                 throw new InvalidChessMoveException($"{nameof(move.IsCapture)} property is not set properly");
             }
 
-            // Step 1: Update the board
+            // Step 1: Check that the move is valid movement-wise
             var newBoard = _board;
 
             bool castled = (move.IsKingsideCastle || move.IsQueensideCastle);
             if (castled)
             {
-                // we don't enforce the requirement that both pieces must be on the first rank
-                // since we assume that we have started from the initial chess position.
-                bool hasMovedRook = (move.IsKingsideCastle ? ActivePlayer.HasMovedKingsideRook : ActivePlayer.HasMovedQueensideRook);
-                bool kingPassesThroughAttackedLocation = GetLocationsBetween(source, destination).Any(loc => IsAttackedBy(OpposingColor, loc));
-                if (ActivePlayer.HasCastled || ActivePlayer.HasMovedKing || hasMovedRook || IsCheck || kingPassesThroughAttackedLocation)
+                bool canCastle = CanCastle(move.IsKingsideCastle);
+                if (!canCastle)
                 {
                     throw new InvalidChessMoveException("Requirements for castling not met");
                 }
 
+                // Move the rook
                 var rookSource = move.IsKingsideCastle ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation;
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 newBoard = ApplyMoveInternal(newBoard, rookSource, rookDestination);
@@ -222,9 +220,9 @@ namespace ChessBot
                 newPlayer = move.IsKingsideCastle ? newPlayer.SetHasMovedKingsideRook(true) : newPlayer.SetHasMovedQueensideRook(true);
             }
 
+            // Step 3: Apply the changes and ensure our king isn't attacked afterwards
             newBoard = ApplyMoveInternal(newBoard, source, destination);
 
-            // Step 3: Ensure our king isn't attacked after applying the changes
             var result = new ChessState(
                 board: newBoard,
                 activeColor: OpposingColor,
@@ -239,6 +237,14 @@ namespace ChessBot
             return result;
         }
 
+        public bool TryApplyMove(string move, out ChessState newState) => TryApplyMove(ChessMove.Parse(move, this), out newState);
+
+        public bool TryApplyMove(ChessMove move, out ChessState newState)
+        {
+            try { newState = ApplyMove(move); return true; }
+            catch { newState = null; return false; }
+        }
+
         private static ChessTile[,] ApplyMoveInternal(ChessTile[,] board, BoardLocation source, BoardLocation destination)
         {
             var (sx, sy, dx, dy) = (source.Column, source.Row, destination.Column, destination.Row);
@@ -247,6 +253,19 @@ namespace ChessBot
             newBoard[sx, sy] = newBoard[sx, sy].SetPiece(null);
             newBoard[dx, dy] = newBoard[dx, dy].SetPiece(board[sx, sy].Piece);
             return newBoard;
+        }
+
+        private bool CanCastle(bool kingside)
+        {
+            // We don't enforce the requirement that both pieces must be on the first rank
+            // since we assume that we have started from the initial chess position.
+            bool hasMovedRook = (kingside ? ActivePlayer.HasMovedKingsideRook : ActivePlayer.HasMovedQueensideRook);
+            if (ActivePlayer.HasCastled || ActivePlayer.HasMovedKing || hasMovedRook) return false;
+
+            var kingSource = ActivePlayer.InitialKingLocation;
+            var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
+            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingColor, loc));
+            return !(IsCheck || kingPassesThroughAttackedLocation);
         }
 
         public override bool Equals(object obj) => Equals(obj as ChessState);
@@ -279,7 +298,21 @@ namespace ChessBot
 
         public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
         {
-            throw new NotImplementedException();
+            var movesToTry = ActivePlayer
+                .GetOccupiedTiles()
+                .Select(t => t.Location)
+                // todo: isCapture should be a bool? s.t. if no argument is passed, it is inferred
+                .SelectMany(s => GetPossibleDestinations(s).Select(d => new ChessMove(s, d)))
+                .Append(ChessMove.Castle(ActiveColor, kingside: true))
+                .Append(ChessMove.Castle(ActiveColor, kingside: false));
+
+            foreach (var move in movesToTry)
+            {
+                if (TryApplyMove(move, out var newState))
+                {
+                    yield return (move, newState);
+                }
+            }
         }
 
         public IEnumerable<ChessTile> GetOccupiedTiles() => GetTiles().Where(t => t.HasPiece);
@@ -393,6 +426,7 @@ namespace ChessBot
                     destinations.AddRange(GetDiagonalExtension(source));
                     break;
                 case PieceKind.King:
+                    // Again, we don't handle castling here; that's taken care of directly by the caller.
                     if (source.Row > 0)
                     {
                         if (source.Column > 0) destinations.Add(source.Down(1).Left(1));
