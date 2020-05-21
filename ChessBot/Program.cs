@@ -23,11 +23,12 @@ namespace ChessBot
                 }
             }
 
+            // todo: "Pick ai strategy [random]: "
+
             var whitePlayer = (userColor == PlayerColor.White) ? (IPlayer)new HumanPlayer() : new AIPlayer();
             var blackPlayer = (userColor != PlayerColor.White) ? (IPlayer)new HumanPlayer() : new AIPlayer();
 
             Console.WriteLine($"Playing as: {userColor}");
-            Console.WriteLine("Have fun!");
 
             var game = new ChessGame();
             Console.WriteLine();
@@ -40,14 +41,18 @@ namespace ChessBot
                 Console.WriteLine();
 
                 Console.WriteLine("It's White's turn.");
-                game.ApplyMove(whitePlayer.GetNextMove(game.State));
+                var nextMove = whitePlayer.GetNextMove(game.State);
+                Console.WriteLine($"White chose: {nextMove}"); // todo
+                game.ApplyMove(nextMove);
                 Console.WriteLine();
                 Console.WriteLine(GetDisplayString(game.State));
                 Console.WriteLine();
                 CheckForEnd(game);
 
                 Console.WriteLine("It's Black's turn.");
-                game.ApplyMove(blackPlayer.GetNextMove(game.State));
+                nextMove = blackPlayer.GetNextMove(game.State);
+                Console.WriteLine($"Black chose: {nextMove}");
+                game.ApplyMove(nextMove);
                 Console.WriteLine();
                 Console.WriteLine(GetDisplayString(game.State));
                 Console.WriteLine();
@@ -80,8 +85,11 @@ namespace ChessBot
             // todo: have whichever side the human is on at the bottom
             for (int r = 7; r >= 0; r--)
             {
+                sb.Append(' ');
                 sb.AppendJoin("__", Enumerable.Repeat('.', 9));
                 sb.AppendLine();
+
+                sb.Append(r + 1);
                 for (int c = 0; c < 8; c++)
                 {
                     sb.Append('|');
@@ -90,7 +98,12 @@ namespace ChessBot
                 sb.Append('|');
                 sb.AppendLine();
             }
+            sb.Append(' ');
             sb.AppendJoin("__", Enumerable.Repeat('.', 9));
+            sb.AppendLine();
+
+            sb.Append("   ");
+            sb.AppendJoin("  ", Enumerable.Range(0, 8).Select(i => (char)(i + 'a')));
             return sb.ToString();
         }
 
@@ -125,16 +138,34 @@ namespace ChessBot
         {
             while (true)
             {
-                Console.Write("Enter your move: ");
+                Console.Write("> ");
                 string input = Console.ReadLine();
-                try
+                switch (input)
                 {
-                    return ChessMove.Parse(input, state);
-                }
-                catch (AlgebraicNotationParseException e)
-                {
-                    Debug.WriteLine(e.ToString());
-                    Console.WriteLine("Sorry, try again.");
+                    case "help":
+                        Console.WriteLine("List of commands:");
+                        Console.WriteLine();
+                        Console.WriteLine("help - displays this message");
+                        Console.WriteLine("list - list of all valid moves");
+                        break;
+                    case "list":
+                        Console.WriteLine("List of valid moves:");
+                        Console.WriteLine();
+                        Console.WriteLine(string.Join(Environment.NewLine, state.GetMoves()));
+                        break;
+                    default:
+                        try
+                        {
+                            var move = ChessMove.Parse(input, state);
+                            _ = state.ApplyMove(move); // make sure it's valid
+                            return move;
+                        }
+                        catch (Exception e) when (e is AlgebraicNotationParseException || e is InvalidChessMoveException)
+                        {
+                            Debug.WriteLine(e.ToString());
+                            Console.WriteLine("Sorry, try again.");
+                        }
+                        break;
                 }
             }
         }
@@ -142,9 +173,13 @@ namespace ChessBot
 
     class AIPlayer : IPlayer
     {
+        private readonly Random _rand = new Random();
+
         public ChessMove GetNextMove(ChessState state)
         {
-            throw new NotImplementedException();
+            var moves = state.GetMoves().ToArray();
+            Debug.WriteLine(string.Join(Environment.NewLine, (object[])moves));
+            return moves[_rand.Next(moves.Length)];
         }
     }
 }

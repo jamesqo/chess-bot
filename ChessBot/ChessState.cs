@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using static ChessBot.ChessPiece;
 
 namespace ChessBot
@@ -167,6 +168,10 @@ namespace ChessBot
             }
 
             var piece = this[source].Piece;
+            if (piece.Color != ActiveColor)
+            {
+                throw new InvalidChessMoveException("Piece's color does not match active player's color");
+            }
             if (this[destination].HasPiece && this[destination].Piece.Color == piece.Color)
             {
                 throw new InvalidChessMoveException("Destination tile is already occupied by a piece of the same color");
