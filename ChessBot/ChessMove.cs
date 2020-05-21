@@ -22,7 +22,7 @@ namespace ChessBot
         {
             var source = BoardLocation.Parse(color == PlayerColor.White ? "e1" : "e8");
             var destination = kingside ? source.Right(2) : source.Left(2);
-            return new ChessMove(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside)
+            return new ChessMove(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside);
         }
 
         private static MoveContext ParseInternal(string algebraicNotation)
@@ -94,6 +94,7 @@ namespace ChessBot
                 return new ChessMove(
                     source,
                     destination,
+                    isCapture: false,
                     isKingsideCastle: (kingsideCastleNode != null),
                     isQueensideCastle: (queensideCastleNode != null));
             }
@@ -123,7 +124,7 @@ namespace ChessBot
         public ChessMove(
             BoardLocation source,
             BoardLocation destination,
-            bool isCapture = false,
+            bool? isCapture = null,
             bool isKingsideCastle = false,
             bool isQueensideCastle = false,
             PieceKind? promotionKind = null)
@@ -161,7 +162,7 @@ namespace ChessBot
 
         public BoardLocation Source { get; }
         public BoardLocation Destination { get; }
-        public bool IsCapture { get; }
+        public bool? IsCapture { get; }
         public bool IsKingsideCastle { get; }
         public bool IsQueensideCastle { get; }
         public PieceKind? PromotionKind { get; }

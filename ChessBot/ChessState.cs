@@ -171,7 +171,7 @@ namespace ChessBot
             {
                 throw new InvalidChessMoveException("Destination tile is already occupied by a piece of the same color");
             }
-            if (move.IsCapture != this[destination].HasPiece) // todo: en passant captures
+            if (move.IsCapture.HasValue && move.IsCapture.Value != this[destination].HasPiece) // todo: en passant captures
             {
                 throw new InvalidChessMoveException($"{nameof(move.IsCapture)} property is not set properly");
             }
@@ -301,7 +301,6 @@ namespace ChessBot
             var movesToTry = ActivePlayer
                 .GetOccupiedTiles()
                 .Select(t => t.Location)
-                // todo: isCapture should be a bool? s.t. if no argument is passed, it is inferred
                 .SelectMany(s => GetPossibleDestinations(s).Select(d => new ChessMove(s, d)))
                 .Append(ChessMove.Castle(ActiveColor, kingside: true))
                 .Append(ChessMove.Castle(ActiveColor, kingside: false));

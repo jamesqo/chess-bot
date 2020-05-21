@@ -4,7 +4,6 @@ using System.Text;
 
 namespace ChessBot
 {
-
     [Serializable]
     public class InvalidChessMoveException : Exception
     {
