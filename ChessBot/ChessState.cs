@@ -180,6 +180,11 @@ namespace ChessBot
             {
                 throw new InvalidChessMoveException($"{nameof(move.IsCapture)} property is not set properly");
             }
+            int promotionRow = (ActiveColor == PlayerColor.White) ? 7 : 0;
+            if ((move.PromotionKind != null) != (piece.Kind == PieceKind.Pawn && destination.Row == promotionRow))
+            {
+                throw new InvalidChessMoveException("A promotion happens iff a pawn moves to the back rank");
+            }
 
             // Step 1: Check that the move is valid movement-wise
             var newBoard = _board;
@@ -226,7 +231,7 @@ namespace ChessBot
             }
 
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
-            newBoard = ApplyMoveInternal(newBoard, source, destination);
+            newBoard = ApplyMoveInternal(newBoard, source, destination, move.PromotionKind);
 
             var result = new ChessState(
                 board: newBoard,
@@ -250,13 +255,15 @@ namespace ChessBot
             catch { newState = null; return false; }
         }
 
-        private static ChessTile[,] ApplyMoveInternal(ChessTile[,] board, BoardLocation source, BoardLocation destination)
+        private static ChessTile[,] ApplyMoveInternal(ChessTile[,] board, BoardLocation source, BoardLocation destination, PieceKind? promotionKind = null)
         {
             var (sx, sy, dx, dy) = (source.Column, source.Row, destination.Column, destination.Row);
             var newBoard = (ChessTile[,])board.Clone();
 
             newBoard[sx, sy] = newBoard[sx, sy].SetPiece(null);
-            newBoard[dx, dy] = newBoard[dx, dy].SetPiece(board[sx, sy].Piece);
+            var piece = board[sx, sy].Piece;
+            if (promotionKind != null) piece = new ChessPiece(piece.Color, promotionKind.Value);
+            newBoard[dx, dy] = newBoard[dx, dy].SetPiece(piece);
             return newBoard;
         }
 
