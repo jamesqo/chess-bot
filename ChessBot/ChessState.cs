@@ -142,9 +142,9 @@ namespace ChessBot
         public PlayerInfo OpposingPlayer => GetPlayer(OpposingColor);
 
         public bool IsCheck => GetKingsLocation(ActiveColor) is BoardLocation loc && IsAttackedBy(OpposingColor, loc);
-        public bool IsCheckmate => IsCheck && HasNoMoves;
-        public bool IsStalemate => !IsCheck && HasNoMoves;
-        public bool HasNoMoves => !GetMoves().Any();
+        public bool IsCheckmate => IsCheck && IsTerminal;
+        public bool IsStalemate => !IsCheck && IsTerminal;
+        public bool IsTerminal => !GetMoves().Any();
 
         private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is BoardLocation loc && IsAttackedBy(ActiveColor, loc);
 
@@ -306,9 +306,9 @@ namespace ChessBot
 
         public override int GetHashCode() => throw new NotImplementedException();
 
-        public IEnumerable<ChessMove> GetMoves() => GetMovesAndSuccessors().Select(t => t.Item1);
+        public IEnumerable<ChessMove> GetMoves() => GetMovesAndSuccessors().Select(t => t.move);
 
-        public IEnumerable<(ChessMove, ChessState)> GetMovesAndSuccessors()
+        public IEnumerable<(ChessMove move, ChessState state)> GetMovesAndSuccessors()
         {
             var movesToTry = ActivePlayer
                 .GetOccupiedTiles()
@@ -330,7 +330,7 @@ namespace ChessBot
 
         public PlayerInfo GetPlayer(PlayerColor color) => (color == PlayerColor.White) ? White : Black;
 
-        public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.Item2);
+        public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.state);
 
         public IEnumerable<ChessTile> GetTiles()
         {

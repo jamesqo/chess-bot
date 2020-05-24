@@ -1,7 +1,9 @@
-﻿using System;
+﻿using ChessBot.Helpers;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Xml;
 
 namespace ChessBot
 {
@@ -23,10 +25,25 @@ namespace ChessBot
                 }
             }
 
-            // todo: "Pick ai strategy [random]: "
+            AIStrategy aiStrategy;
+            while (true)
+            {
+                Console.Write("Pick ai strategy [random, minimax]: ");
+                string input = Console.ReadLine().Trim().ToLower();
+                if (input == "random")
+                {
+                    aiStrategy = AIStrategy.Random;
+                    break;
+                }
+                else if (input == "minimax")
+                {
+                    aiStrategy = AIStrategy.Minimax;
+                    break;
+                }
+            }
 
-            var whitePlayer = (userColor == PlayerColor.White) ? (IPlayer)new HumanPlayer() : new AIPlayer();
-            var blackPlayer = (userColor != PlayerColor.White) ? (IPlayer)new HumanPlayer() : new AIPlayer();
+            var whitePlayer = (userColor == PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
+            var blackPlayer = (userColor != PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
 
             Console.WriteLine($"Playing as: {userColor}");
 
@@ -59,6 +76,12 @@ namespace ChessBot
                 CheckForEnd(game);
             }
         }
+
+        static IPlayer GetAIPlayer(AIStrategy strategy) => strategy switch
+        {
+            AIStrategy.Random => new RandomAIPlayer(),
+            AIStrategy.Minimax => new MinimaxAIPlayer(depth: 5),
+        };
 
         // todo: HasEnded
         static void CheckForEnd(ChessGame game)
@@ -127,6 +150,13 @@ namespace ChessBot
         }
     }
 
+    enum AIStrategy
+    {
+        Random,
+        Minimax,
+        // AlphaBeta,
+    }
+
     interface IPlayer
     {
         ChessMove GetNextMove(ChessState state);
@@ -171,7 +201,7 @@ namespace ChessBot
         }
     }
 
-    class AIPlayer : IPlayer
+    class RandomAIPlayer : IPlayer
     {
         private readonly Random _rand = new Random();
 
@@ -180,6 +210,184 @@ namespace ChessBot
             var moves = state.GetMoves().ToArray();
             Debug.WriteLine(string.Join(Environment.NewLine, (object[])moves));
             return moves[_rand.Next(moves.Length)];
+        }
+    }
+
+    class MinimaxAIPlayer : IPlayer
+    {
+        // todo: refactor so this doesn't break if we switch the order of enum values
+        private static readonly int[] PieceValues =
+        {
+            100,   // pawn
+            320,   // knight
+            330,   // bishop
+            500,   // rook
+            900,   // queen
+            20000  // king
+        };
+
+        // todo: refactor so this doesn't break if we switch the order of enum values
+        private static readonly int[][] PieceSquareValues =
+        {
+            // pawn
+            new int[]
+            {
+                 0,  0,  0,  0,  0,  0,  0,  0,
+                50, 50, 50, 50, 50, 50, 50, 50,
+                10, 10, 20, 30, 30, 20, 10, 10,
+                 5,  5, 10, 25, 25, 10,  5,  5,
+                 0,  0,  0, 20, 20,  0,  0,  0,
+                 5, -5,-10,  0,  0,-10, -5,  5,
+                 5, 10, 10,-20,-20, 10, 10,  5,
+                 0,  0,  0,  0,  0,  0,  0,  0
+            },
+            // knight
+            new int[]
+            {
+                -50,-40,-30,-30,-30,-30,-40,-50,
+                -40,-20,  0,  0,  0,  0,-20,-40,
+                -30,  0, 10, 15, 15, 10,  0,-30,
+                -30,  5, 15, 20, 20, 15,  5,-30,
+                -30,  0, 15, 20, 20, 15,  0,-30,
+                -30,  5, 10, 15, 15, 10,  5,-30,
+                -40,-20,  0,  5,  5,  0,-20,-40,
+                -50,-40,-30,-30,-30,-30,-40,-50,
+            },
+            // bishop
+            new int[]
+            {
+                -20,-10,-10,-10,-10,-10,-10,-20,
+                -10,  0,  0,  0,  0,  0,  0,-10,
+                -10,  0,  5, 10, 10,  5,  0,-10,
+                -10,  5,  5, 10, 10,  5,  5,-10,
+                -10,  0, 10, 10, 10, 10,  0,-10,
+                -10, 10, 10, 10, 10, 10, 10,-10,
+                -10,  5,  0,  0,  0,  0,  5,-10,
+                -20,-10,-10,-10,-10,-10,-10,-20,
+            },
+            // rook
+            new int[]
+            {
+                 0,  0,  0,  0,  0,  0,  0,  0,
+                 5, 10, 10, 10, 10, 10, 10,  5,
+                -5,  0,  0,  0,  0,  0,  0, -5,
+                -5,  0,  0,  0,  0,  0,  0, -5,
+                -5,  0,  0,  0,  0,  0,  0, -5,
+                -5,  0,  0,  0,  0,  0,  0, -5,
+                -5,  0,  0,  0,  0,  0,  0, -5,
+                 0,  0,  0,  5,  5,  0,  0,  0
+            },
+            // queen
+            new int[]
+            {
+                -20,-10,-10, -5, -5,-10,-10,-20,
+                -10,  0,  0,  0,  0,  0,  0,-10,
+                -10,  0,  5,  5,  5,  5,  0,-10,
+                 -5,  0,  5,  5,  5,  5,  0, -5,
+                  0,  0,  5,  5,  5,  5,  0, -5,
+                -10,  5,  5,  5,  5,  5,  0,-10,
+                -10,  0,  5,  0,  0,  0,  0,-10,
+                -20,-10,-10, -5, -5,-10,-10,-20
+            }
+        };
+
+        private static readonly int[] KingMiddlegameValues =
+        {
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -20,-30,-30,-40,-40,-30,-30,-20,
+            -10,-20,-20,-20,-20,-20,-20,-10,
+             20, 20,  0,  0,  0,  0, 20, 20,
+             20, 30, 10,  0,  0, 10, 30, 20
+        };
+
+        private static readonly int[] KingEndgameValues =
+        {
+            -50,-40,-30,-20,-20,-30,-40,-50,
+            -30,-20,-10,  0,  0,-10,-20,-30,
+            -30,-10, 20, 30, 30, 20,-10,-30,
+            -30,-10, 30, 40, 40, 30,-10,-30,
+            -30,-10, 30, 40, 40, 30,-10,-30,
+            -30,-10, 20, 30, 30, 20,-10,-30,
+            -30,-30,  0,  0,  0,  0,-30,-30,
+            -50,-30,-30,-30,-30,-30,-30,-50
+        };
+
+        private readonly int _depth;
+
+        public MinimaxAIPlayer(int depth) => _depth = depth;
+
+        public ChessMove GetNextMove(ChessState state)
+        {
+            var movesAndSuccs = state.GetMovesAndSuccessors();
+            return state.ActiveColor == PlayerColor.White
+                ? movesAndSuccs.MaxBy(t => Minimax(t.state, _depth - 1)).move // or MinBy, depending on activecolor
+                : movesAndSuccs.MinBy(t => Minimax(t.state, _depth - 1)).move;
+        }
+
+        private static double Minimax(ChessState state, int d)
+        {
+            if (d == 0 || state.IsTerminal)
+            {
+                return Heuristic(state);
+            }
+            var succs = state.GetSucessors();
+            return state.ActiveColor == PlayerColor.White
+                ? succs.Max(s => Minimax(s, d - 1))
+                : succs.Min(s => Minimax(s, d - 1));
+        }
+
+        // Heuristic is always positive / calculated from white's viewpoint
+        private static int Heuristic(ChessState state)
+        {
+            if (state.IsTerminal)
+            {
+                // todo: give preference to checkmates that occur in fewer moves
+                if (state.IsStalemate) return 0;
+                return state.ActiveColor == PlayerColor.White
+                    ? int.MaxValue
+                    : -int.MaxValue;
+            }
+
+            return HeuristicForPlayer(state, PlayerColor.White) - HeuristicForPlayer(state, PlayerColor.Black);
+        }
+
+        private static int HeuristicForPlayer(ChessState state, PlayerColor color)
+        {
+            bool CheckForEndgame(PlayerInfo player)
+            {
+                var remainingPieces = player.GetOccupiedTiles()
+                    .Select(t => t.Piece)
+                    .Where(p => p.Kind != PieceKind.Pawn && p.Kind != PieceKind.King);
+                if (!remainingPieces.Any(p => p.Kind == PieceKind.Queen)) return true;
+
+                remainingPieces = remainingPieces.Where(p => p.Kind != PieceKind.Queen);
+                int count = remainingPieces.Count();
+                if (count == 0) return true;
+                if (count > 1) return false;
+                var piece = remainingPieces.Single();
+                return (piece.Kind == PieceKind.Bishop || piece.Kind == PieceKind.Knight);
+            }
+            bool isEndgame = CheckForEndgame(state.White) && CheckForEndgame(state.Black);
+
+            int result = 0;
+            foreach (var tile in state.GetPlayer(color).GetOccupiedTiles())
+            {
+                result += PieceValues[(int)tile.Piece.Kind];
+                int locationInt = 8 * (color == PlayerColor.White ? (7 - tile.Location.Row) : tile.Location.Row) + tile.Location.Column;
+                if (tile.Piece.Kind != PieceKind.King)
+                {
+                    result += PieceSquareValues[(int)tile.Piece.Kind][locationInt];
+                }
+                else
+                {
+                    var kingValues = isEndgame ? KingEndgameValues : KingMiddlegameValues;
+                    result += kingValues[locationInt];
+                }
+            }
+            return result;
         }
     }
 }
