@@ -321,10 +321,22 @@ namespace ChessBot
 
         public ChessMove GetNextMove(ChessState state)
         {
-            var movesAndSuccs = state.GetMovesAndSuccessors();
-            return state.ActiveColor == PlayerColor.White
-                ? movesAndSuccs.MaxBy(t => Minimax(t.state, _depth - 1)).move
-                : movesAndSuccs.MinBy(t => Minimax(t.state, _depth - 1)).move;
+            // throw something if it's terminal
+
+            ChessMove bestMove = null;
+            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            foreach (var (move, succ) in state.GetMovesAndSuccessors())
+            {
+                int value = Minimax(succ, _depth - 1);
+                bool better = state.WhiteToMove ? value > bestValue : value < bestValue;
+                if (better)
+                {
+                    bestMove = move;
+                    bestValue = value;
+                }
+            }
+
+            return bestMove;
         }
 
         private static int Minimax(ChessState state, int d)
@@ -333,15 +345,17 @@ namespace ChessBot
             {
                 return Heuristic(state);
             }
-            int bestValue = (state.ActiveColor == PlayerColor.White) ? -int.MaxValue : int.MaxValue;
-            var succs = state.GetSucessors();
-            foreach (var succ in succs)
+
+            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+
+            foreach (var succ in state.GetSuccessors())
             {
-                int childValue = Minimax(succ, d - 1);
-                bestValue = (state.ActiveColor == PlayerColor.White)
-                    ? Math.Max(bestValue, childValue)
-                    : Math.Min(bestValue, childValue);
+                int value = Minimax(succ, d - 1);
+                bestValue = state.WhiteToMove
+                    ? Math.Max(bestValue, value)
+                    : Math.Min(bestValue, value);
             }
+
             return bestValue;
         }
 
@@ -352,9 +366,7 @@ namespace ChessBot
             {
                 // todo: give preference to checkmates that occur in fewer moves
                 if (state.IsStalemate) return 0;
-                return state.ActiveColor == PlayerColor.White
-                    ? int.MaxValue
-                    : -int.MaxValue;
+                return state.WhiteToMove ? int.MaxValue : -int.MaxValue;
             }
 
             return HeuristicForPlayer(state, PlayerColor.White) - HeuristicForPlayer(state, PlayerColor.Black);

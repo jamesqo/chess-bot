@@ -137,7 +137,7 @@ namespace ChessBot
         {
         }
 
-        public PlayerColor ActiveColor { get; private set; }
+        public PlayerColor ActiveColor { get; private set; } // todo: remove this from public api?
         public PlayerInfo White { get; private set; }
         public PlayerInfo Black { get; private set; }
 
@@ -153,6 +153,7 @@ namespace ChessBot
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
         public bool IsTerminal => !GetMoves().Any();
+        public bool WhiteToMove => ActiveColor == PlayerColor.White; // todo: use this everywhere
 
         private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is BoardLocation loc && IsAttackedBy(ActiveColor, loc);
         private int PieceCount => White.PieceCount + Black.PieceCount;
@@ -372,7 +373,7 @@ namespace ChessBot
 
         public PlayerInfo GetPlayer(PlayerColor color) => (color == PlayerColor.White) ? White : Black;
 
-        public IEnumerable<ChessState> GetSucessors() => GetMovesAndSuccessors().Select(t => t.state);
+        public IEnumerable<ChessState> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
         public ImmutableArray<ChessTile> GetTiles() => _board;
 
