@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using static ChessBot.ChessPiece;
 
@@ -156,7 +157,11 @@ namespace ChessBot
         private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is BoardLocation loc && IsAttackedBy(ActiveColor, loc);
 
         public ChessTile this[int column, int row] => _board[GetBoardIndex(column, row)];
-        public ChessTile this[BoardLocation location] => this[location.Column, location.Row];
+        public ChessTile this[BoardLocation location]
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => this[location.Column, location.Row];
+        }
         public ChessTile this[string location] => this[BoardLocation.Parse(location)];
 
         public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
@@ -351,7 +356,7 @@ namespace ChessBot
                         builder.Add(tile);
                     }
                 }
-                // todo (perf): can keep track of how many pieces were captured so we can use MoveToImmutable
+                // todo (perf): we should keep track of how many pieces were captured so we can use MoveToImmutable
                 _occupiedTiles = builder.ToImmutable();
             }
             return _occupiedTiles;
@@ -442,6 +447,7 @@ namespace ChessBot
                     throw new ArgumentOutOfRangeException();
             }
 
+            // todo (perf): All is a bottleneck
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
 

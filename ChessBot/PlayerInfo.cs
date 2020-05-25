@@ -74,7 +74,7 @@ namespace ChessBot
                         builder.Add(tile);
                     }
                 }
-                // todo (perf): can keep track of how many pieces were captured so we can use MoveToImmutable
+                // todo (perf): we should track of how many pieces were captured so we can use MoveToImmutable
                 _occupiedTiles = builder.ToImmutable();
             }
             return _occupiedTiles;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace ChessBot
@@ -19,8 +20,18 @@ namespace ChessBot
         public BoardLocation Location { get; }
 
         public bool HasPiece { get; }
-        public ChessPiece Piece =>
-            HasPiece ? _piece : throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
+        public ChessPiece Piece
+        {
+            get
+            {
+                if (!HasPiece) BadPieceCall();
+                return _piece;
+            }
+        }
+
+        // We separate this out into another, non-inlined method because we want to make it easy for the JIT to inline get_Piece()
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static ChessPiece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
 
         public override bool Equals(object obj) => Equals(obj as ChessTile);
 

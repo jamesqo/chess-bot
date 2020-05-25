@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace ChessBot
@@ -12,6 +13,7 @@ namespace ChessBot
             return new BoardLocation(column, row);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(BoardLocation left, BoardLocation right)
             => (left.Column == right.Column && left.Row == right.Row);
 
