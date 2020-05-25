@@ -40,7 +40,7 @@ namespace ChessBot
             PieceKind pieceKind,
             BoardLocation destination)
         {
-            var possibleSources = state.ActivePlayer.GetOccupiedTiles();
+            var possibleSources = state.ActivePlayer.GetOccupiedTiles().AsEnumerable();
             var sourceSquareNode = sourceNode?.square();
             var sourceFileNode = sourceNode?.FILE();
             var sourceRankNode = sourceNode?.RANK();

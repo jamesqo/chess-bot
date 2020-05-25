@@ -323,20 +323,26 @@ namespace ChessBot
         {
             var movesAndSuccs = state.GetMovesAndSuccessors();
             return state.ActiveColor == PlayerColor.White
-                ? movesAndSuccs.MaxBy(t => Minimax(t.state, _depth - 1)).move // or MinBy, depending on activecolor
+                ? movesAndSuccs.MaxBy(t => Minimax(t.state, _depth - 1)).move
                 : movesAndSuccs.MinBy(t => Minimax(t.state, _depth - 1)).move;
         }
 
-        private static double Minimax(ChessState state, int d)
+        private static int Minimax(ChessState state, int d)
         {
             if (d == 0 || state.IsTerminal)
             {
                 return Heuristic(state);
             }
+            int bestValue = (state.ActiveColor == PlayerColor.White) ? -int.MaxValue : int.MaxValue;
             var succs = state.GetSucessors();
-            return state.ActiveColor == PlayerColor.White
-                ? succs.Max(s => Minimax(s, d - 1))
-                : succs.Min(s => Minimax(s, d - 1));
+            foreach (var succ in succs)
+            {
+                int childValue = Minimax(succ, d - 1);
+                bestValue = (state.ActiveColor == PlayerColor.White)
+                    ? Math.Max(bestValue, childValue)
+                    : Math.Min(bestValue, childValue);
+            }
+            return bestValue;
         }
 
         // Heuristic is always positive / calculated from white's viewpoint
@@ -356,6 +362,8 @@ namespace ChessBot
 
         private static int HeuristicForPlayer(ChessState state, PlayerColor color)
         {
+            // temporarily disabling this for perf reasons
+            /*
             bool CheckForEndgame(PlayerInfo player)
             {
                 var remainingPieces = player.GetOccupiedTiles()
@@ -371,6 +379,8 @@ namespace ChessBot
                 return (piece.Kind == PieceKind.Bishop || piece.Kind == PieceKind.Knight);
             }
             bool isEndgame = CheckForEndgame(state.White) && CheckForEndgame(state.Black);
+            */
+            bool isEndgame = false;
 
             int result = 0;
             foreach (var tile in state.GetPlayer(color).GetOccupiedTiles())

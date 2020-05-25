@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -9,6 +10,7 @@ namespace ChessBot
     public class PlayerInfo : IEquatable<PlayerInfo>
     {
         private ChessState _state;
+        private ImmutableArray<ChessTile> _occupiedTiles;
 
         public PlayerInfo(
             PlayerColor color,
@@ -49,6 +51,7 @@ namespace ChessBot
 
         public bool Equals([AllowNull] PlayerInfo other)
         {
+            // We ignore _state and the associated fields intentionally
             if (other == null) return false;
             return Color == other.Color
                 && HasCastled == other.HasCastled
@@ -59,8 +62,23 @@ namespace ChessBot
 
         public override int GetHashCode() => throw new NotImplementedException();
 
-        public IEnumerable<ChessTile> GetOccupiedTiles()
-            => _state.GetOccupiedTiles().Where(t => t.Piece.Color == Color);
+        public ImmutableArray<ChessTile> GetOccupiedTiles()
+        {
+            if (_occupiedTiles.IsDefault)
+            {
+                var builder = ImmutableArray.CreateBuilder<ChessTile>();
+                foreach (var tile in _state.GetOccupiedTiles())
+                {
+                    if (tile.Piece.Color == Color)
+                    {
+                        builder.Add(tile);
+                    }
+                }
+                // todo (perf): can keep track of how many pieces were captured so we can use MoveToImmutable
+                _occupiedTiles = builder.ToImmutable();
+            }
+            return _occupiedTiles;
+        }
 
         public PlayerInfo SetColor(PlayerColor value) => new PlayerInfo(this) { Color = value };
         public PlayerInfo SetHasCastled(bool value) => new PlayerInfo(this) { HasCastled = value };
@@ -72,10 +90,10 @@ namespace ChessBot
 
         public override string ToString()
         {
-            var propStrings = GetType()
+            var propValues = GetType()
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Select(prop => $"{prop.Name}: {prop.GetValue(this)}");
-            return "{" + string.Join(Environment.NewLine, propStrings) + "}";
+            return $"{{{string.Join(Environment.NewLine, propValues)}}}";
         }
     }
 }
