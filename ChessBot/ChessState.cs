@@ -155,6 +155,7 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
 
         private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is BoardLocation loc && IsAttackedBy(ActiveColor, loc);
+        private int PieceCount => White.PieceCount + Black.PieceCount;
 
         public ChessTile this[int column, int row] => _board[GetBoardIndex(column, row)];
         public ChessTile this[BoardLocation location]
@@ -236,23 +237,31 @@ namespace ChessBot
             // we may only bother for the three types of moves that could possibly get us out of check.
 
             // Step 2: Update player infos
-            var newPlayer = ActivePlayer;
+            var newActivePlayer = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
 
             switch (piece.Kind)
             {
                 case PieceKind.King:
-                    newPlayer = newPlayer.SetHasMovedKing(true);
+                    newActivePlayer = newActivePlayer.SetHasMovedKing(true);
                     break;
                 case PieceKind.Rook:
-                    if (!newPlayer.HasMovedKingsideRook && source == newPlayer.InitialKingsideRookLocation) newPlayer.SetHasMovedKingsideRook(true);
-                    if (!newPlayer.HasMovedQueensideRook && source == newPlayer.InitialQueensideRookLocation) newPlayer.SetHasMovedQueensideRook(true);
+                    if (!newActivePlayer.HasMovedKingsideRook && source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer.SetHasMovedKingsideRook(true);
+                    if (!newActivePlayer.HasMovedQueensideRook && source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer.SetHasMovedQueensideRook(true);
                     break;
             }
 
             if (castled)
             {
-                newPlayer = newPlayer.SetHasCastled(true);
-                newPlayer = move.IsKingsideCastle ? newPlayer.SetHasMovedKingsideRook(true) : newPlayer.SetHasMovedQueensideRook(true);
+                newActivePlayer = newActivePlayer.SetHasCastled(true);
+                newActivePlayer = move.IsKingsideCastle ? newActivePlayer.SetHasMovedKingsideRook(true) : newActivePlayer.SetHasMovedQueensideRook(true);
+            }
+
+            var newOpposingPlayer = OpposingPlayer;
+            bool isCapture = this[destination].HasPiece; // todo: en passant captures
+            if (isCapture)
+            {
+                newOpposingPlayer = newOpposingPlayer.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
+                newOpposingPlayer = newOpposingPlayer.SetPieceCount(newOpposingPlayer.PieceCount - 1);
             }
 
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
@@ -261,10 +270,10 @@ namespace ChessBot
             var result = new ChessState(
                 board: newBoard,
                 activeColor: OpposingColor,
-                white: (ActiveColor == PlayerColor.White) ? newPlayer : White,
-                black: (ActiveColor == PlayerColor.Black) ? newPlayer : Black);
+                white: (ActiveColor == PlayerColor.White) ? newActivePlayer : newOpposingPlayer,
+                black: (ActiveColor == PlayerColor.Black) ? newActivePlayer : newOpposingPlayer);
 
-            if (result.IsOpposingKingAttacked)
+            if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
             {
                 return Error($"Move is invalid since it lets {ActiveColor}'s king be attacked");
             }
@@ -293,8 +302,8 @@ namespace ChessBot
 
             var kingSource = ActivePlayer.InitialKingLocation;
             var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
-            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingColor, loc));
-            return !(IsCheck || kingPassesThroughAttackedLocation);
+            bool kingPassesThroughOccupiedOrAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => this[loc].HasPiece || IsAttackedBy(OpposingColor, loc));
+            return !(IsCheck || kingPassesThroughOccupiedOrAttackedLocation);
         }
 
         public override bool Equals(object obj) => Equals(obj as ChessState);
@@ -348,7 +357,7 @@ namespace ChessBot
         {
             if (_occupiedTiles.IsDefault)
             {
-                var builder = ImmutableArray.CreateBuilder<ChessTile>();
+                var builder = ImmutableArray.CreateBuilder<ChessTile>(PieceCount);
                 foreach (var tile in GetTiles())
                 {
                     if (tile.HasPiece)
@@ -356,8 +365,7 @@ namespace ChessBot
                         builder.Add(tile);
                     }
                 }
-                // todo (perf): we should keep track of how many pieces were captured so we can use MoveToImmutable
-                _occupiedTiles = builder.ToImmutable();
+                _occupiedTiles = builder.MoveToImmutable();
             }
             return _occupiedTiles;
         }
@@ -395,6 +403,8 @@ namespace ChessBot
         /// </summary>
         internal bool IsMovePossible(BoardLocation source, BoardLocation destination)
         {
+            Debug.Assert(this[source].HasPiece);
+
             if (source == destination)
             {
                 return false;

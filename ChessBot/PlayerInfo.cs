@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -11,6 +11,21 @@ namespace ChessBot
     {
         private ChessState _state;
         private ImmutableArray<ChessTile> _occupiedTiles;
+        private int _pieceCount = -1;
+
+        internal int PieceCount => (_pieceCount >= 0 ? _pieceCount : (_pieceCount = ComputePieceCount()));
+
+        private int ComputePieceCount()
+        {
+            // todo: enforce _state isn't null
+
+            int count = 0;
+            foreach (var tile in _state.GetTiles())
+            {
+                if (tile.HasPiece && tile.Piece.Color == Color) count++;
+            }
+            return count;
+        }
 
         public PlayerInfo(
             PlayerColor color,
@@ -34,6 +49,8 @@ namespace ChessBot
             other.HasMovedQueensideRook)
         {
             _state = other._state;
+            _occupiedTiles = other._occupiedTiles;
+            _pieceCount = other._pieceCount;
         }
 
         public PlayerColor Color { get; private set; }
@@ -64,18 +81,19 @@ namespace ChessBot
 
         public ImmutableArray<ChessTile> GetOccupiedTiles()
         {
+            // todo: enforce _state isn't null
+
             if (_occupiedTiles.IsDefault)
             {
-                var builder = ImmutableArray.CreateBuilder<ChessTile>();
-                foreach (var tile in _state.GetOccupiedTiles())
+                var builder = ImmutableArray.CreateBuilder<ChessTile>(PieceCount);
+                foreach (var tile in _state.GetTiles())
                 {
-                    if (tile.Piece.Color == Color)
+                    if (tile.HasPiece && tile.Piece.Color == Color)
                     {
                         builder.Add(tile);
                     }
                 }
-                // todo (perf): we should track of how many pieces were captured so we can use MoveToImmutable
-                _occupiedTiles = builder.ToImmutable();
+                _occupiedTiles = builder.MoveToImmutable();
             }
             return _occupiedTiles;
         }
@@ -87,13 +105,15 @@ namespace ChessBot
         public PlayerInfo SetHasMovedQueensideRook(bool value) => new PlayerInfo(this) { HasMovedQueensideRook = value };
 
         internal PlayerInfo SetState(ChessState value) => new PlayerInfo(this) { _state = value };
+        internal PlayerInfo SetOccupiedTiles(ImmutableArray<ChessTile> value) => new PlayerInfo(this) { _occupiedTiles = value };
+        internal PlayerInfo SetPieceCount(int value) => new PlayerInfo(this) { _pieceCount = value };
 
         public override string ToString()
         {
             var propValues = GetType()
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Select(prop => $"{prop.Name}: {prop.GetValue(this)}");
-            return $"{{{string.Join(Environment.NewLine, propValues)}}}";
+            return $"{{{string.Join(", ", propValues)}}}";
         }
     }
 }
