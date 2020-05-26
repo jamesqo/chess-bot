@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ChessBot
+namespace ChessBot.Exceptions
 {
     public class AlgebraicNotationParseException : Exception
     {

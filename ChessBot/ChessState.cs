@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ChessBot.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -17,64 +18,132 @@ namespace ChessBot
     /// </summary>
     public class ChessState : IEquatable<ChessState>
     {
-        #region Initial piece arrangement
-        private static ChessState _initial;
-        public static ChessState Initial
+        #region Starting piece arrangement
+        private static readonly Dictionary<string, ChessPiece> s_startPieceMap = new Dictionary<string, ChessPiece>
         {
-            get
-            {
-                if (_initial == null)
-                {
-                    var pieceMap = new Dictionary<string, ChessPiece>
-                    {
-                        ["a1"] = WhiteRook,
-                        ["b1"] = WhiteKnight,
-                        ["c1"] = WhiteBishop,
-                        ["d1"] = WhiteQueen,
-                        ["e1"] = WhiteKing,
-                        ["f1"] = WhiteBishop,
-                        ["g1"] = WhiteKnight,
-                        ["h1"] = WhiteRook,
+            ["a1"] = WhiteRook,
+            ["b1"] = WhiteKnight,
+            ["c1"] = WhiteBishop,
+            ["d1"] = WhiteQueen,
+            ["e1"] = WhiteKing,
+            ["f1"] = WhiteBishop,
+            ["g1"] = WhiteKnight,
+            ["h1"] = WhiteRook,
 
-                        ["a2"] = WhitePawn,
-                        ["b2"] = WhitePawn,
-                        ["c2"] = WhitePawn,
-                        ["d2"] = WhitePawn,
-                        ["e2"] = WhitePawn,
-                        ["f2"] = WhitePawn,
-                        ["g2"] = WhitePawn,
-                        ["h2"] = WhitePawn,
+            ["a2"] = WhitePawn,
+            ["b2"] = WhitePawn,
+            ["c2"] = WhitePawn,
+            ["d2"] = WhitePawn,
+            ["e2"] = WhitePawn,
+            ["f2"] = WhitePawn,
+            ["g2"] = WhitePawn,
+            ["h2"] = WhitePawn,
 
-                        ["a7"] = BlackPawn,
-                        ["b7"] = BlackPawn,
-                        ["c7"] = BlackPawn,
-                        ["d7"] = BlackPawn,
-                        ["e7"] = BlackPawn,
-                        ["f7"] = BlackPawn,
-                        ["g7"] = BlackPawn,
-                        ["h7"] = BlackPawn,
+            ["a7"] = BlackPawn,
+            ["b7"] = BlackPawn,
+            ["c7"] = BlackPawn,
+            ["d7"] = BlackPawn,
+            ["e7"] = BlackPawn,
+            ["f7"] = BlackPawn,
+            ["g7"] = BlackPawn,
+            ["h7"] = BlackPawn,
 
-                        ["a8"] = BlackRook,
-                        ["b8"] = BlackKnight,
-                        ["c8"] = BlackBishop,
-                        ["d8"] = BlackQueen,
-                        ["e8"] = BlackKing,
-                        ["f8"] = BlackBishop,
-                        ["g8"] = BlackKnight,
-                        ["h8"] = BlackRook,
-                    };
-                    _initial = new ChessState(pieceMap);
-                }
-                return _initial;
-            }
-        }
+            ["a8"] = BlackRook,
+            ["b8"] = BlackKnight,
+            ["c8"] = BlackBishop,
+            ["d8"] = BlackQueen,
+            ["e8"] = BlackKing,
+            ["f8"] = BlackBishop,
+            ["g8"] = BlackKnight,
+            ["h8"] = BlackRook,
+        };
         #endregion
+
+        #region Initialization logic and properties
+
+        public static ChessState ParseFen(string fen)
+        {
+            if (string.IsNullOrEmpty(fen)) throw new InvalidFenException();
+
+            var parts = fen.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 6) throw new InvalidFenException();
+
+            var piecePlacement = parts[0];
+            var activeColor = parts[1] switch
+            {
+                "w" => PlayerColor.White,
+                "b" => PlayerColor.Black,
+                _ => throw new InvalidFenException()
+            };
+            var castlingRights = parts[2]; // todo: don't ignore
+            var enPassantTarget = parts[3]; // todo: don't ignore
+            var rule50Counter = parts[4]; // todo: don't ignore
+            var fullMoveNumber = parts[5]; // todo: don't ignore
+
+            var ranks = piecePlacement.Split('/');
+            if (ranks.Length != 8) throw new InvalidFenException();
+
+            var board = ImmutableArray.CreateBuilder<ChessTile>(64);
+            board.Count = 64;
+
+            for (int r = 0; r < 8; r++)
+            {
+                string rank = ranks[7 - r];
+
+                bool allowDigit = true;
+                int c = 0;
+                foreach (char ch in rank)
+                {
+                    if ((ch >= '1' && ch <= '8') && allowDigit)
+                    {
+                        int skip = (ch - '0');
+                        if (c + skip > 8) throw new InvalidFenException();
+                        for (int i = 0; i < skip; i++)
+                        {
+                            var emptyTile = new ChessTile((c + i, r));
+                            board[GetBoardIndex(c + i, r)] = emptyTile;
+                        }
+                        c += skip;
+                        allowDigit = false;
+                    }
+                    else
+                    {
+                        if (c == 8) throw new InvalidFenException();
+                        var color = char.IsLower(ch) ? PlayerColor.Black : PlayerColor.White; // is this invariant?
+                        var kind = char.ToLowerInvariant(ch) switch
+                        {
+                            'p' => PieceKind.Pawn,
+                            'n' => PieceKind.Knight,
+                            'b' => PieceKind.Bishop,
+                            'r' => PieceKind.Rook,
+                            'q' => PieceKind.Queen,
+                            'k' => PieceKind.King,
+                            _ => throw new InvalidFenException()
+                        };
+                        var piece = new ChessPiece(color, kind);
+                        var tile = new ChessTile((c, r), piece);
+                        board[GetBoardIndex(c, r)] = tile;
+                        c++;
+                        allowDigit = true;
+                    }
+                }
+
+                if (c != 8) throw new InvalidFenException();
+            }
+
+            return new ChessState(
+                board: board.MoveToImmutable(),
+                activeColor: activeColor,
+                white: null,
+                black: null);
+        }
 
         private static int GetBoardIndex(int column, int row) => (8 * column + row);
         private static int GetBoardIndex(BoardLocation location) => GetBoardIndex(location.Column, location.Row);
 
         private static ImmutableArray<ChessTile> CreateBoard(IDictionary<string, ChessPiece> pieceMap)
         {
+            pieceMap = pieceMap ?? s_startPieceMap;
             var pieces = pieceMap.Values;
             // todo: add tests for this
             if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
@@ -146,7 +215,7 @@ namespace ChessBot
         public ChessState SetBlack(PlayerInfo value) => new ChessState(this) { Black = value };
 
         public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
-        public PlayerColor OpposingColor => (ActiveColor == PlayerColor.White) ? PlayerColor.Black : PlayerColor.White;
+        public PlayerColor OpposingColor => WhiteToMove ? PlayerColor.Black : PlayerColor.White;
         public PlayerInfo OpposingPlayer => GetPlayer(OpposingColor);
 
         public bool IsCheck => GetKingsLocation(ActiveColor) is BoardLocation loc && IsAttackedBy(OpposingColor, loc);
@@ -165,6 +234,8 @@ namespace ChessBot
             get => this[location.Column, location.Row];
         }
         public ChessTile this[string location] => this[BoardLocation.Parse(location)];
+
+        #endregion
 
         public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
 
@@ -207,7 +278,7 @@ namespace ChessBot
             {
                 return Error($"{nameof(move.IsCapture)} property is not set properly");
             }
-            int promotionRow = (ActiveColor == PlayerColor.White) ? 7 : 0;
+            int promotionRow = WhiteToMove ? 7 : 0;
             if ((move.PromotionKind != null) != (piece.Kind == PieceKind.Pawn && destination.Row == promotionRow))
             {
                 return Error("A promotion happens iff a pawn moves to the back rank");
@@ -271,8 +342,8 @@ namespace ChessBot
             var result = new ChessState(
                 board: newBoard,
                 activeColor: OpposingColor,
-                white: (ActiveColor == PlayerColor.White) ? newActivePlayer : newOpposingPlayer,
-                black: (ActiveColor == PlayerColor.Black) ? newActivePlayer : newOpposingPlayer);
+                white: WhiteToMove ? newActivePlayer : newOpposingPlayer,
+                black: WhiteToMove ? newOpposingPlayer : newActivePlayer);
 
             if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
             {

@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using ChessBot.Exceptions;
+using System;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace ChessBot
 {

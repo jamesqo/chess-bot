@@ -1,4 +1,5 @@
-﻿using ChessBot.Helpers;
+﻿using ChessBot.Exceptions;
+using ChessBot.Helpers;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -86,7 +87,8 @@ namespace ChessBot
         {
             AIStrategy.Random => new RandomAIPlayer(),
             AIStrategy.Minimax => new MinimaxAIPlayer(depth: 3),
-            AIStrategy.AlphaBeta => new AlphaBetaAIPlayer(depth: 5)
+            AIStrategy.AlphaBeta => new AlphaBetaAIPlayer(depth: 5),
+            _ => throw new ArgumentOutOfRangeException(nameof(strategy))
         };
 
         // todo: HasEnded

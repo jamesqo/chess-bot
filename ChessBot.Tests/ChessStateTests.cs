@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using ChessBot.Exceptions;
+using System;
+using System.Collections.Generic;
 using Xunit;
 using static ChessBot.ChessPiece;
 using static ChessBot.Tests.Utils;
@@ -156,6 +158,38 @@ namespace ChessBot.Tests
                 ["h1"] = WhiteRook,
             },
             white: new PlayerInfo(PlayerColor.White, hasCastled: true, hasMovedKing: true, hasMovedQueensideRook: true)), state);
+        }
+
+        [Fact]
+        public void ParseFen_Works()
+        {
+            var fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+            AssertEqual(new ChessState(), ChessState.ParseFen(fen));
+
+            // todo: add more tests
+        }
+
+        [Theory]
+        [InlineData("i don't have 6 parts")]
+        [InlineData("i do have 6 parts .")]
+        // one of the fields is invalid
+        [InlineData("foo w KQkq - 0 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR foo KQkq - 0 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w foo - 0 1", Skip = "not implemented yet")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq foo 0 1", Skip = "not implemented yet")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - foo 1", Skip = "not implemented yet")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 foo", Skip = "not implemented yet")]
+        // bad number of ranks
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR/RNBQKBNR w KQkq - 0 1")]
+        // a rank isn't filled
+        [InlineData("rnbqkbnr/ppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/7/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
+        // digits can't follow other digits
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/35/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
+        public void ParseFen_Fails(string badFen)
+        {
+            Assert.Throws<InvalidFenException>(() => ChessState.ParseFen(badFen));
         }
     }
 }

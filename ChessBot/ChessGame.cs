@@ -10,7 +10,7 @@ namespace ChessBot
 
         public ChessGame()
         {
-            State = ChessState.Initial;
+            State = new ChessState();
             Turn = 1;
             _history = new List<ChessMove>();
         }
@@ -23,7 +23,7 @@ namespace ChessBot
         {
             State = State.ApplyMove(move);
             // todo: check for checkmate, stalemate, etc
-            if (State.ActiveColor == PlayerColor.White) Turn++;
+            if (State.WhiteToMove) Turn++;
             _history.Add(move);
         }
     }

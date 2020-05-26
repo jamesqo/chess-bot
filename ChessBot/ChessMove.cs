@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using ChessBot.AlgebraicNotation;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 using System.Linq;
+using ChessBot.Exceptions;
 
 namespace ChessBot
 {
