@@ -246,8 +246,8 @@ namespace ChessBot
                     newActivePlayer = newActivePlayer.SetHasMovedKing(true);
                     break;
                 case PieceKind.Rook:
-                    if (!newActivePlayer.HasMovedKingsideRook && source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer.SetHasMovedKingsideRook(true);
-                    if (!newActivePlayer.HasMovedQueensideRook && source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer.SetHasMovedQueensideRook(true);
+                    if (!newActivePlayer.HasMovedKingsideRook && source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetHasMovedKingsideRook(true);
+                    if (!newActivePlayer.HasMovedQueensideRook && source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetHasMovedQueensideRook(true);
                     break;
             }
 
