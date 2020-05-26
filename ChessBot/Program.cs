@@ -178,6 +178,10 @@ namespace ChessBot
                 string input = Console.ReadLine();
                 switch (input)
                 {
+                    case "exit":
+                    case "quit":
+                        Environment.Exit(0);
+                        break;
                     case "help":
                         Console.WriteLine("List of commands:");
                         Console.WriteLine();
