@@ -80,7 +80,7 @@ namespace ChessBot
         static IPlayer GetAIPlayer(AIStrategy strategy) => strategy switch
         {
             AIStrategy.Random => new RandomAIPlayer(),
-            AIStrategy.Minimax => new MinimaxAIPlayer(depth: 5),
+            AIStrategy.Minimax => new MinimaxAIPlayer(depth: 3),
         };
 
         // todo: HasEnded
@@ -321,7 +321,7 @@ namespace ChessBot
 
         public ChessMove GetNextMove(ChessState state)
         {
-            // throw something if it's terminal
+            // todo: throw something if it's terminal
 
             ChessMove bestMove = null;
             int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;

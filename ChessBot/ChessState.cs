@@ -503,10 +503,17 @@ namespace ChessBot
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
                     int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
+                    int backRow = (piece.Color == PlayerColor.White ? 7 : 0);
 
-                    var (n1, n2) = (source.Up(forward), source.Up(forward * 2));
+                    // Because pawns are automatically promoted at the back bank, we shouldn't have to do a bounds check here
+                    Debug.Assert(source.Row != backRow);
+                    var n1 = source.Up(forward);
                     if (!this[n1].HasPiece) destinations.Add(n1);
-                    if (!this[n1].HasPiece && !this[n2].HasPiece && source.Row == homeRow) destinations.Add(n2);
+                    if (source.Row == homeRow)
+                    {
+                        var n2 = source.Up(forward * 2);
+                        if (!this[n1].HasPiece && !this[n2].HasPiece) destinations.Add(n2);
+                    }
 
                     if (source.Column > 0)
                     {
