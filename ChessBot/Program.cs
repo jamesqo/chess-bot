@@ -28,7 +28,7 @@ namespace ChessBot
             AIStrategy aiStrategy;
             while (true)
             {
-                Console.Write("Pick ai strategy [random, minimax]: ");
+                Console.Write("Pick ai strategy [random, minimax, alphabeta]: ");
                 string input = Console.ReadLine().Trim().ToLower();
                 if (input == "random")
                 {
@@ -38,6 +38,11 @@ namespace ChessBot
                 else if (input == "minimax")
                 {
                     aiStrategy = AIStrategy.Minimax;
+                    break;
+                }
+                else if (input == "alphabeta")
+                {
+                    aiStrategy = AIStrategy.AlphaBeta;
                     break;
                 }
             }
@@ -81,6 +86,7 @@ namespace ChessBot
         {
             AIStrategy.Random => new RandomAIPlayer(),
             AIStrategy.Minimax => new MinimaxAIPlayer(depth: 3),
+            AIStrategy.AlphaBeta => new AlphaBetaAIPlayer(depth: 5)
         };
 
         // todo: HasEnded
@@ -154,7 +160,7 @@ namespace ChessBot
     {
         Random,
         Minimax,
-        // AlphaBeta,
+        AlphaBeta,
     }
 
     interface IPlayer
@@ -213,7 +219,7 @@ namespace ChessBot
         }
     }
 
-    class MinimaxAIPlayer : IPlayer
+    static class Eval
     {
         // todo: refactor so this doesn't break if we switch the order of enum values
         private static readonly int[] PieceValues =
@@ -315,52 +321,8 @@ namespace ChessBot
             -50,-30,-30,-30,-30,-30,-30,-50
         };
 
-        private readonly int _depth;
-
-        public MinimaxAIPlayer(int depth) => _depth = depth;
-
-        public ChessMove GetNextMove(ChessState state)
-        {
-            // todo: throw something if it's terminal
-
-            ChessMove bestMove = null;
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
-            foreach (var (move, succ) in state.GetMovesAndSuccessors())
-            {
-                int value = Minimax(succ, _depth - 1);
-                bool better = state.WhiteToMove ? value > bestValue : value < bestValue;
-                if (better)
-                {
-                    bestMove = move;
-                    bestValue = value;
-                }
-            }
-
-            return bestMove;
-        }
-
-        private static int Minimax(ChessState state, int d)
-        {
-            if (d == 0 || state.IsTerminal)
-            {
-                return Heuristic(state);
-            }
-
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
-
-            foreach (var succ in state.GetSuccessors())
-            {
-                int value = Minimax(succ, d - 1);
-                bestValue = state.WhiteToMove
-                    ? Math.Max(bestValue, value)
-                    : Math.Min(bestValue, value);
-            }
-
-            return bestValue;
-        }
-
         // Heuristic is always positive / calculated from white's viewpoint
-        private static int Heuristic(ChessState state)
+        public static int Heuristic(ChessState state)
         {
             if (state.IsTerminal)
             {
@@ -410,6 +372,135 @@ namespace ChessBot
                 }
             }
             return result;
+        }
+    }
+
+    // todo: improve perf by using bitboards to represent ChessState
+    class MinimaxAIPlayer : IPlayer
+    {
+        private readonly int _depth;
+
+        public MinimaxAIPlayer(int depth) => _depth = depth;
+
+        public ChessMove GetNextMove(ChessState state)
+        {
+            // todo: throw something if it's terminal
+
+            ChessMove bestMove = null;
+            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            foreach (var (move, succ) in state.GetMovesAndSuccessors())
+            {
+                int value = Minimax(succ, _depth - 1);
+                bool better = state.WhiteToMove ? value > bestValue : value < bestValue;
+                if (better)
+                {
+                    bestMove = move;
+                    bestValue = value;
+                }
+            }
+
+            return bestMove;
+        }
+
+        private static int Minimax(ChessState state, int d)
+        {
+            if (d == 0 || state.IsTerminal)
+            {
+                return Eval.Heuristic(state);
+            }
+
+            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+
+            foreach (var succ in state.GetSuccessors())
+            {
+                int value = Minimax(succ, d - 1);
+                bestValue = state.WhiteToMove
+                    ? Math.Max(bestValue, value)
+                    : Math.Min(bestValue, value);
+            }
+
+            return bestValue;
+        }
+    }
+
+    class AlphaBetaAIPlayer : IPlayer
+    {
+        private readonly int _depth;
+
+        public AlphaBetaAIPlayer(int depth) => _depth = depth;
+
+        public ChessMove GetNextMove(ChessState state)
+        {
+            // todo: throw something if it's terminal
+
+            ChessMove bestMove = null;
+            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+
+            var (alpha, beta) = (-int.MaxValue, int.MaxValue);
+
+            foreach (var (move, succ) in state.GetMovesAndSuccessors())
+            {
+                int value = AlphaBeta(succ, _depth - 1, alpha, beta);
+                if (state.WhiteToMove)
+                {
+                    bool better = (value > bestValue);
+                    if (better)
+                    {
+                        bestValue = value;
+                        bestMove = move;
+                    }
+                    alpha = Math.Max(alpha, bestValue);
+                }
+                else
+                {
+                    bool better = (value < bestValue);
+                    if (better)
+                    {
+                        bestValue = value;
+                        bestMove = move;
+                    }
+                    beta = Math.Min(beta, bestValue);
+                }
+
+                if (alpha >= beta)
+                {
+                    break;
+                }
+            }
+
+            return bestMove;
+        }
+
+        private static int AlphaBeta(ChessState state, int d, int alpha, int beta)
+        {
+            if (d == 0 || state.IsTerminal)
+            {
+                return Eval.Heuristic(state);
+            }
+
+            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+
+            foreach (var succ in state.GetSuccessors())
+            {
+                int value = AlphaBeta(succ, d - 1, alpha, beta);
+                if (state.WhiteToMove)
+                {
+                    bestValue = Math.Max(bestValue, value);
+                    alpha = Math.Max(alpha, bestValue);
+                }
+                else
+                {
+                    bestValue = Math.Min(bestValue, value);
+                    beta = Math.Min(beta, bestValue);
+                }
+
+                if (alpha >= beta)
+                {
+                    break;
+                }
+            }
+
+            return bestValue;
         }
     }
 }
