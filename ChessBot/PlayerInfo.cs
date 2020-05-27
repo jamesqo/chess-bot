@@ -71,10 +71,14 @@ namespace ChessBot
             // We ignore _state and the associated fields intentionally
             if (other == null) return false;
             return Color == other.Color
+                /*
+                (these fields will be removed later)
                 && HasCastled == other.HasCastled
                 && HasMovedKing == other.HasMovedKing
                 && HasMovedKingsideRook == other.HasMovedKingsideRook
-                && HasMovedQueensideRook == other.HasMovedQueensideRook;
+                && HasMovedQueensideRook == other.HasMovedQueensideRook
+                */
+                ;
         }
 
         public override int GetHashCode() => throw new NotImplementedException();

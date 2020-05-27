@@ -12,13 +12,9 @@ namespace ChessBot.Tests
         [InlineData("0-0")]
         public void Parse_KingsideCastle(string moveString)
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["a1"] = WhiteRook,
-                ["e1"] = WhiteKing,
-                ["h1"] = WhiteRook,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
+            // todo: should we throw here if the castling flags are not set, or wait until ApplyMove?
             var move = ChessMove.Parse(moveString, state);
             Assert.True(move.IsKingsideCastle);
             Assert.False(move.IsQueensideCastle);
@@ -32,12 +28,7 @@ namespace ChessBot.Tests
         [InlineData("0-0-0")]
         public void Parse_QueensideCastle(string moveString)
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["a1"] = WhiteRook,
-                ["e1"] = WhiteKing,
-                ["h1"] = WhiteRook,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
             var move = ChessMove.Parse(moveString, state);
             Assert.True(move.IsQueensideCastle);
@@ -50,12 +41,7 @@ namespace ChessBot.Tests
         [Fact]
         public void Parse_ShouldResolveAmbiguityFromPawnCapture()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["d4"] = WhitePawn,
-                ["e4"] = WhitePawn,
-                ["e5"] = BlackPawn,
-            });
+            var state = ChessState.ParseFen("8/8/8/4p3/3PP3/8/8/8 w - - 0 1");
 
             var move = ChessMove.Parse("xe5", state);
             Assert.Equal(BoardLocation.Parse("d4"), move.Source);
@@ -66,11 +52,7 @@ namespace ChessBot.Tests
         [Fact]
         public void Parse_ShouldResolveAmbiguityIfPawnIsBlocked()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e2"] = WhitePawn,
-                ["e3"] = WhitePawn,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/4P3/4P3/8 w - - 0 1");
 
             var move = ChessMove.Parse("e4", state);
             Assert.Equal(BoardLocation.Parse("e3"), move.Source);
@@ -79,14 +61,7 @@ namespace ChessBot.Tests
         [Fact]
         public void Parse_ShouldResolveAmbiguityIfBishopIsBlocked()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["d4"] = WhiteBishop,
-                ["e5"] = WhiteBishop,
-                ["e3"] = WhiteBishop,
-                ["c5"] = WhiteBishop,
-                ["c3"] = WhiteBishop,
-            });
+            var state = ChessState.ParseFen("8/8/8/2B1B3/3B4/2B1B3/8/8 w - - 0 1");
 
             var move = ChessMove.Parse("Bf6", state);
             Assert.Equal(BoardLocation.Parse("e5"), move.Source);
@@ -104,14 +79,7 @@ namespace ChessBot.Tests
         [Fact]
         public void Parse_ShouldResolveAmbiguityIfRookIsBlocked()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["d4"] = WhiteRook,
-                ["e4"] = WhiteRook,
-                ["c4"] = WhiteRook,
-                ["d5"] = WhiteRook,
-                ["d3"] = WhiteRook,
-            });
+            var state = ChessState.ParseFen("8/8/8/3R4/2RRR3/3R4/8/8 w - - 0 1");
 
             var move = ChessMove.Parse("Rf4", state);
             Assert.Equal(BoardLocation.Parse("e4"), move.Source);

@@ -2,15 +2,15 @@
 using System;
 using System.Collections.Generic;
 using ChessBot.AlgebraicNotation;
-using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 using System.Linq;
 using ChessBot.Exceptions;
+using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 
 namespace ChessBot
 {
     public class ChessMove
     {
-        private static readonly Dictionary<string, PieceKind> _pieceKindMap = new Dictionary<string, PieceKind>
+        private static readonly Dictionary<string, PieceKind> s_pieceKindMap = new Dictionary<string, PieceKind>
         {
             ["N"] = PieceKind.Knight,
             ["B"] = PieceKind.Bishop,
@@ -108,10 +108,10 @@ namespace ChessBot
                 var destinationNode = ordinaryMoveDescNode.destination();
                 var promotionKindNode = ordinaryMoveDescNode.promotionKind();
 
-                var pieceKind = (pieceKindNode != null) ? _pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
+                var pieceKind = (pieceKindNode != null) ? s_pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
                 bool isCapture = (captureNode != null); // todo: enforce this if true. take en passant captures into account.
                 var destination = BoardLocation.Parse(destinationNode.GetText());
-                var promotionKind = (promotionKindNode != null) ? _pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
+                var promotionKind = (promotionKindNode != null) ? s_pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
                 var source = InferSource(sourceNode, state, pieceKind, destination);
 
                 return new ChessMove(

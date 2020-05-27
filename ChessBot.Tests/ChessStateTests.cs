@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 using static ChessBot.ChessPiece;
-using static ChessBot.Tests.Utils;
 
 namespace ChessBot.Tests
 {
@@ -13,109 +12,61 @@ namespace ChessBot.Tests
         [Fact]
         public void ApplyMove_PawnAdvance()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e2"] = WhitePawn,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/8/4P3/8 w - - 0 1");
 
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e3"] = WhitePawn,
-            }), state.ApplyMove("e3"));
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e4"] = WhitePawn,
-            }), state.ApplyMove("e4"));
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/4P3/8/8 b - - 1 1"), state.ApplyMove("e3"));
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/4P3/8/8/8 b - e3 1 1"), state.ApplyMove("e4"));
 
             state = state.ApplyMove("e3").SetActiveColor(PlayerColor.White);
 
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e4"] = WhitePawn,
-            }), state.ApplyMove("e4"));
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/4P3/8/8/8 b - - 2 1"), state.ApplyMove("e4"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e5"));
         }
 
         [Fact]
         public void ApplyMove_PawnAdvance_BlockedByFriendlyPawn()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e2"] = WhitePawn,
-                ["e3"] = WhitePawn,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/4P3/4P3/8 w - - 0 1");
 
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e3"));
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e2"] = WhitePawn,
-                ["e4"] = WhitePawn,
-            }), state.ApplyMove("e4"));
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/4P3/8/4P3/8 b - - 1 1"), state.ApplyMove("e4"));
 
             state = state.ApplyMove("e4").SetActiveColor(PlayerColor.White);
 
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e3"] = WhitePawn,
-                ["e4"] = WhitePawn,
-            }), state.ApplyMove("e3"));
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/4P3/4P3/8/8 b - - 2 1"), state.ApplyMove("e3"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e4"));
         }
 
         [Fact]
         public void ApplyMove_PawnAdvance_BlockedByEnemyPawn()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e2"] = WhitePawn,
-                ["e3"] = BlackPawn,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/4p3/4P3/8 w - - 0 1");
 
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e3"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e4"));
 
-            state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e2"] = WhitePawn,
-                ["e4"] = BlackPawn,
-            });
+            state = ChessState.ParseFen("8/8/8/8/4p3/8/4P3/8 w - - 0 1");
 
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e3"] = WhitePawn,
-                ["e4"] = BlackPawn,
-            }), state.ApplyMove("e3"));
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/4p3/4P3/8/8 b - - 1 1"), state.ApplyMove("e3"));
             Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("e4"));
         }
 
         [Fact]
         public void ApplyMove_PawnCapture()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["d4"] = WhitePawn,
-                ["e4"] = WhitePawn,
-                ["d5"] = BlackPawn,
-            });
+            var state = ChessState.ParseFen("8/8/8/3p4/3PP3/8/8/8 w - - 0 1");
 
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["d4"] = WhitePawn,
-                ["d5"] = WhitePawn,
-            }), state.ApplyMove("xd5"));
+            // capture on left
+            Assert.Equal(ChessState.ParseFen("8/8/8/3P4/3P4/8/8/8 b - - 1 1"), state.ApplyMove("xd5"));
+            // todo
+            // Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("d5"));
 
-            state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["e4"] = WhitePawn,
-                ["f4"] = WhitePawn,
-                ["f5"] = BlackPawn,
-            });
+            state = ChessState.ParseFen("8/8/8/5p2/4PP2/8/8/8 w - - 0 1");
 
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["f4"] = WhitePawn,
-                ["f5"] = WhitePawn,
-            }), state.ApplyMove("xf5"));
+            // capture on right
+            Assert.Equal(ChessState.ParseFen("8/8/8/5P2/5P2/8/8/8 b - - 1 1"), state.ApplyMove("xf5"));
+            // todo
+            // Assert.Throws<AlgebraicNotationParseException>(() => state.ApplyMove("f5"));
         }
 
         // todo: trying to capture when nothing is there
@@ -123,48 +74,26 @@ namespace ChessBot.Tests
         [Fact]
         public void ApplyMove_KingsideCastle()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["a1"] = WhiteRook,
-                ["e1"] = WhiteKing,
-                ["h1"] = WhiteRook,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
             state = state.ApplyMove("O-O");
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["a1"] = WhiteRook,
-                ["f1"] = WhiteRook,
-                ["g1"] = WhiteKing,
-            },
-            white: new PlayerInfo(PlayerColor.White, hasCastled: true, hasMovedKing: true, hasMovedKingsideRook: true)), state);
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/8/8/R4RK1 b - - 1 1"), state);
         }
 
         [Fact]
         public void ApplyMove_QueensideCastle()
         {
-            var state = new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["a1"] = WhiteRook,
-                ["e1"] = WhiteKing,
-                ["h1"] = WhiteRook,
-            });
+            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
             state = state.ApplyMove("O-O-O");
-            AssertEqual(new ChessState(new Dictionary<string, ChessPiece>
-            {
-                ["c1"] = WhiteKing,
-                ["d1"] = WhiteRook,
-                ["h1"] = WhiteRook,
-            },
-            white: new PlayerInfo(PlayerColor.White, hasCastled: true, hasMovedKing: true, hasMovedQueensideRook: true)), state);
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 1 1"), state);
         }
 
         [Fact]
         public void ParseFen_Works()
         {
             var fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-            AssertEqual(new ChessState(), ChessState.ParseFen(fen));
+            Assert.Equal(new ChessState(), ChessState.ParseFen(fen));
 
             // todo: add more tests
         }
