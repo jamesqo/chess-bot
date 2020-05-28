@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -29,24 +28,18 @@ namespace ChessBot
 
         public PlayerInfo(
             PlayerColor color,
-            bool hasCastled = false,
-            bool hasMovedKing = false,
-            bool hasMovedKingsideRook = false,
-            bool hasMovedQueensideRook = false)
+            bool canCastleKingside = true,
+            bool canCastleQueenside = true)
         {
             Color = color;
-            HasCastled = hasCastled;
-            HasMovedKing = hasMovedKing;
-            HasMovedKingsideRook = hasMovedKingsideRook;
-            HasMovedQueensideRook = hasMovedQueensideRook;
+            CanCastleKingside = canCastleKingside;
+            CanCastleQueenside = canCastleQueenside;
         }
 
         private PlayerInfo(PlayerInfo other) : this(
             other.Color,
-            other.HasCastled,
-            other.HasMovedKing,
-            other.HasMovedKingsideRook,
-            other.HasMovedQueensideRook)
+            other.CanCastleKingside,
+            other.CanCastleQueenside)
         {
             _state = other._state;
             _occupiedTiles = other._occupiedTiles;
@@ -54,10 +47,8 @@ namespace ChessBot
         }
 
         public PlayerColor Color { get; private set; }
-        public bool HasCastled { get; private set; }
-        public bool HasMovedKing { get; private set; }
-        public bool HasMovedKingsideRook { get; private set; }
-        public bool HasMovedQueensideRook { get; private set; }
+        public bool CanCastleKingside { get; private set; }
+        public bool CanCastleQueenside { get; private set; }
 
         public BoardLocation InitialKingLocation =>
             Color == PlayerColor.White ? BoardLocation.Parse("e1") : BoardLocation.Parse("e8");
@@ -71,14 +62,8 @@ namespace ChessBot
             // We ignore _state and the associated fields intentionally
             if (other == null) return false;
             return Color == other.Color
-                /*
-                (these fields will be removed later)
-                && HasCastled == other.HasCastled
-                && HasMovedKing == other.HasMovedKing
-                && HasMovedKingsideRook == other.HasMovedKingsideRook
-                && HasMovedQueensideRook == other.HasMovedQueensideRook
-                */
-                ;
+                && CanCastleKingside == other.CanCastleKingside
+                && CanCastleQueenside == other.CanCastleQueenside;
         }
 
         public override int GetHashCode() => throw new NotImplementedException();
@@ -103,10 +88,8 @@ namespace ChessBot
         }
 
         public PlayerInfo SetColor(PlayerColor value) => new PlayerInfo(this) { Color = value };
-        public PlayerInfo SetHasCastled(bool value) => new PlayerInfo(this) { HasCastled = value };
-        public PlayerInfo SetHasMovedKing(bool value) => new PlayerInfo(this) { HasMovedKing = value };
-        public PlayerInfo SetHasMovedKingsideRook(bool value) => new PlayerInfo(this) { HasMovedKingsideRook = value };
-        public PlayerInfo SetHasMovedQueensideRook(bool value) => new PlayerInfo(this) { HasMovedQueensideRook = value };
+        public PlayerInfo SetCanCastleKingside(bool value) => new PlayerInfo(this) { CanCastleKingside = value };
+        public PlayerInfo SetCanCastleQueenside(bool value) => new PlayerInfo(this) { CanCastleQueenside = value };
 
         internal PlayerInfo SetState(ChessState value) => new PlayerInfo(this) { _state = value };
         internal PlayerInfo SetOccupiedTiles(ImmutableArray<ChessTile> value) => new PlayerInfo(this) { _occupiedTiles = value };

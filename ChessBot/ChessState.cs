@@ -75,10 +75,10 @@ namespace ChessBot
                 "b" => PlayerColor.Black,
                 _ => throw new InvalidFenException()
             };
-            var castlingRights = parts[2]; // todo: don't ignore
+            var castlingRights = parts[2];
             var enPassantTarget = parts[3]; // todo: don't ignore
             var rule50Counter = parts[4]; // todo: don't ignore
-            var fullMoveNumber = parts[5]; // todo: don't ignore
+            var fullMoveCounter = parts[5]; // todo: don't ignore
 
             var ranks = piecePlacement.Split('/');
             if (ranks.Length != 8) throw new InvalidFenException();
@@ -131,11 +131,29 @@ namespace ChessBot
                 if (c != 8) throw new InvalidFenException();
             }
 
+            var white = new PlayerInfo(PlayerColor.White, canCastleKingside: false, canCastleQueenside: false);
+            var black = new PlayerInfo(PlayerColor.Black, canCastleKingside: false, canCastleQueenside: false);
+            if (castlingRights != "-")
+            {
+                foreach (char c in castlingRights)
+                {
+                    // todo: we should keep track of whether we've seen duplicates, eg. 'KKqkq'
+                    switch (c)
+                    {
+                        case 'K': white = white.SetCanCastleKingside(true); break;
+                        case 'Q': white = white.SetCanCastleQueenside(true); break;
+                        case 'k': black = black.SetCanCastleKingside(true); break;
+                        case 'q': black = black.SetCanCastleQueenside(true); break;
+                        default: throw new InvalidFenException();
+                    }
+                }
+            }
+
             return new ChessState(
                 board: board.MoveToImmutable(),
                 activeColor: activeColor,
-                white: null,
-                black: null);
+                white: white,
+                black: black);
         }
 
         private static int GetBoardIndex(int column, int row) => (8 * column + row);
@@ -287,8 +305,7 @@ namespace ChessBot
             // Step 1: Check that the move is valid movement-wise
             var newBoard = _board;
 
-            bool castled = (move.IsKingsideCastle || move.IsQueensideCastle);
-            if (castled)
+            if (move.IsKingsideCastle || move.IsQueensideCastle)
             {
                 bool canCastle = CanCastle(move.IsKingsideCastle);
                 if (!canCastle)
@@ -314,18 +331,12 @@ namespace ChessBot
             switch (piece.Kind)
             {
                 case PieceKind.King:
-                    newActivePlayer = newActivePlayer.SetHasMovedKing(true);
+                    newActivePlayer = newActivePlayer.SetCanCastleKingside(false).SetCanCastleQueenside(false);
                     break;
                 case PieceKind.Rook:
-                    if (!newActivePlayer.HasMovedKingsideRook && source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetHasMovedKingsideRook(true);
-                    if (!newActivePlayer.HasMovedQueensideRook && source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetHasMovedQueensideRook(true);
+                    if (source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleKingside(true);
+                    if (source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleQueenside(true);
                     break;
-            }
-
-            if (castled)
-            {
-                newActivePlayer = newActivePlayer.SetHasCastled(true);
-                newActivePlayer = move.IsKingsideCastle ? newActivePlayer.SetHasMovedKingsideRook(true) : newActivePlayer.SetHasMovedQueensideRook(true);
             }
 
             var newOpposingPlayer = OpposingPlayer;
@@ -367,11 +378,10 @@ namespace ChessBot
 
         private bool CanCastle(bool kingside)
         {
-            // We don't enforce the requirement that both pieces must be on the first rank
-            // since we assume that we have started from the initial chess position.
-            bool hasMovedRook = (kingside ? ActivePlayer.HasMovedKingsideRook : ActivePlayer.HasMovedQueensideRook);
-            if (ActivePlayer.HasCastled || ActivePlayer.HasMovedKing || hasMovedRook) return false;
+            bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
+            if (!flag) return false;
 
+            // The above flag does not account for moves that temporarily prevent castling
             var kingSource = ActivePlayer.InitialKingLocation;
             var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
             bool kingPassesThroughOccupiedOrAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => this[loc].HasPiece || IsAttackedBy(OpposingColor, loc));

@@ -74,19 +74,19 @@ namespace ChessBot.Tests
         [Fact]
         public void ApplyMove_KingsideCastle()
         {
-            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
+            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
 
             state = state.ApplyMove("O-O");
-            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/8/8/R4RK1 b - - 1 1"), state);
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/8/8/R4RK1 b kq - 1 1"), state);
         }
 
         [Fact]
         public void ApplyMove_QueensideCastle()
         {
-            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
+            var state = ChessState.ParseFen("8/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
 
             state = state.ApplyMove("O-O-O");
-            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 1 1"), state);
+            Assert.Equal(ChessState.ParseFen("8/8/8/8/8/8/8/2KR3R b kq - 1 1"), state);
         }
 
         [Fact]
