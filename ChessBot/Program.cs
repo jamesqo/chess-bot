@@ -1,10 +1,8 @@
 ﻿using ChessBot.Exceptions;
-using ChessBot.Helpers;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using System.Xml;
 
 namespace ChessBot
 {
@@ -53,7 +51,7 @@ namespace ChessBot
 
             Console.WriteLine($"Playing as: {userColor}");
 
-            var game = new ChessGame();
+            var game = new Game();
             Console.WriteLine();
             Console.WriteLine(GetDisplayString(game.State));
             Console.WriteLine();
@@ -92,7 +90,7 @@ namespace ChessBot
         };
 
         // todo: HasEnded
-        static void CheckForEnd(ChessGame game)
+        static void CheckForEnd(Game game)
         {
             var state = game.State;
             if (state.IsCheckmate)
@@ -110,7 +108,7 @@ namespace ChessBot
             // todo: Check for 3-fold repetition
         }
 
-        static string GetDisplayString(ChessState state)
+        static string GetDisplayString(State state)
         {
             var sb = new StringBuilder();
             // todo: have whichever side the human is on at the bottom
@@ -138,7 +136,7 @@ namespace ChessBot
             return sb.ToString();
         }
 
-        static string GetDisplayString(ChessTile tile)
+        static string GetDisplayString(Tile tile)
         {
             if (!tile.HasPiece) return "  ";
             var piece = tile.Piece;
@@ -167,12 +165,12 @@ namespace ChessBot
 
     interface IPlayer
     {
-        ChessMove GetNextMove(ChessState state);
+        Move GetNextMove(State state);
     }
 
     class HumanPlayer : IPlayer
     {
-        public ChessMove GetNextMove(ChessState state)
+        public Move GetNextMove(State state)
         {
             while (true)
             {
@@ -198,11 +196,11 @@ namespace ChessBot
                     default:
                         try
                         {
-                            var move = ChessMove.Parse(input, state);
+                            var move = Move.Parse(input, state);
                             _ = state.ApplyMove(move); // make sure it's valid
                             return move;
                         }
-                        catch (Exception e) when (e is AnParseException || e is InvalidChessMoveException)
+                        catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
                         {
                             Debug.WriteLine(e.ToString());
                             Console.WriteLine("Sorry, try again.");
@@ -217,7 +215,7 @@ namespace ChessBot
     {
         private readonly Random _rand = new Random();
 
-        public ChessMove GetNextMove(ChessState state)
+        public Move GetNextMove(State state)
         {
             var moves = state.GetMoves().ToArray();
             Debug.WriteLine(string.Join(Environment.NewLine, (object[])moves));
@@ -328,7 +326,7 @@ namespace ChessBot
         };
 
         // Heuristic is always positive / calculated from white's viewpoint
-        public static int Heuristic(ChessState state)
+        public static int Heuristic(State state)
         {
             if (state.IsTerminal)
             {
@@ -340,7 +338,7 @@ namespace ChessBot
             return HeuristicForPlayer(state, PlayerColor.White) - HeuristicForPlayer(state, PlayerColor.Black);
         }
 
-        private static int HeuristicForPlayer(ChessState state, PlayerColor color)
+        private static int HeuristicForPlayer(State state, PlayerColor color)
         {
             // temporarily disabling this for perf reasons
             /*
@@ -388,11 +386,11 @@ namespace ChessBot
 
         public MinimaxAIPlayer(int depth) => _depth = depth;
 
-        public ChessMove GetNextMove(ChessState state)
+        public Move GetNextMove(State state)
         {
             // todo: throw something if it's terminal
 
-            ChessMove bestMove = null;
+            Move bestMove = null;
             int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
             foreach (var (move, succ) in state.GetMovesAndSuccessors())
             {
@@ -408,7 +406,7 @@ namespace ChessBot
             return bestMove;
         }
 
-        private static int Minimax(ChessState state, int d)
+        private static int Minimax(State state, int d)
         {
             if (d == 0 || state.IsTerminal)
             {
@@ -435,11 +433,11 @@ namespace ChessBot
 
         public AlphaBetaAIPlayer(int depth) => _depth = depth;
 
-        public ChessMove GetNextMove(ChessState state)
+        public Move GetNextMove(State state)
         {
             // todo: throw something if it's terminal
 
-            ChessMove bestMove = null;
+            Move bestMove = null;
             int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
 
             var (alpha, beta) = (-int.MaxValue, int.MaxValue);
@@ -477,7 +475,7 @@ namespace ChessBot
             return bestMove;
         }
 
-        private static int AlphaBeta(ChessState state, int d, int alpha, int beta)
+        private static int AlphaBeta(State state, int d, int alpha, int beta)
         {
             if (d == 0 || state.IsTerminal)
             {

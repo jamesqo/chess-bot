@@ -6,21 +6,21 @@ using System.Text;
 
 namespace ChessBot
 {
-    public class ChessTile : IEquatable<ChessTile>
+    public class Tile : IEquatable<Tile>
     {
-        private readonly ChessPiece _piece;
+        private readonly Piece _piece;
 
-        public ChessTile(BoardLocation location, ChessPiece? piece = null)
+        public Tile(Location location, Piece? piece = null)
         {
             Location = location;
             HasPiece = (piece != null);
             _piece = piece ?? default;
         }
 
-        public BoardLocation Location { get; }
+        public Location Location { get; }
 
         public bool HasPiece { get; }
-        public ChessPiece Piece
+        public Piece Piece
         {
             get
             {
@@ -31,11 +31,11 @@ namespace ChessBot
 
         // We separate this out into another, non-inlined method because we want to make it easy for the JIT to inline get_Piece()
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static ChessPiece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
+        private static Piece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
 
-        public override bool Equals(object obj) => Equals(obj as ChessTile);
+        public override bool Equals(object obj) => Equals(obj as Tile);
 
-        public bool Equals([AllowNull] ChessTile other)
+        public bool Equals([AllowNull] Tile other)
         {
             if (other == null || Location != other.Location) return false;
             return HasPiece
@@ -45,7 +45,7 @@ namespace ChessBot
 
         public override int GetHashCode() => throw new NotImplementedException();
 
-        public ChessTile SetPiece(ChessPiece? piece) => new ChessTile(Location, piece);
+        public Tile SetPiece(Piece? piece) => new Tile(Location, piece);
 
         public override string ToString()
         {

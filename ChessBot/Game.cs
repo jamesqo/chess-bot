@@ -4,22 +4,22 @@ using System.Text;
 
 namespace ChessBot
 {
-    public class ChessGame
+    public class Game
     {
-        private readonly List<ChessMove> _history;
+        private readonly List<Move> _history;
 
-        public ChessGame()
+        public Game()
         {
-            State = ChessState.Start;
+            State = State.Start;
             Turn = 1;
-            _history = new List<ChessMove>();
+            _history = new List<Move>();
         }
 
-        public ChessState State { get; private set; }
+        public State State { get; private set; }
         public int Turn { get; private set; }
-        public IEnumerable<ChessMove> History => _history;
+        public IEnumerable<Move> History => _history;
 
-        public void ApplyMove(ChessMove move)
+        public void ApplyMove(Move move)
         {
             State = State.ApplyMove(move);
             // todo: check for checkmate, stalemate, etc

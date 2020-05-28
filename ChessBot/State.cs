@@ -7,7 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using static ChessBot.ChessPiece;
+using static ChessBot.Piece;
 
 namespace ChessBot
 {
@@ -16,24 +16,22 @@ namespace ChessBot
     /// <summary>
     /// Immutable class representing the state of the chess board.
     /// </summary>
-    public class ChessState : IEquatable<ChessState>
+    public class State : IEquatable<State>
     {
         public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        public static ChessState Start { get; } = ParseFen(StartFen);
+        public static State Start { get; } = ParseFen(StartFen);
 
-        public static ChessState ParseFen(string fen)
+        public static State ParseFen(string fen)
         {
-            if (string.IsNullOrEmpty(fen)) throw new InvalidFenException();
-
             var parts = fen.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 6) throw new InvalidFenException();
+            if (parts.Length != 6) throw new InvalidFenException("Incorrect number of fields");
 
             var piecePlacement = parts[0];
             var activeColor = parts[1] switch
             {
                 "w" => PlayerColor.White,
                 "b" => PlayerColor.Black,
-                _ => throw new InvalidFenException()
+                _ => throw new InvalidFenException($"Invalid active color: {parts[1]}")
             };
             var castlingRights = parts[2];
             var enPassantTarget = parts[3]; // todo: don't ignore
@@ -41,9 +39,9 @@ namespace ChessBot
             var fullMoveCounter = parts[5]; // todo: don't ignore
 
             var ranks = piecePlacement.Split('/');
-            if (ranks.Length != 8) throw new InvalidFenException();
+            if (ranks.Length != 8) throw new InvalidFenException("Incorrect number of ranks");
 
-            var board = ImmutableArray.CreateBuilder<ChessTile>(64);
+            var board = ImmutableArray.CreateBuilder<Tile>(64);
             board.Count = 64;
 
             for (int r = 0; r < 8; r++)
@@ -57,10 +55,10 @@ namespace ChessBot
                     if ((ch >= '1' && ch <= '8') && allowDigit)
                     {
                         int skip = (ch - '0');
-                        if (c + skip > 8) throw new InvalidFenException();
+                        if (c + skip > 8) throw new InvalidFenException("Incorrect number of files");
                         for (int i = 0; i < skip; i++)
                         {
-                            var emptyTile = new ChessTile((c + i, r));
+                            var emptyTile = new Tile((c + i, r));
                             board[GetBoardIndex(c + i, r)] = emptyTile;
                         }
                         c += skip;
@@ -68,7 +66,7 @@ namespace ChessBot
                     }
                     else
                     {
-                        if (c == 8) throw new InvalidFenException();
+                        if (c == 8) throw new InvalidFenException("Incorrect number of files");
                         var color = char.IsLower(ch) ? PlayerColor.Black : PlayerColor.White; // is this invariant?
                         var kind = char.ToLowerInvariant(ch) switch
                         {
@@ -80,15 +78,15 @@ namespace ChessBot
                             'k' => PieceKind.King,
                             _ => throw new InvalidFenException()
                         };
-                        var piece = new ChessPiece(color, kind);
-                        var tile = new ChessTile((c, r), piece);
+                        var piece = new Piece(color, kind);
+                        var tile = new Tile((c, r), piece);
                         board[GetBoardIndex(c, r)] = tile;
                         c++;
                         allowDigit = true;
                     }
                 }
 
-                if (c != 8) throw new InvalidFenException();
+                if (c != 8) throw new InvalidFenException("Incorrect number of files");
             }
 
             var white = new PlayerInfo(PlayerColor.White, canCastleKingside: false, canCastleQueenside: false);
@@ -104,12 +102,12 @@ namespace ChessBot
                         case 'Q': white = white.SetCanCastleQueenside(true); break;
                         case 'k': black = black.SetCanCastleKingside(true); break;
                         case 'q': black = black.SetCanCastleQueenside(true); break;
-                        default: throw new InvalidFenException();
+                        default: throw new InvalidFenException($"Invalid castling rights: {castlingRights}");
                     }
                 }
             }
 
-            return new ChessState(
+            return new State(
                 board: board.MoveToImmutable(),
                 activeColor: activeColor,
                 white: white,
@@ -117,9 +115,9 @@ namespace ChessBot
         }
 
         private static int GetBoardIndex(int column, int row) => (8 * column + row);
-        private static int GetBoardIndex(BoardLocation location) => GetBoardIndex(location.Column, location.Row);
+        private static int GetBoardIndex(Location location) => GetBoardIndex(location.Column, location.Row);
 
-        private static ImmutableArray<ChessTile> CreateBoard(IDictionary<string, ChessPiece> pieceMap)
+        private static ImmutableArray<Tile> CreateBoard(IDictionary<string, Piece> pieceMap)
         {
             var pieces = pieceMap.Values;
             // todo: add tests for this
@@ -128,13 +126,13 @@ namespace ChessBot
                 throw new ArgumentException("Cannot have more than 1 king of a given color", nameof(pieceMap));
             }
 
-            var board = ImmutableArray.CreateBuilder<ChessTile>(64);
+            var board = ImmutableArray.CreateBuilder<Tile>(64);
             board.Count = 64;
 
             foreach (var (locationString, piece) in pieceMap)
             {
-                var location = BoardLocation.Parse(locationString);
-                board[GetBoardIndex(location)] = new ChessTile(location, piece);
+                var location = Location.Parse(locationString);
+                board[GetBoardIndex(location)] = new Tile(location, piece);
             }
 
             for (int c = 0; c < 8; c++)
@@ -144,7 +142,7 @@ namespace ChessBot
                     int index = GetBoardIndex(c, r);
                     if (board[index] == null)
                     {
-                        board[index] = new ChessTile((c, r));
+                        board[index] = new Tile((c, r));
                     }
                 }
             }
@@ -152,11 +150,11 @@ namespace ChessBot
             return board.MoveToImmutable();
         }
 
-        private readonly ImmutableArray<ChessTile> _board;
-        private ImmutableArray<ChessTile> _occupiedTiles;
+        private readonly ImmutableArray<Tile> _board;
+        private ImmutableArray<Tile> _occupiedTiles;
 
-        private ChessState(
-            ImmutableArray<ChessTile> board,
+        private State(
+            ImmutableArray<Tile> board,
             PlayerColor activeColor,
             PlayerInfo white,
             PlayerInfo black)
@@ -167,15 +165,15 @@ namespace ChessBot
             Black = (black ?? new PlayerInfo(PlayerColor.Black)).SetState(this);
         }
 
-        private ChessState(ChessState other) : this(
+        private State(State other) : this(
             other._board,
             other.ActiveColor,
             other.White,
             other.Black)
         { }
 
-        public ChessState(
-            IDictionary<string, ChessPiece> pieceMap = null,
+        public State(
+            IDictionary<string, Piece> pieceMap = null,
             PlayerColor activeColor = PlayerColor.White,
             PlayerInfo white = null,
             PlayerInfo black = null)
@@ -187,47 +185,47 @@ namespace ChessBot
         public PlayerInfo White { get; private set; }
         public PlayerInfo Black { get; private set; }
 
-        public ChessState SetActiveColor(PlayerColor value) => new ChessState(this) { ActiveColor = value };
-        public ChessState SetWhite(PlayerInfo value) => new ChessState(this) { White = value };
-        public ChessState SetBlack(PlayerInfo value) => new ChessState(this) { Black = value };
+        public State SetActiveColor(PlayerColor value) => new State(this) { ActiveColor = value };
+        public State SetWhite(PlayerInfo value) => new State(this) { White = value };
+        public State SetBlack(PlayerInfo value) => new State(this) { Black = value };
 
         public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
         public PlayerColor OpposingColor => WhiteToMove ? PlayerColor.Black : PlayerColor.White;
         public PlayerInfo OpposingPlayer => GetPlayer(OpposingColor);
 
-        public bool IsCheck => GetKingsLocation(ActiveColor) is BoardLocation loc && IsAttackedBy(OpposingColor, loc);
+        public bool IsCheck => GetKingsLocation(ActiveColor) is Location loc && IsAttackedBy(OpposingColor, loc);
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveColor == PlayerColor.White; // todo: use this everywhere
 
-        private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is BoardLocation loc && IsAttackedBy(ActiveColor, loc);
+        private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is Location loc && IsAttackedBy(ActiveColor, loc);
         private int PieceCount => White.PieceCount + Black.PieceCount;
 
-        public ChessTile this[int column, int row] => _board[GetBoardIndex(column, row)];
-        public ChessTile this[BoardLocation location]
+        public Tile this[int column, int row] => _board[GetBoardIndex(column, row)];
+        public Tile this[Location location]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => this[location.Column, location.Row];
         }
-        public ChessTile this[string location] => this[BoardLocation.Parse(location)];
+        public Tile this[string location] => this[Location.Parse(location)];
 
-        public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
+        public State ApplyMove(string move) => ApplyMove(Move.Parse(move, this));
 
-        public ChessState ApplyMove(ChessMove move)
+        public State ApplyMove(Move move)
         {
             var (newState, error) = TryApplyMove(move);
-            if (error != null) throw new InvalidChessMoveException(error);
+            if (error != null) throw new InvalidMoveException(error);
             return newState;
         }
 
-        public (ChessState newState, string error) TryApplyMove(string move) => TryApplyMove(ChessMove.Parse(move, this));
+        public (State newState, string error) TryApplyMove(string move) => TryApplyMove(Move.Parse(move, this));
 
         // todo: instead of a string, error should be some kind of enum type
-        public (ChessState newState, string error) TryApplyMove(ChessMove move)
+        public (State newState, string error) TryApplyMove(Move move)
         {
-            (ChessState, string) Result(ChessState newState) => (newState, null);
-            (ChessState, string) Error(string error) => (null, error);
+            (State, string) Result(State newState) => (newState, null);
+            (State, string) Error(string error) => (null, error);
 
             if (move == null)
             {
@@ -307,7 +305,7 @@ namespace ChessBot
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
             newBoard = ApplyMoveInternal(newBoard, source, destination, move.PromotionKind);
 
-            var result = new ChessState(
+            var result = new State(
                 board: newBoard,
                 activeColor: OpposingColor,
                 white: WhiteToMove ? newActivePlayer : newOpposingPlayer,
@@ -321,14 +319,14 @@ namespace ChessBot
             return Result(result);
         }
 
-        private static ImmutableArray<ChessTile> ApplyMoveInternal(ImmutableArray<ChessTile> board, BoardLocation source, BoardLocation destination, PieceKind? promotionKind = null)
+        private static ImmutableArray<Tile> ApplyMoveInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null)
         {
             var newBoard = board.ToBuilder();
             var (sourceIndex, destinationIndex) = (GetBoardIndex(source), GetBoardIndex(destination));
 
             newBoard[sourceIndex] = newBoard[sourceIndex].SetPiece(null);
             var piece = board[sourceIndex].Piece;
-            if (promotionKind != null) piece = new ChessPiece(piece.Color, promotionKind.Value);
+            if (promotionKind != null) piece = new Piece(piece.Color, promotionKind.Value);
             newBoard[destinationIndex] = newBoard[destinationIndex].SetPiece(piece);
             return newBoard.MoveToImmutable();
         }
@@ -345,9 +343,9 @@ namespace ChessBot
             return !(IsCheck || kingPassesThroughOccupiedOrAttackedLocation);
         }
 
-        public override bool Equals(object obj) => Equals(obj as ChessState);
+        public override bool Equals(object obj) => Equals(obj as State);
 
-        public bool Equals([AllowNull] ChessState other)
+        public bool Equals([AllowNull] State other)
         {
             if (other == null) return false;
 
@@ -371,16 +369,16 @@ namespace ChessBot
 
         public override int GetHashCode() => throw new NotImplementedException();
 
-        public IEnumerable<ChessMove> GetMoves() => GetMovesAndSuccessors().Select(t => t.move);
+        public IEnumerable<Move> GetMoves() => GetMovesAndSuccessors().Select(t => t.move);
 
-        public IEnumerable<(ChessMove move, ChessState state)> GetMovesAndSuccessors()
+        public IEnumerable<(Move move, State state)> GetMovesAndSuccessors()
         {
             var movesToTry = ActivePlayer
                 .GetOccupiedTiles()
                 .Select(t => t.Location)
-                .SelectMany(s => GetPossibleDestinations(s).Select(d => new ChessMove(s, d)))
-                .Append(ChessMove.Castle(ActiveColor, kingside: true))
-                .Append(ChessMove.Castle(ActiveColor, kingside: false));
+                .SelectMany(s => GetPossibleDestinations(s).Select(d => new Move(s, d)))
+                .Append(Move.Castle(ActiveColor, kingside: true))
+                .Append(Move.Castle(ActiveColor, kingside: false));
 
             foreach (var move in movesToTry)
             {
@@ -392,11 +390,11 @@ namespace ChessBot
             }
         }
 
-        public ImmutableArray<ChessTile> GetOccupiedTiles()
+        public ImmutableArray<Tile> GetOccupiedTiles()
         {
             if (_occupiedTiles.IsDefault)
             {
-                var builder = ImmutableArray.CreateBuilder<ChessTile>(PieceCount);
+                var builder = ImmutableArray.CreateBuilder<Tile>(PieceCount);
                 foreach (var tile in GetTiles())
                 {
                     if (tile.HasPiece)
@@ -411,9 +409,9 @@ namespace ChessBot
 
         public PlayerInfo GetPlayer(PlayerColor color) => (color == PlayerColor.White) ? White : Black;
 
-        public IEnumerable<ChessState> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
+        public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
-        public ImmutableArray<ChessTile> GetTiles() => _board;
+        public ImmutableArray<Tile> GetTiles() => _board;
 
         // todo: include fields of each playerinfo
         public override string ToString()
@@ -425,7 +423,7 @@ namespace ChessBot
             return sb.ToString();
         }
 
-        internal BoardLocation? GetKingsLocation(PlayerColor color)
+        internal Location? GetKingsLocation(PlayerColor color)
         {
             // todo: fix impl so it doesn't throw if there are 2+ matches
             return GetPlayer(color)
@@ -440,7 +438,7 @@ namespace ChessBot
         /// <br/>
         /// This is basically equivalent to checking whether GetPossibleDestinations(<paramref name="source"/>) contains <paramref name="destination"/>.
         /// </summary>
-        internal bool IsMovePossible(BoardLocation source, BoardLocation destination)
+        internal bool IsMovePossible(Location source, Location destination)
         {
             Debug.Assert(this[source].HasPiece);
 
@@ -500,11 +498,11 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
 
-        private IEnumerable<BoardLocation> GetPossibleDestinations(BoardLocation source)
+        private IEnumerable<Location> GetPossibleDestinations(Location source)
         {
             var sourceTile = this[source];
             var piece = sourceTile.Piece;
-            var destinations = new List<BoardLocation>();
+            var destinations = new List<Location>();
 
             switch (piece.Kind)
             {
@@ -584,7 +582,7 @@ namespace ChessBot
         }
 
         // note: May include squares occupied by friendly pieces
-        private IEnumerable<BoardLocation> GetDiagonalExtension(BoardLocation source)
+        private IEnumerable<Location> GetDiagonalExtension(Location source)
         {
             var prev = source;
 
@@ -626,7 +624,7 @@ namespace ChessBot
         }
 
         // note: May include squares occupied by friendly pieces
-        private IEnumerable<BoardLocation> GetOrthogonalExtension(BoardLocation source)
+        private IEnumerable<Location> GetOrthogonalExtension(Location source)
         {
             var prev = source;
 
@@ -671,14 +669,14 @@ namespace ChessBot
         /// Determines whether <paramref name="location"/> is attacked by an enemy piece.
         /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
         /// </summary>
-        private bool IsAttackedBy(PlayerColor color, BoardLocation location)
+        private bool IsAttackedBy(PlayerColor color, Location location)
             // It's ok that IsMovePossible() ignores castling, since the rook/king cannot perform captures while castling.
             => GetPlayer(color).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location));
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.
         /// </summary>
-        private static IEnumerable<BoardLocation> GetLocationsBetween(BoardLocation source, BoardLocation destination)
+        private static IEnumerable<Location> GetLocationsBetween(Location source, Location destination)
         {
             Debug.Assert(source != destination);
             var delta = (x: destination.Column - source.Column, y: destination.Row - source.Row);

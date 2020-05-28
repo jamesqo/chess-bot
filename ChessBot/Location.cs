@@ -4,21 +4,21 @@ using System.Runtime.CompilerServices;
 
 namespace ChessBot
 {
-    public struct BoardLocation : IEquatable<BoardLocation>
+    public struct Location : IEquatable<Location>
     {
-        public static implicit operator BoardLocation((int, int) tuple)
+        public static implicit operator Location((int, int) tuple)
         {
             var (column, row) = tuple;
-            return new BoardLocation(column, row);
+            return new Location(column, row);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool operator ==(BoardLocation left, BoardLocation right)
+        public static bool operator ==(Location left, Location right)
             => (left.Column == right.Column && left.Row == right.Row);
 
-        public static bool operator !=(BoardLocation left, BoardLocation right) => !(left == right);
+        public static bool operator !=(Location left, Location right) => !(left == right);
 
-        public static BoardLocation Parse(string algebraicNotation)
+        public static Location Parse(string algebraicNotation)
         {
             if (algebraicNotation?.Length != 2)
             {
@@ -36,7 +36,7 @@ namespace ChessBot
             return (column, row);
         }
 
-        public BoardLocation(int column, int row)
+        public Location(int column, int row)
         {
             if (column < 0 || column >= 8)
             {
@@ -60,15 +60,15 @@ namespace ChessBot
             row = Row;
         }
 
-        public BoardLocation Up(int count) => (Column, Row + count);
-        public BoardLocation Down(int count) => Up(-count);
-        public BoardLocation Left(int count) => Right(-count);
-        public BoardLocation Right(int count) => (Column + count, Row);
+        public Location Up(int count) => (Column, Row + count);
+        public Location Down(int count) => Up(-count);
+        public Location Left(int count) => Right(-count);
+        public Location Right(int count) => (Column + count, Row);
 
         public override bool Equals(object obj)
-            => obj is BoardLocation other && Equals(other);
+            => obj is Location other && Equals(other);
 
-        public bool Equals(BoardLocation other) => this == other;
+        public bool Equals(Location other) => this == other;
 
         public override int GetHashCode() => HashCode.Combine(Column, Row);
 

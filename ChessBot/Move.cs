@@ -8,7 +8,7 @@ using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 
 namespace ChessBot
 {
-    public class ChessMove
+    public class Move
     {
         private static readonly Dictionary<string, PieceKind> s_pieceKindMap = new Dictionary<string, PieceKind>
         {
@@ -19,27 +19,27 @@ namespace ChessBot
             ["K"] = PieceKind.King,
         };
 
-        internal static ChessMove Castle(PlayerColor color, bool kingside)
+        internal static Move Castle(PlayerColor color, bool kingside)
         {
-            var source = BoardLocation.Parse(color == PlayerColor.White ? "e1" : "e8");
+            var source = Location.Parse(color == PlayerColor.White ? "e1" : "e8");
             var destination = kingside ? source.Right(2) : source.Left(2);
-            return new ChessMove(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside);
+            return new Move(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside);
         }
 
-        private static MoveContext ParseInternal(string algebraicNotation)
+        private static MoveContext ParseInternal(string an)
         {
-            var inputStream = new AntlrInputStream(algebraicNotation);
+            var inputStream = new AntlrInputStream(an);
             var lexer = new AlgebraicNotationLexer(inputStream);
             var tokenStream = new CommonTokenStream(lexer);
             var parser = new AlgebraicNotationParser(tokenStream);
             return parser.move();
         }
 
-        private static BoardLocation InferSource(
+        private static Location InferSource(
             SourceContext sourceNode,
-            ChessState state,
+            State state,
             PieceKind pieceKind,
-            BoardLocation destination)
+            Location destination)
         {
             var possibleSources = state.ActivePlayer.GetOccupiedTiles().AsEnumerable();
             var sourceSquareNode = sourceNode?.square();
@@ -48,7 +48,7 @@ namespace ChessBot
 
             if (sourceSquareNode != null)
             {
-                var sourceLocation = BoardLocation.Parse(sourceSquareNode.GetText());
+                var sourceLocation = Location.Parse(sourceSquareNode.GetText());
                 possibleSources = new[] { state[sourceLocation] };
             }
             else if (sourceFileNode != null)
@@ -69,15 +69,15 @@ namespace ChessBot
             }
             catch (InvalidOperationException e)
             {
-                throw new InvalidChessMoveException("Could not infer source location", e);
+                throw new InvalidMoveException("Could not infer source location", e);
             }
         }
 
         // note: This method only checks that the specified piece occupies the source square.
         // It doesn't actually check whether the move is valid; that's done in ChessState.ApplyMove.
-        public static ChessMove Parse(string algebraicNotation, ChessState state)
+        public static Move Parse(string an, State state)
         {
-            var moveNode = ParseInternal(algebraicNotation);
+            var moveNode = ParseInternal(an);
             if (moveNode.exception != null)
             {
                 throw new AnParseException("Could not parse input", moveNode.exception);
@@ -90,9 +90,9 @@ namespace ChessBot
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 // todo: add a test for when we try to castle but there's no king / multiple kings
-                var source = state.GetKingsLocation(state.ActiveColor) ?? throw new InvalidChessMoveException("Attempt to castle without exactly 1 king");
+                var source = state.GetKingsLocation(state.ActiveColor) ?? throw new InvalidMoveException("Attempt to castle without exactly 1 king");
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
-                return new ChessMove(
+                return new Move(
                     source,
                     destination,
                     isCapture: false,
@@ -110,11 +110,11 @@ namespace ChessBot
 
                 var pieceKind = (pieceKindNode != null) ? s_pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
                 bool isCapture = (captureNode != null); // todo: enforce this if true. take en passant captures into account.
-                var destination = BoardLocation.Parse(destinationNode.GetText());
+                var destination = Location.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? s_pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
                 var source = InferSource(sourceNode, state, pieceKind, destination);
 
-                return new ChessMove(
+                return new Move(
                     source,
                     destination,
                     isCapture: isCapture,
@@ -122,9 +122,9 @@ namespace ChessBot
             }
         }
 
-        public ChessMove(
-            BoardLocation source,
-            BoardLocation destination,
+        public Move(
+            Location source,
+            Location destination,
             bool? isCapture = null,
             bool isKingsideCastle = false,
             bool isQueensideCastle = false,
@@ -161,8 +161,8 @@ namespace ChessBot
             PromotionKind = promotionKind;
         }
 
-        public BoardLocation Source { get; }
-        public BoardLocation Destination { get; }
+        public Location Source { get; }
+        public Location Destination { get; }
         public bool? IsCapture { get; }
         public bool IsKingsideCastle { get; }
         public bool IsQueensideCastle { get; }

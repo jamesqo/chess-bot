@@ -8,8 +8,8 @@ namespace ChessBot
 {
     public class PlayerInfo : IEquatable<PlayerInfo>
     {
-        private ChessState _state;
-        private ImmutableArray<ChessTile> _occupiedTiles;
+        private State _state;
+        private ImmutableArray<Tile> _occupiedTiles;
         private int _pieceCount = -1;
 
         internal int PieceCount => (_pieceCount >= 0 ? _pieceCount : (_pieceCount = ComputePieceCount()));
@@ -50,12 +50,12 @@ namespace ChessBot
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
 
-        public BoardLocation InitialKingLocation =>
-            Color == PlayerColor.White ? BoardLocation.Parse("e1") : BoardLocation.Parse("e8");
-        public BoardLocation InitialKingsideRookLocation =>
-            Color == PlayerColor.White ? BoardLocation.Parse("h1") : BoardLocation.Parse("h8");
-        public BoardLocation InitialQueensideRookLocation =>
-            Color == PlayerColor.White ? BoardLocation.Parse("a1") : BoardLocation.Parse("a8");
+        public Location InitialKingLocation =>
+            Color == PlayerColor.White ? Location.Parse("e1") : Location.Parse("e8");
+        public Location InitialKingsideRookLocation =>
+            Color == PlayerColor.White ? Location.Parse("h1") : Location.Parse("h8");
+        public Location InitialQueensideRookLocation =>
+            Color == PlayerColor.White ? Location.Parse("a1") : Location.Parse("a8");
 
         public bool Equals([AllowNull] PlayerInfo other)
         {
@@ -68,13 +68,13 @@ namespace ChessBot
 
         public override int GetHashCode() => throw new NotImplementedException();
 
-        public ImmutableArray<ChessTile> GetOccupiedTiles()
+        public ImmutableArray<Tile> GetOccupiedTiles()
         {
             // todo: enforce _state isn't null
 
             if (_occupiedTiles.IsDefault)
             {
-                var builder = ImmutableArray.CreateBuilder<ChessTile>(PieceCount);
+                var builder = ImmutableArray.CreateBuilder<Tile>(PieceCount);
                 foreach (var tile in _state.GetTiles())
                 {
                     if (tile.HasPiece && tile.Piece.Color == Color)
@@ -91,8 +91,8 @@ namespace ChessBot
         public PlayerInfo SetCanCastleKingside(bool value) => new PlayerInfo(this) { CanCastleKingside = value };
         public PlayerInfo SetCanCastleQueenside(bool value) => new PlayerInfo(this) { CanCastleQueenside = value };
 
-        internal PlayerInfo SetState(ChessState value) => new PlayerInfo(this) { _state = value };
-        internal PlayerInfo SetOccupiedTiles(ImmutableArray<ChessTile> value) => new PlayerInfo(this) { _occupiedTiles = value };
+        internal PlayerInfo SetState(State value) => new PlayerInfo(this) { _state = value };
+        internal PlayerInfo SetOccupiedTiles(ImmutableArray<Tile> value) => new PlayerInfo(this) { _occupiedTiles = value };
         internal PlayerInfo SetPieceCount(int value) => new PlayerInfo(this) { _pieceCount = value };
 
         public override string ToString()
