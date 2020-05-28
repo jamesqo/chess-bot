@@ -10,7 +10,7 @@ namespace ChessBot
 
         public ChessGame()
         {
-            State = new ChessState();
+            State = ChessState.Start;
             Turn = 1;
             _history = new List<ChessMove>();
         }

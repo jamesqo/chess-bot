@@ -202,7 +202,7 @@ namespace ChessBot
                             _ = state.ApplyMove(move); // make sure it's valid
                             return move;
                         }
-                        catch (Exception e) when (e is AlgebraicNotationParseException || e is InvalidChessMoveException)
+                        catch (Exception e) when (e is AnParseException || e is InvalidChessMoveException)
                         {
                             Debug.WriteLine(e.ToString());
                             Console.WriteLine("Sorry, try again.");

@@ -22,7 +22,7 @@ namespace ChessBot
         {
             if (algebraicNotation?.Length != 2)
             {
-                throw new AlgebraicNotationParseException("Expected input of length 2");
+                throw new AnParseException("Expected input of length 2");
             }
 
             int column = (algebraicNotation[0] - 'a');
@@ -30,7 +30,7 @@ namespace ChessBot
 
             if ((column < 0 || column >= 8) || (row < 0 || row >= 8))
             {
-                throw new AlgebraicNotationParseException("Invalid rank or file specified");
+                throw new AnParseException("Invalid rank or file specified");
             }
 
             return (column, row);

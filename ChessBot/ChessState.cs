@@ -18,48 +18,8 @@ namespace ChessBot
     /// </summary>
     public class ChessState : IEquatable<ChessState>
     {
-        #region Starting piece arrangement
-        private static readonly Dictionary<string, ChessPiece> s_startPieceMap = new Dictionary<string, ChessPiece>
-        {
-            ["a1"] = WhiteRook,
-            ["b1"] = WhiteKnight,
-            ["c1"] = WhiteBishop,
-            ["d1"] = WhiteQueen,
-            ["e1"] = WhiteKing,
-            ["f1"] = WhiteBishop,
-            ["g1"] = WhiteKnight,
-            ["h1"] = WhiteRook,
-
-            ["a2"] = WhitePawn,
-            ["b2"] = WhitePawn,
-            ["c2"] = WhitePawn,
-            ["d2"] = WhitePawn,
-            ["e2"] = WhitePawn,
-            ["f2"] = WhitePawn,
-            ["g2"] = WhitePawn,
-            ["h2"] = WhitePawn,
-
-            ["a7"] = BlackPawn,
-            ["b7"] = BlackPawn,
-            ["c7"] = BlackPawn,
-            ["d7"] = BlackPawn,
-            ["e7"] = BlackPawn,
-            ["f7"] = BlackPawn,
-            ["g7"] = BlackPawn,
-            ["h7"] = BlackPawn,
-
-            ["a8"] = BlackRook,
-            ["b8"] = BlackKnight,
-            ["c8"] = BlackBishop,
-            ["d8"] = BlackQueen,
-            ["e8"] = BlackKing,
-            ["f8"] = BlackBishop,
-            ["g8"] = BlackKnight,
-            ["h8"] = BlackRook,
-        };
-        #endregion
-
-        #region Initialization logic and properties
+        public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        public static ChessState Start { get; } = ParseFen(StartFen);
 
         public static ChessState ParseFen(string fen)
         {
@@ -161,7 +121,6 @@ namespace ChessBot
 
         private static ImmutableArray<ChessTile> CreateBoard(IDictionary<string, ChessPiece> pieceMap)
         {
-            pieceMap = pieceMap ?? s_startPieceMap;
             var pieces = pieceMap.Values;
             // todo: add tests for this
             if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
@@ -252,8 +211,6 @@ namespace ChessBot
             get => this[location.Column, location.Row];
         }
         public ChessTile this[string location] => this[BoardLocation.Parse(location)];
-
-        #endregion
 
         public ChessState ApplyMove(string move) => ApplyMove(ChessMove.Parse(move, this));
 

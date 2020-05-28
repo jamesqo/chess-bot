@@ -69,7 +69,7 @@ namespace ChessBot
             }
             catch (InvalidOperationException e)
             {
-                throw new AlgebraicNotationParseException("Could not infer source location", e);
+                throw new InvalidChessMoveException("Could not infer source location", e);
             }
         }
 
@@ -80,7 +80,7 @@ namespace ChessBot
             var moveNode = ParseInternal(algebraicNotation);
             if (moveNode.exception != null)
             {
-                throw new AlgebraicNotationParseException("Could not parse input", moveNode.exception);
+                throw new AnParseException("Could not parse input", moveNode.exception);
             }
 
             // todo: enforce check/checkmate if they are specified
@@ -90,7 +90,7 @@ namespace ChessBot
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 // todo: add a test for when we try to castle but there's no king / multiple kings
-                var source = state.GetKingsLocation(state.ActiveColor) ?? throw new AlgebraicNotationParseException("Attempt to castle without exactly 1 king");
+                var source = state.GetKingsLocation(state.ActiveColor) ?? throw new InvalidChessMoveException("Attempt to castle without exactly 1 king");
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new ChessMove(
                     source,
