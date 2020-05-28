@@ -11,15 +11,13 @@ using static ChessBot.Piece;
 
 namespace ChessBot
 {
-    // todo: enforce for ChessMove.Parse() that if a pawn reaches the back rank it *must* be promoted
-
     /// <summary>
     /// Immutable class representing the state of the chess board.
     /// </summary>
     public class State : IEquatable<State>
     {
-        public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         public static State Start { get; } = ParseFen(StartFen);
+        public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
         public static State ParseFen(string fen)
         {
@@ -251,8 +249,9 @@ namespace ChessBot
             {
                 return Error($"{nameof(move.IsCapture)} property is not set properly");
             }
+            bool promotes = (move.PromotionKind != null);
             int promotionRow = WhiteToMove ? 7 : 0;
-            if ((move.PromotionKind != null) != (piece.Kind == PieceKind.Pawn && destination.Row == promotionRow))
+            if (promotes != (piece.Kind == PieceKind.Pawn && destination.Row == promotionRow))
             {
                 return Error("A promotion happens iff a pawn moves to the back rank");
             }
