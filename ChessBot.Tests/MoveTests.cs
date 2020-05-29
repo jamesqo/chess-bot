@@ -7,6 +7,8 @@ namespace ChessBot.Tests
 {
     public class MoveTests
     {
+        // todo: some tests ie. en passant captures need to be moved here
+
         [Theory]
         [InlineData("O-O")]
         [InlineData("0-0")]

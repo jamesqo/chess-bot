@@ -16,26 +16,29 @@ namespace ChessBot
     /// </summary>
     public class State : IEquatable<State>
     {
-        public static State Start { get; } = ParseFen(StartFen);
         public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        public static State Start { get; } = ParseFen(StartFen);
 
         private State(
             ImmutableArray<Tile> board,
             PlayerColor activeColor,
             PlayerInfo white,
-            PlayerInfo black)
+            PlayerInfo black,
+            Location? enPassantTarget)
         {
             _board = board;
             ActiveColor = activeColor;
             White = white.SetState(this);
             Black = black.SetState(this);
+            EnPassantTarget = enPassantTarget;
         }
 
         private State(State other) : this(
             other._board,
             other.ActiveColor,
             other.White,
-            other.Black)
+            other.Black,
+            other.EnPassantTarget)
         {
         }
 
@@ -52,7 +55,11 @@ namespace ChessBot
                 _ => throw new InvalidFenException($"Invalid active color: {parts[1]}")
             };
             var castlingRights = parts[2];
-            var enPassantTarget = parts[3]; // todo: don't ignore
+            var enPassantTarget = parts[3] switch
+            {
+                "-" => (Location?)null,
+                _ => Location.Parse(parts[3]) // todo: wrap AnParseException
+            };
             var rule50Counter = parts[4]; // todo: don't ignore
             var fullMoveCounter = parts[5]; // todo: don't ignore
 
@@ -129,7 +136,8 @@ namespace ChessBot
                 board: board.MoveToImmutable(),
                 activeColor: activeColor,
                 white: white,
-                black: black);
+                black: black,
+                enPassantTarget: enPassantTarget);
         }
 
         private static int GetBoardIndex(int column, int row) => (8 * column + row);
@@ -141,6 +149,7 @@ namespace ChessBot
         public PlayerColor ActiveColor { get; private set; } // todo: remove this from public api?
         public PlayerInfo White { get; private set; }
         public PlayerInfo Black { get; private set; }
+        public Location? EnPassantTarget { get; private set; }
 
         public State SetActiveColor(PlayerColor value) => new State(this) { ActiveColor = value };
         public State SetWhite(PlayerInfo value) => new State(this) { White = value };
@@ -204,9 +213,12 @@ namespace ChessBot
             {
                 return Error("Destination tile is already occupied by a piece of the same color");
             }
-            if (move.IsCapture.HasValue && move.IsCapture.Value != this[destination].HasPiece) // todo: en passant captures
+            if (move.IsCapture.HasValue && move.IsCapture.Value != this[destination].HasPiece)
             {
-                return Error($"{nameof(move.IsCapture)} property is not set properly");
+                if (!(move.IsCapture.Value && piece.Kind == PieceKind.Pawn && EnPassantTarget.HasValue && destination == EnPassantTarget.Value))
+                {
+                    return Error($"{nameof(move.IsCapture)} property is not set properly");
+                }
             }
             bool promotes = (move.PromotionKind != null);
             int promotionRow = WhiteToMove ? 7 : 0;
@@ -253,21 +265,26 @@ namespace ChessBot
             }
 
             var newOpposingPlayer = OpposingPlayer;
-            bool isCapture = this[destination].HasPiece; // todo: en passant captures
+            bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && EnPassantTarget.HasValue && destination == EnPassantTarget.Value);
+            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
             if (isCapture)
             {
                 newOpposingPlayer = newOpposingPlayer.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
                 newOpposingPlayer = newOpposingPlayer.SetPieceCount(newOpposingPlayer.PieceCount - 1);
             }
 
+            bool is2Advance = (piece.Kind == PieceKind.Pawn && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
+            var newEnPassantTarget = is2Advance ? (WhiteToMove ? source.Up(1) : source.Down(1)) : (Location?)null;
+
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
-            newBoard = ApplyMoveInternal(newBoard, source, destination, move.PromotionKind);
+            newBoard = ApplyMoveInternal(newBoard, source, destination, move.PromotionKind, isEnPassantCapture);
 
             var result = new State(
                 board: newBoard,
                 activeColor: OpposingColor,
                 white: WhiteToMove ? newActivePlayer : newOpposingPlayer,
-                black: WhiteToMove ? newOpposingPlayer : newActivePlayer);
+                black: WhiteToMove ? newOpposingPlayer : newActivePlayer,
+                enPassantTarget: newEnPassantTarget);
 
             if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
             {
@@ -277,15 +294,29 @@ namespace ChessBot
             return Result(result);
         }
 
-        private static ImmutableArray<Tile> ApplyMoveInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null)
+        private static ImmutableArray<Tile> ApplyMoveInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null, bool isEnPassantCapture = false)
         {
+            Debug.Assert(source != destination);
+
             var newBoard = board.ToBuilder();
             var (sourceIndex, destinationIndex) = (GetBoardIndex(source), GetBoardIndex(destination));
+
+            Debug.Assert(board[sourceIndex].HasPiece);
+            Debug.Assert(!board[destinationIndex].HasPiece || board[destinationIndex].Piece.Color != board[sourceIndex].Piece.Color);
 
             newBoard[sourceIndex] = newBoard[sourceIndex].SetPiece(null);
             var piece = board[sourceIndex].Piece;
             if (promotionKind != null) piece = new Piece(piece.Color, promotionKind.Value);
             newBoard[destinationIndex] = newBoard[destinationIndex].SetPiece(piece);
+
+            if (isEnPassantCapture)
+            {
+                var target = piece.Color == PlayerColor.White ? destination.Down(1) : destination.Up(1);
+                int targetIndex = GetBoardIndex(target);
+                Debug.Assert(board[targetIndex].HasPiece && board[targetIndex].Piece.Color != board[sourceIndex].Piece.Color && board[targetIndex].Piece.Kind == PieceKind.Pawn);
+                newBoard[targetIndex] = newBoard[targetIndex].SetPiece(null);
+            }
+
             return newBoard.MoveToImmutable();
         }
 
@@ -309,7 +340,8 @@ namespace ChessBot
 
             if (ActiveColor != other.ActiveColor ||
                 !White.Equals(other.White) ||
-                !Black.Equals(other.Black))
+                !Black.Equals(other.Black) || 
+                EnPassantTarget != other.EnPassantTarget)
             {
                 return false;
             }
@@ -372,6 +404,7 @@ namespace ChessBot
         public ImmutableArray<Tile> GetTiles() => _board;
 
         // todo: include fields of each playerinfo
+        // todo: just output fen
         public override string ToString()
         {
             var sb = new StringBuilder();
@@ -392,7 +425,7 @@ namespace ChessBot
 
         /// <summary>
         /// Checks whether it's possible to move the piece on <paramref name="source"/> to <paramref name="destination"/>.
-        /// Ignores whether we would create an illegal position by putting our king in check.
+        /// Ignores whether we would create an invalid position by putting our king in check.
         /// <br/>
         /// This is basically equivalent to checking whether GetPossibleDestinations(<paramref name="source"/>) contains <paramref name="destination"/>.
         /// </summary>
@@ -435,7 +468,7 @@ namespace ChessBot
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
                     int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
                     bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || (delta.y == forward * 2 && source.Row == homeRow)));
-                    bool isValidCapture = (destinationTile.HasPiece && Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
+                    bool isValidCapture = (destinationTile.HasPiece || destination == EnPassantTarget) && (Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
 
                     canMoveIfUnblocked = (isValidAdvance || isValidCapture);
                     canPieceBeBlocked = isValidAdvance;
@@ -494,6 +527,7 @@ namespace ChessBot
                     if (source.Row > 1 && source.Column < 7) destinations.Add(source.Down(2).Right(1));
                     if (source.Row < 6 && source.Column < 7) destinations.Add(source.Up(2).Right(1));
                     break;
+                // todo: support en passant captures
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
                     int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
@@ -512,7 +546,7 @@ namespace ChessBot
                     if (source.Column > 0)
                     {
                         var nw = n1.Left(1);
-                        if (this[nw].HasPiece && this[nw].Piece.Color != piece.Color)
+                        if ((this[nw].HasPiece && this[nw].Piece.Color != piece.Color) || nw == EnPassantTarget)
                         {
                             destinations.Add(nw);
                         }
@@ -521,7 +555,7 @@ namespace ChessBot
                     if (source.Column < 7)
                     {
                         var ne = n1.Right(1);
-                        if (this[ne].HasPiece && this[ne].Piece.Color != piece.Color)
+                        if ((this[ne].HasPiece && this[ne].Piece.Color != piece.Color) || ne == EnPassantTarget)
                         {
                             destinations.Add(ne);
                         }

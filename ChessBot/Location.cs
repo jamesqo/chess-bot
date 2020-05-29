@@ -18,15 +18,15 @@ namespace ChessBot
 
         public static bool operator !=(Location left, Location right) => !(left == right);
 
-        public static Location Parse(string algebraicNotation)
+        public static Location Parse(string an)
         {
-            if (algebraicNotation?.Length != 2)
+            if (an?.Length != 2)
             {
                 throw new AnParseException("Expected input of length 2");
             }
 
-            int column = (algebraicNotation[0] - 'a');
-            int row = (algebraicNotation[1] - '1');
+            int column = (an[0] - 'a');
+            int row = (an[1] - '1');
 
             if ((column < 0 || column >= 8) || (row < 0 || row >= 8))
             {
