@@ -19,6 +19,26 @@ namespace ChessBot
         public static State Start { get; } = ParseFen(StartFen);
         public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+        private State(
+            ImmutableArray<Tile> board,
+            PlayerColor activeColor,
+            PlayerInfo white,
+            PlayerInfo black)
+        {
+            _board = board;
+            ActiveColor = activeColor;
+            White = white.SetState(this);
+            Black = black.SetState(this);
+        }
+
+        private State(State other) : this(
+            other._board,
+            other.ActiveColor,
+            other.White,
+            other.Black)
+        {
+        }
+
         public static State ParseFen(string fen)
         {
             var parts = fen.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -74,7 +94,7 @@ namespace ChessBot
                             'r' => PieceKind.Rook,
                             'q' => PieceKind.Queen,
                             'k' => PieceKind.King,
-                            _ => throw new InvalidFenException()
+                            _ => throw new InvalidFenException($"Invalid piece kind: {ch}")
                         };
                         var piece = new Piece(color, kind);
                         var tile = new Tile((c, r), piece);
@@ -91,16 +111,16 @@ namespace ChessBot
             var black = new PlayerInfo(PlayerColor.Black, canCastleKingside: false, canCastleQueenside: false);
             if (castlingRights != "-")
             {
-                foreach (char c in castlingRights)
+                foreach (char ch in castlingRights)
                 {
                     // todo: we should keep track of whether we've seen duplicates, eg. 'KKqkq'
-                    switch (c)
+                    switch (ch)
                     {
                         case 'K': white = white.SetCanCastleKingside(true); break;
                         case 'Q': white = white.SetCanCastleQueenside(true); break;
                         case 'k': black = black.SetCanCastleKingside(true); break;
                         case 'q': black = black.SetCanCastleQueenside(true); break;
-                        default: throw new InvalidFenException($"Invalid castling rights: {castlingRights}");
+                        default: throw new InvalidFenException($"Invalid castling flag: {ch}");
                     }
                 }
             }
@@ -115,69 +135,8 @@ namespace ChessBot
         private static int GetBoardIndex(int column, int row) => (8 * column + row);
         private static int GetBoardIndex(Location location) => GetBoardIndex(location.Column, location.Row);
 
-        private static ImmutableArray<Tile> CreateBoard(IDictionary<string, Piece> pieceMap)
-        {
-            var pieces = pieceMap.Values;
-            // todo: add tests for this
-            if (pieces.Count(t => t == BlackKing) > 1 || pieces.Count(t => t == WhiteKing) > 1)
-            {
-                throw new ArgumentException("Cannot have more than 1 king of a given color", nameof(pieceMap));
-            }
-
-            var board = ImmutableArray.CreateBuilder<Tile>(64);
-            board.Count = 64;
-
-            foreach (var (locationString, piece) in pieceMap)
-            {
-                var location = Location.Parse(locationString);
-                board[GetBoardIndex(location)] = new Tile(location, piece);
-            }
-
-            for (int c = 0; c < 8; c++)
-            {
-                for (int r = 0; r < 8; r++)
-                {
-                    int index = GetBoardIndex(c, r);
-                    if (board[index] == null)
-                    {
-                        board[index] = new Tile((c, r));
-                    }
-                }
-            }
-
-            return board.MoveToImmutable();
-        }
-
         private readonly ImmutableArray<Tile> _board;
         private ImmutableArray<Tile> _occupiedTiles;
-
-        private State(
-            ImmutableArray<Tile> board,
-            PlayerColor activeColor,
-            PlayerInfo white,
-            PlayerInfo black)
-        {
-            _board = board;
-            ActiveColor = activeColor;
-            White = (white ?? new PlayerInfo(PlayerColor.White)).SetState(this);
-            Black = (black ?? new PlayerInfo(PlayerColor.Black)).SetState(this);
-        }
-
-        private State(State other) : this(
-            other._board,
-            other.ActiveColor,
-            other.White,
-            other.Black)
-        { }
-
-        public State(
-            IDictionary<string, Piece> pieceMap = null,
-            PlayerColor activeColor = PlayerColor.White,
-            PlayerInfo white = null,
-            PlayerInfo black = null)
-            : this(CreateBoard(pieceMap), activeColor, white, black)
-        {
-        }
 
         public PlayerColor ActiveColor { get; private set; } // todo: remove this from public api?
         public PlayerInfo White { get; private set; }
