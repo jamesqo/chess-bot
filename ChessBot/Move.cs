@@ -133,13 +133,7 @@ namespace ChessBot
         {
             if (source == destination)
             {
-                // todo: throw error
-            }
-
-            if ((isKingsideCastle && destination != source.Right(2)) ||
-                (isQueensideCastle && destination != source.Left(2)))
-            {
-                // todo: throw error
+                throw new InvalidMoveException("Source cannot be the same as the destination");
             }
 
             switch (promotionKind)
@@ -151,7 +145,7 @@ namespace ChessBot
                 case PieceKind.Rook:
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(promotionKind));
+                    throw new InvalidMoveException($"Bad value for ${nameof(promotionKind)}");
             }
 
             Source = source;
