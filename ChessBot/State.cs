@@ -154,6 +154,7 @@ namespace ChessBot
         public State SetActiveColor(PlayerColor value) => new State(this) { ActiveColor = value };
         public State SetWhite(PlayerInfo value) => new State(this) { White = value };
         public State SetBlack(PlayerInfo value) => new State(this) { Black = value };
+        public State SetEnPassantTarget(Location? value) => new State(this) { EnPassantTarget = value };
 
         public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
         public PlayerColor OpposingColor => WhiteToMove ? PlayerColor.Black : PlayerColor.White;
