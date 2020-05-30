@@ -75,6 +75,7 @@ namespace ChessBot
 
         // note: This method only checks that the specified piece occupies the source square.
         // It doesn't actually check whether the move is valid; that's done in ChessState.ApplyMove.
+        // todo: an empty input leads to nullrefs here
         public static Move Parse(string an, State state)
         {
             var moveNode = ParseInternal(an);

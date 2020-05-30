@@ -68,7 +68,7 @@ namespace ChessBot
             var whitePlayer = (userColor == PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
             var blackPlayer = (userColor != PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
 
-            WriteLine($"Playing as: {userColor.ToString().ToLower()}");
+            WriteLine($"Playing as: {userColor}");
             WriteLine();
 
             var state = State.ParseFen(fen);
@@ -131,34 +131,28 @@ namespace ChessBot
             // todo: have whichever side the human is on at the bottom
             for (int r = 7; r >= 0; r--)
             {
-                sb.Append(' ');
-                sb.AppendJoin("__", Enumerable.Repeat('.', 9));
-                sb.AppendLine();
-
-                sb.Append(r + 1);
+                //sb.Append(r + 1);
+                //sb.Append('|');
                 for (int c = 0; c < 8; c++)
                 {
-                    sb.Append('|');
-                    sb.Append(GetDisplayString(state[c, r]));
+                    if (c > 0) sb.Append(' ');
+                    sb.Append(GetDisplayChar(state[c, r]));
                 }
-                sb.Append('|');
-                sb.AppendLine();
+                //sb.Append('|');
+                if (r > 0) sb.AppendLine();
             }
-            sb.Append(' ');
-            sb.AppendJoin("__", Enumerable.Repeat('.', 9));
-            sb.AppendLine();
-
-            sb.Append("   ");
-            sb.AppendJoin("  ", Enumerable.Range(0, 8).Select(i => (char)(i + 'a')));
+            //sb.AppendLine();
+            //sb.Append("  ");
+            //sb.AppendJoin(' ', Enumerable.Range(0, 8).Select(i => (char)(i + 'a')));
             return sb.ToString();
         }
 
-        static string GetDisplayString(Tile tile)
+        static char GetDisplayChar(Tile tile)
         {
-            if (!tile.HasPiece) return "  ";
+            if (!tile.HasPiece) return '.';
             var piece = tile.Piece;
 
-            char kindChar = piece.Kind switch
+            char result = piece.Kind switch
             {
                 PieceKind.Pawn => 'P',
                 PieceKind.Knight => 'N',
@@ -168,8 +162,12 @@ namespace ChessBot
                 PieceKind.King => 'K',
                 _ => throw new ArgumentOutOfRangeException()
             };
-            char colorChar = (piece.Color == PlayerColor.White) ? 'w' : 'b';
-            return new string(new[] { kindChar, colorChar });
+
+            if (piece.Color == PlayerColor.Black)
+            {
+                result = char.ToLowerInvariant(result);
+            }
+            return result;
         }
     }
 
