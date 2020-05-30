@@ -3,81 +3,100 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using static System.Console;
 
 namespace ChessBot
 {
     class Program
     {
+        static PlayerColor GetUserColor()
+        {
+            while (true)
+            {
+                Write("Pick your color [b for black, w for white]: ");
+                string input = ReadLine().Trim().ToLower();
+                switch (input)
+                {
+                    case "b": return PlayerColor.Black;
+                    case "w": return PlayerColor.White;
+                }
+            }
+        }
+
+        static AIStrategy GetAIStrategy()
+        {
+            while (true)
+            {
+                Write("Pick ai strategy [random, minimax, alphabeta]: ");
+                string input = ReadLine().Trim().ToLower();
+                switch (input)
+                {
+                    case "random": return AIStrategy.Random;
+                    case "minimax": return AIStrategy.Minimax;
+                    case "alphabeta": return AIStrategy.AlphaBeta;
+                }
+            }
+        }
+
+        static string GetStartFen()
+        {
+            while (true)
+            {
+                Write("Enter start FEN [optional]: ");
+                string input = ReadLine().Trim();
+                if (string.IsNullOrEmpty(input)) return State.StartFen;
+
+                try
+                {
+                    State.ParseFen(input); // make sure it's valid
+                    return input;
+                }
+                catch (InvalidFenException) { }
+            }
+        }
+
         static void Main(string[] args)
         {
-            Console.WriteLine("Welcome! This is a simple chess bot written in C#.");
+            WriteLine("Welcome! This is a simple chess bot written in C#.");
+            WriteLine();
 
-            PlayerColor userColor;
-            while (true)
-            {
-                Console.Write("Pick your color [b for black, w for white]: ");
-                string input = Console.ReadLine().Trim().ToLower();
-                if (input == "b" || input == "w")
-                {
-                    userColor = (input == "b" ? PlayerColor.Black : PlayerColor.White);
-                    break;
-                }
-            }
-
-            AIStrategy aiStrategy;
-            while (true)
-            {
-                Console.Write("Pick ai strategy [random, minimax, alphabeta]: ");
-                string input = Console.ReadLine().Trim().ToLower();
-                if (input == "random")
-                {
-                    aiStrategy = AIStrategy.Random;
-                    break;
-                }
-                else if (input == "minimax")
-                {
-                    aiStrategy = AIStrategy.Minimax;
-                    break;
-                }
-                else if (input == "alphabeta")
-                {
-                    aiStrategy = AIStrategy.AlphaBeta;
-                    break;
-                }
-            }
+            var userColor = GetUserColor();
+            var aiStrategy = GetAIStrategy();
+            var fen = GetStartFen();
+            WriteLine();
 
             var whitePlayer = (userColor == PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
             var blackPlayer = (userColor != PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
 
-            Console.WriteLine($"Playing as: {userColor}");
+            WriteLine($"Playing as: {userColor.ToString().ToLower()}");
+            WriteLine();
 
-            var game = new Game();
-            Console.WriteLine();
-            Console.WriteLine(GetDisplayString(game.State));
-            Console.WriteLine();
+            var state = State.ParseFen(fen);
 
-            while (true)
+            for (int turn = 1; ; turn++) // todo
             {
-                Console.WriteLine($"<< Turn {game.Turn} >>");
-                Console.WriteLine();
+                WriteLine($"[Turn {turn}]");
+                WriteLine();
 
-                Console.WriteLine("It's White's turn.");
-                var nextMove = whitePlayer.GetNextMove(game.State);
-                Console.WriteLine($"White chose: {nextMove}"); // todo
-                game.ApplyMove(nextMove);
-                Console.WriteLine();
-                Console.WriteLine(GetDisplayString(game.State));
-                Console.WriteLine();
-                CheckForEnd(game);
+                WriteLine(GetDisplayString(state));
+                WriteLine();
 
-                Console.WriteLine("It's Black's turn.");
-                nextMove = blackPlayer.GetNextMove(game.State);
-                Console.WriteLine($"Black chose: {nextMove}");
-                game.ApplyMove(nextMove);
-                Console.WriteLine();
-                Console.WriteLine(GetDisplayString(game.State));
-                Console.WriteLine();
-                CheckForEnd(game);
+                WriteLine("It's White's turn.");
+                var nextMove = whitePlayer.GetNextMove(state);
+                WriteLine($"White chose: {nextMove}"); // todo
+                state = state.ApplyMove(nextMove);
+                WriteLine();
+                CheckForEnd(state);
+
+                WriteLine(GetDisplayString(state));
+                WriteLine();
+
+                WriteLine("It's Black's turn.");
+                nextMove = blackPlayer.GetNextMove(state);
+                WriteLine($"Black chose: {nextMove}");
+                state = state.ApplyMove(nextMove);
+                WriteLine();
+                CheckForEnd(state);
             }
         }
 
@@ -89,19 +108,17 @@ namespace ChessBot
             _ => throw new ArgumentOutOfRangeException(nameof(strategy))
         };
 
-        // todo: HasEnded
-        static void CheckForEnd(Game game)
+        static void CheckForEnd(State state)
         {
-            var state = game.State;
             if (state.IsCheckmate)
             {
-                Console.WriteLine($"{state.OpposingColor} wins!");
+                WriteLine($"{state.OpposingColor} wins!");
                 Environment.Exit(0);
             }
 
             if (state.IsStalemate)
             {
-                Console.WriteLine("It's a draw.");
+                WriteLine("It's a draw.");
                 Environment.Exit(0);
             }
 
@@ -174,8 +191,8 @@ namespace ChessBot
         {
             while (true)
             {
-                Console.Write("> ");
-                string input = Console.ReadLine();
+                Write("> ");
+                string input = ReadLine();
                 switch (input)
                 {
                     case "exit":
@@ -183,15 +200,15 @@ namespace ChessBot
                         Environment.Exit(0);
                         break;
                     case "help":
-                        Console.WriteLine("List of commands:");
-                        Console.WriteLine();
-                        Console.WriteLine("help - displays this message");
-                        Console.WriteLine("list - list of all valid moves");
+                        WriteLine("List of commands:");
+                        WriteLine();
+                        WriteLine("help - displays this message");
+                        WriteLine("list - list of all valid moves");
                         break;
                     case "list":
-                        Console.WriteLine("List of valid moves:");
-                        Console.WriteLine();
-                        Console.WriteLine(string.Join(Environment.NewLine, state.GetMoves()));
+                        WriteLine("List of valid moves:");
+                        WriteLine();
+                        WriteLine(string.Join(Environment.NewLine, state.GetMoves()));
                         break;
                     default:
                         try
@@ -203,7 +220,7 @@ namespace ChessBot
                         catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
                         {
                             Debug.WriteLine(e.ToString());
-                            Console.WriteLine("Sorry, try again.");
+                            WriteLine("Sorry, try again.");
                         }
                         break;
                 }
