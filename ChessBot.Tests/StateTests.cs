@@ -1,4 +1,5 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Tests.TestUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -211,12 +212,11 @@ namespace ChessBot.Tests
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a1K"));
         }
 
-        [Fact(Skip = "test needs fixing")]
-        public void GetMoves_GetSuccessors()
+        [Fact]
+        public void GetMoves()
         {
             var state = State.Start;
-
-            var moves = new[]
+            TestGetMoves(state, new[]
             {
                 "a3",
                 "a4",
@@ -234,71 +234,69 @@ namespace ChessBot.Tests
                 "g4",
                 "h3",
                 "h4",
-                "Nf1",
+                "Na3",
+                "Nc3",
                 "Nf3",
+                "Nh3",
+            });
+            TestGetMoves(state.SetActiveColor(PlayerColor.Black), new[]
+            {
+                "a6",
+                "a5",
+                "b6",
+                "b5",
+                "c6",
+                "c5",
+                "d6",
+                "d5",
+                "e6",
+                "e5",
+                "f6",
+                "f5",
+                "g6",
+                "g5",
+                "h6",
+                "h5",
+                "Na6",
+                "Nc6",
                 "Nf6",
-                "Nf8",
-            }.Select(an => Move.Parse(an, state));
-            var succs = moves.Select(m => state.ApplyMove(m));
-            var movesAndSuccs = moves.Zip(succs);
-
-            Assert.Equal(moves, state.GetMoves());
-            Assert.Equal(succs, state.GetSuccessors());
-            Assert.Equal(movesAndSuccs, state.GetMovesAndSuccessors());
+                "Nh6",
+            });
         }
         
-        // todo: add tests for castling for GetMoves/Successors
+        // todo: add castling tests for GetMoves
 
-        [Fact(Skip = "test needs fixing")]
-        public void GetMoves_GetSuccessors_EnPassantCapture()
+        [Fact]
+        public void GetMoves_EnPassantCapture()
         {
             // black captures en passant
             var state = State.ParseFen("8/8/8/8/4p3/8/3P1P2/8 w - - 0 1");
-
-            // on left
-            var state2 = state.ApplyMove("d4");
-            var moves = new[] { "e3", "xd3" }.Select(an => Move.Parse(an, state2));
-            Assert.Equal(moves, state2.GetMoves());
-            // on right
-            state2 = state.ApplyMove("f4");
-            moves = new[] { "e3", "xf3" }.Select(an => Move.Parse(an, state2));
-            Assert.Equal(moves, state2.GetMoves());
+            TestGetMoves(state.ApplyMove("d4"), new[] { "e3", "xd3" }); // on left
+            TestGetMoves(state.ApplyMove("f4"), new[] { "e3", "xf3" }); // on right
 
             // white captures en passant
             state = State.ParseFen("8/3p1p2/8/4P3/8/8/8/8 b - - 0 1");
-
-            // on left
-            state2 = state.ApplyMove("d5");
-            moves = new[] { "e6", "xd6" }.Select(an => Move.Parse(an, state2));
-            Assert.Equal(moves, state2.GetMoves());
-            // on right
-            state2 = state.ApplyMove("f5");
-            moves = new[] { "e6", "xf6" }.Select(an => Move.Parse(an, state2));
-            Assert.Equal(moves, state2.GetMoves());
+            TestGetMoves(state.ApplyMove("d5"), new[] { "e6", "xd6" }); // on left
+            TestGetMoves(state.ApplyMove("f5"), new[] { "e6", "xf6" }); // on right
         }
 
-        [Fact(Skip = "test needs fixing")]
-        public void GetMoves_GetSuccessors_Promotion()
+        [Fact]
+        public void GetMoves_Promotion()
         {
             var state = State.ParseFen("8/P7/8/8/8/8/p7/8 w - - 0 1");
+            TestGetMoves(state, new[] { "a8N", "a8B", "a8R", "a8Q" });
+            TestGetMoves(state.SetActiveColor(PlayerColor.Black), new[] { "a1N", "a1B", "a1R", "a1Q" });
+        }
 
-            var moves = new[] { "a8N", "a8B", "a8R", "a8Q" }.Select(an => Move.Parse(an, state));
+        private static void TestGetMoves(State state, IEnumerable<string> expected)
+        {
+            var moves = expected.Select(an => Move.Parse(an, state));
             var succs = moves.Select(m => state.ApplyMove(m));
             var movesAndSuccs = moves.Zip(succs);
 
-            Assert.Equal(moves, state.GetMoves());
-            Assert.Equal(succs, state.GetSuccessors());
-            Assert.Equal(movesAndSuccs, state.GetMovesAndSuccessors());
-
-            state = state.SetActiveColor(PlayerColor.Black);
-
-            moves = new[] { "a1N", "a1B", "a1R", "a1Q" }.Select(an => Move.Parse(an, state));
-            succs = moves.Select(m => state.ApplyMove(m));
-            movesAndSuccs = moves.Zip(succs);
-
-            Assert.Equal(moves, state.GetMoves());
-            Assert.Equal(succs, state.GetSuccessors());
-            Assert.Equal(movesAndSuccs, state.GetMovesAndSuccessors());
+            Assert.Equal(moves, state.GetMoves(), OrderInsensitiveComparer<Move>.Instance);
+            Assert.Equal(succs, state.GetSuccessors(), OrderInsensitiveComparer<State>.Instance);
+            Assert.Equal(movesAndSuccs, state.GetMovesAndSuccessors(), OrderInsensitiveComparer<(Move, State)>.Instance);
         }
 
         [Fact]

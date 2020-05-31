@@ -43,7 +43,16 @@ namespace ChessBot
                 : !other.HasPiece;
         }
 
-        public override int GetHashCode() => throw new NotImplementedException();
+        public override int GetHashCode()
+        {
+            var hc = new HashCode();
+            hc.Add(Location);
+            if (HasPiece)
+            {
+                hc.Add(Piece);
+            }
+            return hc.ToHashCode();
+        }
 
         public Tile SetPiece(Piece? piece) => new Tile(Location, piece);
 

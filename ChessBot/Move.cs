@@ -5,10 +5,11 @@ using ChessBot.AlgebraicNotation;
 using System.Linq;
 using ChessBot.Exceptions;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ChessBot
 {
-    public class Move
+    public class Move : IEquatable<Move>
     {
         private static readonly Dictionary<string, PieceKind> s_pieceKindMap = new Dictionary<string, PieceKind>
         {
@@ -19,6 +20,7 @@ namespace ChessBot
             ["K"] = PieceKind.King,
         };
 
+        // todo: this is misplaced
         internal static Move Castle(PlayerColor color, bool kingside)
         {
             var source = Location.Parse(color == PlayerColor.White ? "e1" : "e8");
@@ -162,6 +164,31 @@ namespace ChessBot
         public bool IsKingsideCastle { get; }
         public bool IsQueensideCastle { get; }
         public PieceKind? PromotionKind { get; }
+
+        public override bool Equals(object obj) => Equals(obj as Move);
+
+        public bool Equals([AllowNull] Move other)
+        {
+            if (other == null) return false;
+            return Source == other.Source
+                && Destination == other.Destination
+                && (!IsCapture.HasValue || !other.IsCapture.HasValue || IsCapture.Value == other.IsCapture.Value)
+                && IsKingsideCastle == other.IsKingsideCastle
+                && IsQueensideCastle == other.IsQueensideCastle
+                && PromotionKind == other.PromotionKind;
+        }
+
+        public override int GetHashCode()
+        {
+            var hc = new HashCode();
+            hc.Add(Source);
+            hc.Add(Destination);
+            // We exclude IsCapture intentionally
+            hc.Add(IsKingsideCastle);
+            hc.Add(IsQueensideCastle);
+            hc.Add(PromotionKind);
+            return hc.ToHashCode();
+        }
 
         public override string ToString()
         {

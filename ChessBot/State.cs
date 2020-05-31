@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -392,16 +393,57 @@ namespace ChessBot
             return true;
         }
 
-        public override int GetHashCode() => throw new NotImplementedException();
+        public override int GetHashCode()
+        {
+            var hc = new HashCode();
+            for (int c = 0; c < 8; c++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    hc.Add(this[r, c]);
+                }
+            }
+
+            hc.Add(ActiveColor);
+            hc.Add(White.CanCastleKingside);
+            hc.Add(White.CanCastleQueenside);
+            hc.Add(Black.CanCastleKingside);
+            hc.Add(Black.CanCastleQueenside);
+            hc.Add(EnPassantTarget);
+            hc.Add(HalfMoveClock);
+            hc.Add(FullMoveNumber);
+
+            return hc.ToHashCode();
+        }
 
         public IEnumerable<Move> GetMoves() => GetMovesAndSuccessors().Select(t => t.move);
 
         public IEnumerable<(Move move, State state)> GetMovesAndSuccessors()
         {
+            IEnumerable<Move> GetPossibleMoves(Location source)
+            {
+                foreach (var destination in GetPossibleDestinations(source))
+                {
+                    // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
+                    int promotionRow = WhiteToMove ? 6 : 1;
+                    if (source.Row == promotionRow && this[source].Piece.Kind == PieceKind.Pawn)
+                    {
+                        yield return new Move(source, destination, promotionKind: PieceKind.Knight);
+                        yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
+                        yield return new Move(source, destination, promotionKind: PieceKind.Rook);
+                        yield return new Move(source, destination, promotionKind: PieceKind.Queen);
+                    }
+                    else
+                    {
+                        yield return new Move(source, destination);
+                    }
+                }
+            }
+
             var movesToTry = ActivePlayer
                 .GetOccupiedTiles()
                 .Select(t => t.Location)
-                .SelectMany(s => GetPossibleDestinations(s).Select(d => new Move(s, d)))
+                .SelectMany(s => GetPossibleMoves(s))
                 .Append(Move.Castle(ActiveColor, kingside: true))
                 .Append(Move.Castle(ActiveColor, kingside: false));
 
