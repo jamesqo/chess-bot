@@ -72,28 +72,24 @@ namespace ChessBot
             WriteLine();
 
             var state = State.ParseFen(fen);
+            int turn = 0; // todo
 
-            for (int turn = 1; ; turn++) // todo
+            while (true)
             {
-                WriteLine($"[Turn {turn}]");
-                WriteLine();
+                if (state.WhiteToMove)
+                {
+                    turn++;
+                    WriteLine($"[Turn {turn}]");
+                    WriteLine();
+                }
 
                 WriteLine(GetDisplayString(state));
                 WriteLine();
 
-                WriteLine("It's White's turn.");
-                var nextMove = whitePlayer.GetNextMove(state);
-                WriteLine($"White chose: {nextMove}"); // todo
-                state = state.ApplyMove(nextMove);
-                WriteLine();
-                CheckForEnd(state);
-
-                WriteLine(GetDisplayString(state));
-                WriteLine();
-
-                WriteLine("It's Black's turn.");
-                nextMove = blackPlayer.GetNextMove(state);
-                WriteLine($"Black chose: {nextMove}");
+                WriteLine($"It's {state.ActiveColor}'s turn.");
+                var player = state.WhiteToMove ? whitePlayer : blackPlayer;
+                var nextMove = player.GetNextMove(state);
+                WriteLine($"{state.ActiveColor} played: {nextMove}");
                 state = state.ApplyMove(nextMove);
                 WriteLine();
                 CheckForEnd(state);

@@ -166,7 +166,7 @@ namespace ChessBot
         public override string ToString()
         {
             // todo: add info about more fields
-            return $"{Source} > {Destination}";
+            return $"{Source}{Destination}";
         }
     }
 }
