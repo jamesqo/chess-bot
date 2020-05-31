@@ -261,8 +261,8 @@ namespace ChessBot
                     break;
                 case PieceKind.Rook:
                     // todo: we should also update these properties if the rook is captured, as opposed to being moved.
-                    if (source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleKingside(true);
-                    if (source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleQueenside(true);
+                    if (source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleKingside(false);
+                    if (source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleQueenside(false);
                     break;
             }
 
