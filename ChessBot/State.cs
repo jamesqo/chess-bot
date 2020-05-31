@@ -409,15 +409,70 @@ namespace ChessBot
 
         public ImmutableArray<Tile> GetTiles() => _board;
 
-        // todo: include fields of each playerinfo
-        // todo: just output fen
         public override string ToString()
         {
-            var sb = new StringBuilder();
-            sb.AppendJoin(Environment.NewLine, GetOccupiedTiles()).AppendLine();
-            sb.Append("White: ").AppendLine(White.ToString());
-            sb.Append("Black: ").AppendLine(Black.ToString());
-            return sb.ToString();
+            // todo: this should be an ext method. this code is repeated elsewhere
+            char ToChar(Piece piece)
+            {
+                char result = piece.Kind switch
+                {
+                    PieceKind.Pawn => 'P',
+                    PieceKind.Knight => 'N',
+                    PieceKind.Bishop => 'B',
+                    PieceKind.Rook => 'R',
+                    PieceKind.Queen => 'Q',
+                    PieceKind.King => 'K',
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+                if (piece.Color == PlayerColor.Black)
+                {
+                    result = char.ToLowerInvariant(result);
+                }
+                return result;
+            }
+
+            var fen = new StringBuilder();
+
+            for (int r = 7; r >= 0; r--)
+            {
+                int gap = 0;
+                for (int c = 0; c < 8; c++)
+                {
+                    var tile = this[r, c];
+                    if (!tile.HasPiece)
+                    {
+                        gap++;
+                    }
+                    else
+                    {
+                        if (gap > 0) fen.Append(gap);
+                        fen.Append(ToChar(tile.Piece));
+                        gap = 0;
+                    }
+                }
+                if (gap > 0) fen.Append(gap);
+            }
+            fen.Append(' ');
+            fen.Append(WhiteToMove ? 'w' : 'b');
+            fen.Append(' ');
+
+            bool any = White.CanCastleKingside || White.CanCastleQueenside || Black.CanCastleKingside || Black.CanCastleQueenside;
+            if (!any) fen.Append('-');
+            else
+            {
+                if (White.CanCastleKingside) fen.Append('K');
+                if (White.CanCastleQueenside) fen.Append('Q');
+                if (Black.CanCastleKingside) fen.Append('k');
+                if (Black.CanCastleQueenside) fen.Append('q');
+            }
+            fen.Append(' ');
+
+            fen.Append(EnPassantTarget?.ToString() ?? "-");
+            //fen.Append(' ');
+
+            // todo: append rule 50 counter, full move counter
+
+            return fen.ToString();
         }
 
         internal Location? GetKingsLocation(PlayerColor color)
