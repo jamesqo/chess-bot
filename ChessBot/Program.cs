@@ -1,4 +1,5 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Types;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -125,21 +126,15 @@ namespace ChessBot
         {
             var sb = new StringBuilder();
             // todo: have whichever side the human is on at the bottom
-            for (int r = 7; r >= 0; r--)
+            for (var rank = Rank.Rank8; rank >= Rank.Rank1; rank--)
             {
-                //sb.Append(r + 1);
-                //sb.Append('|');
-                for (int c = 0; c < 8; c++)
+                for (var file = File.FileA; file <= File.FileH; file++)
                 {
-                    if (c > 0) sb.Append(' ');
-                    sb.Append(GetDisplayChar(state[c, r]));
+                    if (file > File.FileA) sb.Append(' ');
+                    sb.Append(GetDisplayChar(state[file, rank]));
                 }
-                //sb.Append('|');
-                if (r > 0) sb.AppendLine();
+                if (rank > Rank.Rank1) sb.AppendLine();
             }
-            //sb.AppendLine();
-            //sb.Append("  ");
-            //sb.AppendJoin(' ', Enumerable.Range(0, 8).Select(i => (char)(i + 'a')));
             return sb.ToString();
         }
 
@@ -375,7 +370,7 @@ namespace ChessBot
             foreach (var tile in state.GetPlayer(color).GetOccupiedTiles())
             {
                 result += PieceValues[(int)tile.Piece.Kind];
-                int locationInt = 8 * (color == PlayerColor.White ? (7 - tile.Location.Row) : tile.Location.Row) + tile.Location.Column;
+                int locationInt = 8 * (color == PlayerColor.White ? (7 - (int)tile.Location.Rank) : (int)tile.Location.Rank) + (int)tile.Location.File;
                 if (tile.Piece.Kind != PieceKind.King)
                 {
                     result += PieceSquareValues[(int)tile.Piece.Kind][locationInt];

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ChessBot.Types;
+using System;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -50,6 +51,7 @@ namespace ChessBot
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
 
+        // todo: avoid use of Parse() here
         public Location InitialKingLocation =>
             Color == PlayerColor.White ? Location.Parse("e1") : Location.Parse("e8");
         public Location InitialKingsideRookLocation =>

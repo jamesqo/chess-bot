@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using ChessBot.Types;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Text;
 
-namespace ChessBot
+namespace ChessBot.Types
 {
     public class Tile : IEquatable<Tile>
     {

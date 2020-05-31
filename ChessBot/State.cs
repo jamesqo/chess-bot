@@ -1,14 +1,15 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Types;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using static ChessBot.Piece;
+using static ChessBot.Types.File;
+using static ChessBot.Types.Rank;
 
 namespace ChessBot
 {
@@ -70,35 +71,38 @@ namespace ChessBot
             if (!int.TryParse(parts[4], out var halfMoveClock) || halfMoveClock < 0) throw new InvalidFenException($"Invalid halfmove clock: {parts[4]}");
             if (!int.TryParse(parts[5], out var fullMoveNumber) || fullMoveNumber <= 0) throw new InvalidFenException($"Invalid fullmove number: {parts[5]}");
 
-            var ranks = piecePlacement.Split('/');
-            if (ranks.Length != 8) throw new InvalidFenException("Incorrect number of ranks");
+            var rankDescs = piecePlacement.Split('/');
+            if (rankDescs.Length != 8) throw new InvalidFenException("Incorrect number of ranks");
 
             var board = ImmutableArray.CreateBuilder<Tile>(64);
             board.Count = 64;
 
-            for (int r = 0; r < 8; r++)
+            for (var rank = Rank1; rank <= Rank8; rank++)
             {
-                string rank = ranks[7 - r];
+                string rankDesc = rankDescs[7 - (int)rank];
 
+                var file = FileA;
                 bool allowDigit = true;
-                int c = 0;
-                foreach (char ch in rank)
+                foreach (char ch in rankDesc)
                 {
                     if ((ch >= '1' && ch <= '8') && allowDigit)
                     {
                         int skip = (ch - '0');
-                        if (c + skip > 8) throw new InvalidFenException("Incorrect number of files");
+                        if ((int)file + skip > 8) throw new InvalidFenException("Incorrect number of files");
+
                         for (int i = 0; i < skip; i++)
                         {
-                            var emptyTile = new Tile((c + i, r));
-                            board[GetBoardIndex(c + i, r)] = emptyTile;
+                            var emptyTile = new Tile((file + i, rank));
+                            board[GetBoardIndex(file + i, rank)] = emptyTile;
                         }
-                        c += skip;
+
+                        file += skip;
                         allowDigit = false;
                     }
                     else
                     {
-                        if (c == 8) throw new InvalidFenException("Incorrect number of files");
+                        if ((int)file == 8) throw new InvalidFenException("Incorrect number of files");
+
                         var color = (char.ToLowerInvariant(ch) == ch) ? PlayerColor.Black : PlayerColor.White;
                         var kind = char.ToLowerInvariant(ch) switch
                         {
@@ -111,14 +115,14 @@ namespace ChessBot
                             _ => throw new InvalidFenException($"Invalid piece kind: {ch}")
                         };
                         var piece = new Piece(color, kind);
-                        var tile = new Tile((c, r), piece);
-                        board[GetBoardIndex(c, r)] = tile;
-                        c++;
+                        var tile = new Tile((file, rank), piece);
+                        board[GetBoardIndex(file, rank)] = tile;
+                        file++;
                         allowDigit = true;
                     }
                 }
 
-                if (c != 8) throw new InvalidFenException("Incorrect number of files");
+                if ((int)file != 8) throw new InvalidFenException("Incorrect number of files");
             }
 
             var white = new PlayerInfo(PlayerColor.White, canCastleKingside: false, canCastleQueenside: false);
@@ -149,8 +153,8 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        private static int GetBoardIndex(int column, int row) => (8 * column + row);
-        private static int GetBoardIndex(Location location) => GetBoardIndex(location.Column, location.Row);
+        private static int GetBoardIndex(File file, Rank rank) => (8 * (int)file + (int)rank);
+        private static int GetBoardIndex(Location location) => GetBoardIndex(location.File, location.Rank);
 
         private readonly ImmutableArray<Tile> _board;
         private ImmutableArray<Tile> _occupiedTiles;
@@ -182,11 +186,11 @@ namespace ChessBot
         private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is Location loc && IsAttackedBy(ActiveColor, loc);
         private int PieceCount => White.PieceCount + Black.PieceCount;
 
-        public Tile this[int column, int row] => _board[GetBoardIndex(column, row)];
+        public Tile this[File file, Rank rank] => _board[GetBoardIndex(file, rank)];
         public Tile this[Location location]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => this[location.Column, location.Row];
+            get => this[location.File, location.Rank];
         }
         public Tile this[string location] => this[Location.Parse(location)];
 
@@ -235,8 +239,8 @@ namespace ChessBot
                 }
             }
             bool promotes = (move.PromotionKind != null);
-            int promotionRow = WhiteToMove ? 7 : 0;
-            if (promotes != (piece.Kind == PieceKind.Pawn && destination.Row == promotionRow))
+            var promotionRank = WhiteToMove ? Rank8 : Rank1;
+            if (promotes != (piece.Kind == PieceKind.Pawn && destination.Rank == promotionRank))
             {
                 return Error("A promotion happens iff a pawn moves to the back rank");
             }
@@ -297,8 +301,8 @@ namespace ChessBot
                 }
             }
 
-            int pawnRow = WhiteToMove ? 1 : 6;
-            bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Row == pawnRow && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
+            var pawnRank = WhiteToMove ? Rank2 : Rank7;
+            bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Rank == pawnRank && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
             var newEnPassantTarget = is2Advance ? (WhiteToMove ? source.Up(1) : source.Down(1)) : (Location?)null;
 
             int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
@@ -382,11 +386,11 @@ namespace ChessBot
                 return false;
             }
 
-            for (int c = 0; c < 8; c++)
+            for (var file = FileA; file <= FileH; file++)
             {
-                for (int r = 0; r < 8; r++)
+                for (var rank = Rank1; rank <= Rank8; rank++)
                 {
-                    if (!this[c, r].Equals(other[c, r])) return false;
+                    if (!this[file, rank].Equals(other[file, rank])) return false;
                 }
             }
 
@@ -396,11 +400,11 @@ namespace ChessBot
         public override int GetHashCode()
         {
             var hc = new HashCode();
-            for (int c = 0; c < 8; c++)
+            for (var file = FileA; file <= FileH; file++)
             {
-                for (int r = 0; r < 8; r++)
+                for (var rank = Rank1; rank <= Rank8; rank++)
                 {
-                    hc.Add(this[r, c]);
+                    hc.Add(this[file, rank]);
                 }
             }
 
@@ -425,8 +429,8 @@ namespace ChessBot
                 foreach (var destination in GetPossibleDestinations(source))
                 {
                     // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
-                    int promotionRow = WhiteToMove ? 6 : 1;
-                    if (source.Row == promotionRow && this[source].Piece.Kind == PieceKind.Pawn)
+                    var promotionRank = WhiteToMove ? Rank7 : Rank2;
+                    if (source.Rank == promotionRank && this[source].Piece.Kind == PieceKind.Pawn)
                     {
                         yield return new Move(source, destination, promotionKind: PieceKind.Knight);
                         yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
@@ -504,12 +508,12 @@ namespace ChessBot
 
             var fen = new StringBuilder();
 
-            for (int r = 7; r >= 0; r--)
+            for (var rank = Rank8; rank >= Rank1; rank--)
             {
                 int gap = 0;
-                for (int c = 0; c < 8; c++)
+                for (var file = FileA; file <= FileH; file++)
                 {
-                    var tile = this[c, r];
+                    var tile = this[file, rank];
                     if (!tile.HasPiece)
                     {
                         gap++;
@@ -522,7 +526,7 @@ namespace ChessBot
                     }
                 }
                 if (gap > 0) fen.Append(gap);
-                if (r > 0) fen.Append('/');
+                if (rank > Rank1) fen.Append('/');
             }
             fen.Append(' ');
             fen.Append(WhiteToMove ? 'w' : 'b');
@@ -585,7 +589,7 @@ namespace ChessBot
 
             bool canMoveIfUnblocked;
             bool canPieceBeBlocked = false;
-            var delta = (x: destination.Column - source.Column, y: destination.Row - source.Row);
+            var delta = (x: destination.File - source.File, y: destination.Rank - source.Rank);
 
             switch (piece.Kind)
             {
@@ -602,8 +606,8 @@ namespace ChessBot
                     break;
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
-                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || (delta.y == forward * 2 && source.Row == homeRow)));
+                    var homeRank = (piece.Color == PlayerColor.White ? Rank2 : Rank7);
+                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || (delta.y == forward * 2 && source.Rank == homeRank)));
                     bool isValidCapture = (destinationTile.HasPiece || destination == EnPassantTarget) && (Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
 
                     canMoveIfUnblocked = (isValidAdvance || isValidCapture);
@@ -638,48 +642,48 @@ namespace ChessBot
                     break;
                 case PieceKind.King:
                     // Again, we don't handle castling here; that's taken care of directly by the caller.
-                    if (source.Row > 0)
+                    if (source.Rank > Rank1)
                     {
-                        if (source.Column > 0) destinations.Add(source.Down(1).Left(1));
+                        if (source.File > FileA) destinations.Add(source.Down(1).Left(1));
                         destinations.Add(source.Down(1));
-                        if (source.Column < 7) destinations.Add(source.Down(1).Right(1));
+                        if (source.File < FileH) destinations.Add(source.Down(1).Right(1));
                     }
-                    if (source.Column > 0) destinations.Add(source.Left(1));
-                    if (source.Column < 7) destinations.Add(source.Right(1));
-                    if (source.Row < 7)
+                    if (source.File > FileA) destinations.Add(source.Left(1));
+                    if (source.File < FileH) destinations.Add(source.Right(1));
+                    if (source.Rank < Rank8)
                     {
-                        if (source.Column > 0) destinations.Add(source.Up(1).Left(1));
+                        if (source.File > FileA) destinations.Add(source.Up(1).Left(1));
                         destinations.Add(source.Up(1));
-                        if (source.Column < 7) destinations.Add(source.Up(1).Right(1));
+                        if (source.File < FileH) destinations.Add(source.Up(1).Right(1));
                     }
                     break;
                 case PieceKind.Knight:
-                    if (source.Row > 0 && source.Column > 1) destinations.Add(source.Down(1).Left(2));
-                    if (source.Row < 7 && source.Column > 1) destinations.Add(source.Up(1).Left(2));
-                    if (source.Row > 0 && source.Column < 6) destinations.Add(source.Down(1).Right(2));
-                    if (source.Row < 7 && source.Column < 6) destinations.Add(source.Up(1).Right(2));
-                    if (source.Row > 1 && source.Column > 0) destinations.Add(source.Down(2).Left(1));
-                    if (source.Row < 6 && source.Column > 0) destinations.Add(source.Up(2).Left(1));
-                    if (source.Row > 1 && source.Column < 7) destinations.Add(source.Down(2).Right(1));
-                    if (source.Row < 6 && source.Column < 7) destinations.Add(source.Up(2).Right(1));
+                    if (source.Rank > Rank1 && source.File > FileB) destinations.Add(source.Down(1).Left(2));
+                    if (source.Rank < Rank8 && source.File > FileB) destinations.Add(source.Up(1).Left(2));
+                    if (source.Rank > Rank1 && source.File < FileG) destinations.Add(source.Down(1).Right(2));
+                    if (source.Rank < Rank8 && source.File < FileG) destinations.Add(source.Up(1).Right(2));
+                    if (source.Rank > Rank2 && source.File > FileA) destinations.Add(source.Down(2).Left(1));
+                    if (source.Rank < Rank7 && source.File > FileA) destinations.Add(source.Up(2).Left(1));
+                    if (source.Rank > Rank2 && source.File < FileH) destinations.Add(source.Down(2).Right(1));
+                    if (source.Rank < Rank7 && source.File < FileH) destinations.Add(source.Up(2).Right(1));
                     break;
                 // todo: support en passant captures
                 case PieceKind.Pawn:
                     int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    int homeRow = (piece.Color == PlayerColor.White ? 1 : 6);
-                    int backRow = (piece.Color == PlayerColor.White ? 7 : 0);
+                    var homeRank = (piece.Color == PlayerColor.White ? Rank2 : Rank7);
+                    var backRank = (piece.Color == PlayerColor.White ? Rank8 : Rank1);
 
                     // Because pawns are automatically promoted at the back bank, we shouldn't have to do a bounds check here
-                    Debug.Assert(source.Row != backRow);
+                    Debug.Assert(source.Rank != backRank);
                     var n1 = source.Up(forward);
                     if (!this[n1].HasPiece) destinations.Add(n1);
-                    if (source.Row == homeRow)
+                    if (source.Rank == homeRank)
                     {
                         var n2 = source.Up(forward * 2);
                         if (!this[n1].HasPiece && !this[n2].HasPiece) destinations.Add(n2);
                     }
 
-                    if (source.Column > 0)
+                    if (source.File > FileA)
                     {
                         var nw = n1.Left(1);
                         if ((this[nw].HasPiece && this[nw].Piece.Color != piece.Color) || nw == EnPassantTarget)
@@ -688,7 +692,7 @@ namespace ChessBot
                         }
                     }
 
-                    if (source.Column < 7)
+                    if (source.File < FileH)
                     {
                         var ne = n1.Right(1);
                         if ((this[ne].HasPiece && this[ne].Piece.Color != piece.Color) || ne == EnPassantTarget)
@@ -715,7 +719,7 @@ namespace ChessBot
             var prev = source;
 
             // Northeast
-            while (prev.Row < 7 && prev.Column < 7)
+            while (prev.Rank < Rank8 && prev.File < FileH)
             {
                 var next = prev.Up(1).Right(1);
                 yield return next;
@@ -724,7 +728,7 @@ namespace ChessBot
             }
 
             // Southeast
-            while (prev.Row > 0 && prev.Column < 7)
+            while (prev.Rank > Rank1 && prev.File < FileH)
             {
                 var next = prev.Down(1).Right(1);
                 yield return next;
@@ -733,7 +737,7 @@ namespace ChessBot
             }
 
             // Southwest
-            while (prev.Row > 0 && prev.Column > 0)
+            while (prev.Rank > Rank1 && prev.File > FileA)
             {
                 var next = prev.Down(1).Left(1);
                 yield return next;
@@ -742,7 +746,7 @@ namespace ChessBot
             }
 
             // Northwest
-            while (prev.Row < 7 && prev.Column > 0)
+            while (prev.Rank < Rank8 && prev.File > FileA)
             {
                 var next = prev.Up(1).Left(1);
                 yield return next;
@@ -757,7 +761,7 @@ namespace ChessBot
             var prev = source;
 
             // East
-            while (prev.Column < 7)
+            while (prev.File < FileH)
             {
                 var next = prev.Right(1);
                 yield return next;
@@ -766,7 +770,7 @@ namespace ChessBot
             }
 
             // West
-            while (prev.Column > 0)
+            while (prev.File > FileA)
             {
                 var next = prev.Left(1);
                 yield return next;
@@ -775,7 +779,7 @@ namespace ChessBot
             }
 
             // North
-            while (prev.Row < 7)
+            while (prev.Rank < Rank8)
             {
                 var next = prev.Up(1);
                 yield return next;
@@ -784,7 +788,7 @@ namespace ChessBot
             }
 
             // South
-            while (prev.Row > 0)
+            while (prev.Rank > Rank1)
             {
                 var next = prev.Down(1);
                 yield return next;
@@ -807,7 +811,7 @@ namespace ChessBot
         private static IEnumerable<Location> GetLocationsBetween(Location source, Location destination)
         {
             Debug.Assert(source != destination);
-            var delta = (x: destination.Column - source.Column, y: destination.Row - source.Row);
+            var delta = (x: destination.File - source.File, y: destination.Rank - source.Rank);
 
             if (delta.x == 0)
             {

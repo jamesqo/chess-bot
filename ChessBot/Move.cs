@@ -4,8 +4,9 @@ using System.Collections.Generic;
 using ChessBot.AlgebraicNotation;
 using System.Linq;
 using ChessBot.Exceptions;
-using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 using System.Diagnostics.CodeAnalysis;
+using ChessBot.Types;
+using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 
 namespace ChessBot
 {
@@ -23,7 +24,7 @@ namespace ChessBot
         // todo: this is misplaced
         internal static Move Castle(PlayerColor color, bool kingside)
         {
-            var source = Location.Parse(color == PlayerColor.White ? "e1" : "e8");
+            var source = new Location(File.FileE, color == PlayerColor.White ? Rank.Rank1 : Rank.Rank8);
             var destination = kingside ? source.Right(2) : source.Left(2);
             return new Move(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside);
         }
@@ -55,13 +56,13 @@ namespace ChessBot
             }
             else if (sourceFileNode != null)
             {
-                int sourceColumn = sourceFileNode.GetText()[0] - 'a';
-                possibleSources = possibleSources.Where(t => t.Location.Column == sourceColumn);
+                var sourceFile = FileHelpers.FromChar(sourceFileNode.GetText()[0]);
+                possibleSources = possibleSources.Where(t => t.Location.File == sourceFile);
             }
             else if (sourceRankNode != null)
             {
-                int sourceRow = sourceRankNode.GetText()[0] - '1';
-                possibleSources = possibleSources.Where(t => t.Location.Row == sourceRow);
+                var sourceRank = RankHelpers.FromChar(sourceRankNode.GetText()[0]);
+                possibleSources = possibleSources.Where(t => t.Location.Rank == sourceRank);
             }
 
             try

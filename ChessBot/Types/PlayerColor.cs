@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ChessBot
+namespace ChessBot.Types
 {
     public enum PlayerColor
     {

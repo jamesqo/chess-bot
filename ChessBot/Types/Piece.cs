@@ -1,8 +1,8 @@
 ﻿using System;
-using static ChessBot.PieceKind;
-using static ChessBot.PlayerColor;
+using static ChessBot.Types.PieceKind;
+using static ChessBot.Types.PlayerColor;
 
-namespace ChessBot
+namespace ChessBot.Types
 {
     public struct Piece : IEquatable<Piece>
     {
