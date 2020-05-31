@@ -331,9 +331,11 @@ namespace ChessBot
             // note: we don't guard against castling into check because that's taken care of later
             // todo: if we're castling queenside, the b1 square may be occupied, but not attacked
             var kingSource = ActivePlayer.InitialKingLocation;
+            var rookSource = (kingside ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation);
+            bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => this[loc].HasPiece);
             var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
-            bool kingPassesThroughOccupiedOrAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => this[loc].HasPiece || IsAttackedBy(OpposingColor, loc));
-            return !(IsCheck || kingPassesThroughOccupiedOrAttackedLocation);
+            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingColor, loc));
+            return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
         public override bool Equals(object obj) => Equals(obj as State);
