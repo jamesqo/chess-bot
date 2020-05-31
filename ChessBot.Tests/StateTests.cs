@@ -119,6 +119,73 @@ namespace ChessBot.Tests
         }
 
         [Fact]
+        public void ApplyMove_CastlingConditionsNotMet()
+        {
+            var state = State.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
+
+            // king is moved
+            var state2 = state.ApplyMove("Kd1").SetActiveColor(PlayerColor.White).ApplyMove("Ke1").SetActiveColor(PlayerColor.White);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w - - 2 2"), state2);
+            Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
+            Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
+
+            // rook is moved
+            state2 = state.ApplyMove("Ra2").SetActiveColor(PlayerColor.White).ApplyMove("Ra1").SetActiveColor(PlayerColor.White);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w K - 2 2"), state2);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R4RK1 b - - 3 2"), state2.ApplyMove("O-O"));
+            Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
+
+            state2 = state.ApplyMove("Rh2").SetActiveColor(PlayerColor.White).ApplyMove("Rh1").SetActiveColor(PlayerColor.White);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w Q - 2 2"), state2);
+            Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 3 2"), state2.ApplyMove("O-O-O"));
+
+            // rook is captured
+            state = State.ParseFen("8/8/8/8/8/8/r6r/R3K2R b KQ - 0 1");
+            state2 = state.ApplyMove("Rxa1");
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/7r/r3K2R w K - 1 1"), state2);
+            Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
+            state2 = state.ApplyMove("Rxh1");
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/r7/R3K2r w Q - 1 1"), state2);
+            Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
+
+            // friendly piece in between king and rook
+            state = State.ParseFen("8/8/8/8/8/8/8/R2BK1BR w KQ - 0 1");
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O"));
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O-O"));
+
+            // enemy piece in between king and rook
+            state = State.ParseFen("8/8/8/8/8/8/8/R2bK1bR w KQ - 0 1");
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O"));
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O-O"));
+
+            // king is in check
+            state = State.ParseFen("8/8/8/8/8/8/4r3/R3K2R w KQ - 0 1");
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O"));
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O-O"));
+
+            // king passes through attacked location (queenside)
+            state = State.ParseFen("8/8/8/8/8/8/3r4/R3K2R w KQ - 0 1");
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/3r4/R4RK1 b - - 1 1"), state.ApplyMove("O-O"));
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O-O"));
+
+            // king passes through attacked location (kingside)
+            state = State.ParseFen("8/8/8/8/8/8/5r2/R3K2R w KQ - 0 1");
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O"));
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/3r4/2KR3R b - - 1 1"), state.ApplyMove("O-O-O"));
+
+            // b1 square is occupied
+            state = State.ParseFen("8/8/8/8/8/8/8/RN2K2R w Q - 0 1");
+            Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O-O"));
+
+            // b1 square is attacked (should not prevent queenside castling)
+            state = State.ParseFen("8/8/8/8/8/8/1r6/R3K2R w Q - 0 1");
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/1r6/2KR3R b - - 1 1"), state.ApplyMove("O-O-O"));
+
+            // todo: king castles into check
+        }
+
+        [Fact]
         public void ApplyMove_Promotion()
         {
             var state = State.ParseFen("8/P7/8/8/8/8/p7/8 w - - 0 1");
@@ -189,21 +256,25 @@ namespace ChessBot.Tests
             var state = State.ParseFen("8/8/8/8/4p3/8/3P1P2/8 w - - 0 1");
 
             // on left
-            var moves = new[] { "e3", "xd3" }.Select(an => Move.Parse(an, state.ApplyMove("d4")));
-            Assert.Equal(moves, state.ApplyMove("d4").GetMoves());
+            var state2 = state.ApplyMove("d4");
+            var moves = new[] { "e3", "xd3" }.Select(an => Move.Parse(an, state2));
+            Assert.Equal(moves, state2.GetMoves());
             // on right
-            moves = new[] { "e3", "xf3" }.Select(an => Move.Parse(an, state.ApplyMove("f4")));
-            Assert.Equal(moves, state.ApplyMove("f4").GetMoves());
+            state2 = state.ApplyMove("f4");
+            moves = new[] { "e3", "xf3" }.Select(an => Move.Parse(an, state2));
+            Assert.Equal(moves, state2.GetMoves());
 
             // white captures en passant
             state = State.ParseFen("8/3p1p2/8/4P3/8/8/8/8 b - - 0 1");
 
             // on left
-            moves = new[] { "e6", "xd6" }.Select(an => Move.Parse(an, state.ApplyMove("d5")));
-            Assert.Equal(moves, state.ApplyMove("d5").GetMoves());
+            state2 = state.ApplyMove("d5");
+            moves = new[] { "e6", "xd6" }.Select(an => Move.Parse(an, state2));
+            Assert.Equal(moves, state2.GetMoves());
             // on right
-            moves = new[] { "e6", "xf6" }.Select(an => Move.Parse(an, state.ApplyMove("f5")));
-            Assert.Equal(moves, state.ApplyMove("f5").GetMoves());
+            state2 = state.ApplyMove("f5");
+            moves = new[] { "e6", "xf6" }.Select(an => Move.Parse(an, state2));
+            Assert.Equal(moves, state2.GetMoves());
         }
 
         [Fact(Skip = "test needs fixing")]

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Xunit;
-using static ChessBot.Piece;
 
 namespace ChessBot.Tests
 {

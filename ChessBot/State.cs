@@ -260,6 +260,7 @@ namespace ChessBot
                     newActivePlayer = newActivePlayer.SetCanCastleKingside(false).SetCanCastleQueenside(false);
                     break;
                 case PieceKind.Rook:
+                    // todo: we should also update these properties if the rook is captured, as opposed to being moved.
                     if (source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleKingside(true);
                     if (source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleQueenside(true);
                     break;
@@ -326,7 +327,9 @@ namespace ChessBot
             bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
             if (!flag) return false;
 
-            // The above flag does not account for moves that temporarily prevent castling
+            // note: the above flag does not account for moves that temporarily prevent castling
+            // note: we don't guard against castling into check because that's taken care of later
+            // todo: if we're castling queenside, the b1 square may be occupied, but not attacked
             var kingSource = ActivePlayer.InitialKingLocation;
             var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
             bool kingPassesThroughOccupiedOrAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => this[loc].HasPiece || IsAttackedBy(OpposingColor, loc));
