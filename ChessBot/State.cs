@@ -438,7 +438,7 @@ namespace ChessBot
                 int gap = 0;
                 for (int c = 0; c < 8; c++)
                 {
-                    var tile = this[r, c];
+                    var tile = this[c, r];
                     if (!tile.HasPiece)
                     {
                         gap++;
@@ -451,6 +451,7 @@ namespace ChessBot
                     }
                 }
                 if (gap > 0) fen.Append(gap);
+                if (r > 0) fen.Append('/');
             }
             fen.Append(' ');
             fen.Append(WhiteToMove ? 'w' : 'b');
