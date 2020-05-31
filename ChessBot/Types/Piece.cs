@@ -30,6 +30,7 @@ namespace ChessBot.Types
 
         public Side Side { get; }
         public PieceKind Kind { get; }
+        public bool IsWhite => Side.IsWhite();
 
         public override bool Equals(object obj) => obj is Piece other && Equals(other);
 

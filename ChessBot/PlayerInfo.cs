@@ -53,11 +53,11 @@ namespace ChessBot
 
         // todo: avoid use of Parse() here
         public Location InitialKingLocation =>
-            Side == Side.White ? Location.Parse("e1") : Location.Parse("e8");
+            Side.IsWhite() ? Location.Parse("e1") : Location.Parse("e8");
         public Location InitialKingsideRookLocation =>
-            Side == Side.White ? Location.Parse("h1") : Location.Parse("h8");
+            Side.IsWhite() ? Location.Parse("h1") : Location.Parse("h8");
         public Location InitialQueensideRookLocation =>
-            Side == Side.White ? Location.Parse("a1") : Location.Parse("a8");
+            Side.IsWhite() ? Location.Parse("a1") : Location.Parse("a8");
 
         public bool Equals([AllowNull] PlayerInfo other)
         {

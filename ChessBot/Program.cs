@@ -66,8 +66,8 @@ namespace ChessBot
             var fen = GetStartFen();
             WriteLine();
 
-            var whitePlayer = (userSide == Side.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
-            var blackPlayer = (userSide != Side.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
+            var whitePlayer = userSide.IsWhite() ? new HumanPlayer() : GetAIPlayer(aiStrategy);
+            var blackPlayer = userSide.IsWhite() ? GetAIPlayer(aiStrategy) : new HumanPlayer();
 
             WriteLine($"Playing as: {userSide}");
             WriteLine();
@@ -154,7 +154,7 @@ namespace ChessBot
                 _ => throw new ArgumentOutOfRangeException()
             };
 
-            if (piece.Side == Side.Black)
+            if (!piece.IsWhite)
             {
                 result = char.ToLowerInvariant(result);
             }
@@ -370,7 +370,7 @@ namespace ChessBot
             foreach (var tile in state.GetPlayer(side).GetOccupiedTiles())
             {
                 result += PieceValues[(int)tile.Piece.Kind];
-                int locationInt = 8 * (side == Side.White ? (7 - (int)tile.Location.Rank) : (int)tile.Location.Rank) + (int)tile.Location.File;
+                int locationInt = 8 * (side.IsWhite() ? (7 - (int)tile.Location.Rank) : (int)tile.Location.Rank) + (int)tile.Location.File;
                 if (tile.Piece.Kind != PieceKind.King)
                 {
                     result += PieceSquareValues[(int)tile.Piece.Kind][locationInt];

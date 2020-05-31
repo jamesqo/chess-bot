@@ -24,7 +24,7 @@ namespace ChessBot
         // todo: this is misplaced
         internal static Move Castle(Side side, bool kingside)
         {
-            var source = new Location(File.FileE, side == Side.White ? Rank.Rank1 : Rank.Rank8);
+            var source = new Location(File.FileE, side.IsWhite() ? Rank.Rank1 : Rank.Rank8);
             var destination = kingside ? source.Right(2) : source.Left(2);
             return new Move(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside);
         }

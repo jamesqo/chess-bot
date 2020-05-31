@@ -1,5 +1,4 @@
-﻿using ChessBot.Types;
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
@@ -28,7 +27,7 @@ namespace ChessBot.Types
             }
         }
 
-        // We separate this out into another, non-inlined method because we want to make it easy for the JIT to inline get_Piece()
+        // We separate this out into a non-inlined method because we want to make it easy for the JIT to inline get_Piece()
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Piece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
 
