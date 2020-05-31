@@ -172,7 +172,7 @@ namespace ChessBot.Tests
             // king passes through attacked location (kingside)
             state = State.ParseFen("8/8/8/8/8/8/5r2/R3K2R w KQ - 0 1");
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("O-O"));
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/3r4/2KR3R b - - 1 1"), state.ApplyMove("O-O-O"));
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/5r2/2KR3R b - - 1 1"), state.ApplyMove("O-O-O"));
 
             // b1 square is occupied
             state = State.ParseFen("8/8/8/8/8/8/8/RN2K2R w Q - 0 1");

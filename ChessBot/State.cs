@@ -273,6 +273,15 @@ namespace ChessBot
             {
                 newOpposingPlayer = newOpposingPlayer.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
                 newOpposingPlayer = newOpposingPlayer.SetPieceCount(newOpposingPlayer.PieceCount - 1);
+
+                if (destination == OpposingPlayer.InitialKingsideRookLocation)
+                {
+                    newOpposingPlayer = newOpposingPlayer.SetCanCastleKingside(false);
+                }
+                else if (destination == OpposingPlayer.InitialQueensideRookLocation)
+                {
+                    newOpposingPlayer = newOpposingPlayer.SetCanCastleQueenside(false);
+                }
             }
 
             bool is2Advance = (piece.Kind == PieceKind.Pawn && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
