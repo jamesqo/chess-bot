@@ -1,10 +1,10 @@
 ﻿using ChessBot.Exceptions;
 using ChessBot.Tests.TestUtils;
+using ChessBot.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
-using static ChessBot.Piece;
 
 namespace ChessBot.Tests
 {
@@ -19,7 +19,7 @@ namespace ChessBot.Tests
             Assert.Equal(State.ParseFen("8/8/8/8/8/4P3/8/8 b - - 0 1"), state.ApplyMove("e3"));
             Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/8/8 b - e3 0 1"), state.ApplyMove("e4"));
 
-            state = state.ApplyMove("e3").SetActiveColor(PlayerColor.White);
+            state = state.ApplyMove("e3").SetActiveSide(Side.White);
 
             Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/8/8 b - - 0 1"), state.ApplyMove("e4"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e5"));
@@ -33,7 +33,7 @@ namespace ChessBot.Tests
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e3"));
             Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/4P3/8 b - - 0 1"), state.ApplyMove("e4"));
 
-            state = state.ApplyMove("e4").SetActiveColor(PlayerColor.White);
+            state = state.ApplyMove("e4").SetActiveSide(Side.White);
 
             Assert.Equal(State.ParseFen("8/8/8/8/4P3/4P3/8/8 b - - 0 1"), state.ApplyMove("e3"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e4"));
@@ -88,7 +88,7 @@ namespace ChessBot.Tests
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("d4").ApplyMove("xf5"));
 
             // white captures en passant
-            state = state.SetActiveColor(PlayerColor.Black);
+            state = state.SetActiveSide(Side.Black);
 
             // on left
             Assert.Equal(State.ParseFen("8/ppp2ppp/8/3pP3/4p3/8/PPPP1PPP/8 w - d6 0 2"), state.ApplyMove("d5"));
@@ -125,18 +125,18 @@ namespace ChessBot.Tests
             var state = State.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
             // king is moved
-            var state2 = state.ApplyMove("Kd1").SetActiveColor(PlayerColor.White).ApplyMove("Ke1").SetActiveColor(PlayerColor.White);
+            var state2 = state.ApplyMove("Kd1").SetActiveSide(Side.White).ApplyMove("Ke1").SetActiveSide(Side.White);
             Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w - - 2 1"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
 
             // rook is moved
-            state2 = state.ApplyMove("Ra2").SetActiveColor(PlayerColor.White).ApplyMove("Ra1").SetActiveColor(PlayerColor.White);
+            state2 = state.ApplyMove("Ra2").SetActiveSide(Side.White).ApplyMove("Ra1").SetActiveSide(Side.White);
             Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w K - 2 1"), state2);
             Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R4RK1 b - - 3 1"), state2.ApplyMove("O-O"));
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
 
-            state2 = state.ApplyMove("Rh2").SetActiveColor(PlayerColor.White).ApplyMove("Rh1").SetActiveColor(PlayerColor.White);
+            state2 = state.ApplyMove("Rh2").SetActiveSide(Side.White).ApplyMove("Rh1").SetActiveSide(Side.White);
             Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w Q - 2 1"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
             Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 3 1"), state2.ApplyMove("O-O-O"));
@@ -200,7 +200,7 @@ namespace ChessBot.Tests
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a8P"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a8K"));
 
-            state = state.SetActiveColor(PlayerColor.Black);
+            state = state.SetActiveSide(Side.Black);
 
             Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/n7 w - - 0 2"), state.ApplyMove("a1N"));
             Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/b7 w - - 0 2"), state.ApplyMove("a1B"));
@@ -239,7 +239,7 @@ namespace ChessBot.Tests
                 "Nf3",
                 "Nh3",
             });
-            TestGetMoves(state.SetActiveColor(PlayerColor.Black), new[]
+            TestGetMoves(state.SetActiveSide(Side.Black), new[]
             {
                 "a6",
                 "a5",
@@ -285,7 +285,7 @@ namespace ChessBot.Tests
         {
             var state = State.ParseFen("8/P7/8/8/8/8/p7/8 w - - 0 1");
             TestGetMoves(state, new[] { "a8N", "a8B", "a8R", "a8Q" });
-            TestGetMoves(state.SetActiveColor(PlayerColor.Black), new[] { "a1N", "a1B", "a1R", "a1Q" });
+            TestGetMoves(state.SetActiveSide(Side.Black), new[] { "a1N", "a1B", "a1R", "a1Q" });
         }
 
         private static void TestGetMoves(State state, IEnumerable<string> expected)

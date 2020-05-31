@@ -23,7 +23,7 @@ namespace ChessBot
 
         private State(
             ImmutableArray<Tile> board,
-            PlayerColor activeColor,
+            Side activeSide,
             PlayerInfo white,
             PlayerInfo black,
             Location? enPassantTarget,
@@ -31,7 +31,7 @@ namespace ChessBot
             int fullMoveNumber)
         {
             _board = board;
-            ActiveColor = activeColor;
+            ActiveSide = activeSide;
             White = white.SetState(this);
             Black = black.SetState(this);
             EnPassantTarget = enPassantTarget;
@@ -41,7 +41,7 @@ namespace ChessBot
 
         private State(State other) : this(
             other._board,
-            other.ActiveColor,
+            other.ActiveSide,
             other.White,
             other.Black,
             other.EnPassantTarget,
@@ -56,10 +56,10 @@ namespace ChessBot
             if (parts.Length != 6) throw new InvalidFenException("Incorrect number of fields");
 
             var piecePlacement = parts[0];
-            var activeColor = parts[1] switch
+            var activeSide = parts[1] switch
             {
-                "w" => PlayerColor.White,
-                "b" => PlayerColor.Black,
+                "w" => Side.White,
+                "b" => Side.Black,
                 _ => throw new InvalidFenException($"Invalid active color: {parts[1]}")
             };
             var castlingRights = parts[2];
@@ -103,7 +103,7 @@ namespace ChessBot
                     {
                         if ((int)file == 8) throw new InvalidFenException("Incorrect number of files");
 
-                        var color = (char.ToLowerInvariant(ch) == ch) ? PlayerColor.Black : PlayerColor.White;
+                        var side = (char.ToLowerInvariant(ch) == ch) ? Side.Black : Side.White;
                         var kind = char.ToLowerInvariant(ch) switch
                         {
                             'p' => PieceKind.Pawn,
@@ -114,7 +114,7 @@ namespace ChessBot
                             'k' => PieceKind.King,
                             _ => throw new InvalidFenException($"Invalid piece kind: {ch}")
                         };
-                        var piece = new Piece(color, kind);
+                        var piece = new Piece(side, kind);
                         var tile = new Tile((file, rank), piece);
                         board[GetBoardIndex(file, rank)] = tile;
                         file++;
@@ -125,8 +125,8 @@ namespace ChessBot
                 if ((int)file != 8) throw new InvalidFenException("Incorrect number of files");
             }
 
-            var white = new PlayerInfo(PlayerColor.White, canCastleKingside: false, canCastleQueenside: false);
-            var black = new PlayerInfo(PlayerColor.Black, canCastleKingside: false, canCastleQueenside: false);
+            var white = new PlayerInfo(Side.White, canCastleKingside: false, canCastleQueenside: false);
+            var black = new PlayerInfo(Side.Black, canCastleKingside: false, canCastleQueenside: false);
             if (castlingRights != "-")
             {
                 foreach (char ch in castlingRights)
@@ -145,7 +145,7 @@ namespace ChessBot
 
             return new State(
                 board: board.MoveToImmutable(),
-                activeColor: activeColor,
+                activeSide: activeSide,
                 white: white,
                 black: black,
                 enPassantTarget: enPassantTarget,
@@ -159,31 +159,31 @@ namespace ChessBot
         private readonly ImmutableArray<Tile> _board;
         private ImmutableArray<Tile> _occupiedTiles;
 
-        public PlayerColor ActiveColor { get; private set; } // todo: remove this from public api?
+        public Side ActiveSide { get; private set; } // todo: remove this from public api?
         public PlayerInfo White { get; private set; }
         public PlayerInfo Black { get; private set; }
         public Location? EnPassantTarget { get; private set; }
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
 
-        public State SetActiveColor(PlayerColor value) => new State(this) { ActiveColor = value };
+        public State SetActiveSide(Side value) => new State(this) { ActiveSide = value };
         //public State SetWhite(PlayerInfo value) => new State(this) { White = value };
         //public State SetBlack(PlayerInfo value) => new State(this) { Black = value };
         //public State SetEnPassantTarget(Location? value) => new State(this) { EnPassantTarget = value };
         //SetHalfMoveClock()
         //SetFullMoveNumber()
 
-        public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
-        public PlayerColor OpposingColor => WhiteToMove ? PlayerColor.Black : PlayerColor.White;
-        public PlayerInfo OpposingPlayer => GetPlayer(OpposingColor);
+        public PlayerInfo ActivePlayer => GetPlayer(ActiveSide);
+        public Side OpposingSide => WhiteToMove ? Side.Black : Side.White;
+        public PlayerInfo OpposingPlayer => GetPlayer(OpposingSide);
 
-        public bool IsCheck => GetKingsLocation(ActiveColor) is Location loc && IsAttackedBy(OpposingColor, loc);
+        public bool IsCheck => GetKingsLocation(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc);
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
         public bool IsTerminal => !GetMoves().Any();
-        public bool WhiteToMove => ActiveColor == PlayerColor.White; // todo: use this everywhere
+        public bool WhiteToMove => ActiveSide == Side.White; // todo: use this everywhere
 
-        private bool IsOpposingKingAttacked => GetKingsLocation(OpposingColor) is Location loc && IsAttackedBy(ActiveColor, loc);
+        private bool IsOpposingKingAttacked => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
         private int PieceCount => White.PieceCount + Black.PieceCount;
 
         public Tile this[File file, Rank rank] => _board[GetBoardIndex(file, rank)];
@@ -223,11 +223,11 @@ namespace ChessBot
             }
 
             var piece = this[source].Piece;
-            if (piece.Color != ActiveColor)
+            if (piece.Side != ActiveSide)
             {
                 return Error("Piece's color does not match active player's color");
             }
-            if (this[destination].HasPiece && this[destination].Piece.Color == piece.Color)
+            if (this[destination].HasPiece && this[destination].Piece.Side == piece.Side)
             {
                 return Error("Destination tile is already occupied by a piece of the same color");
             }
@@ -313,7 +313,7 @@ namespace ChessBot
 
             var result = new State(
                 board: newBoard,
-                activeColor: OpposingColor,
+                activeSide: OpposingSide,
                 white: WhiteToMove ? newActivePlayer : newOpposingPlayer,
                 black: WhiteToMove ? newOpposingPlayer : newActivePlayer,
                 enPassantTarget: newEnPassantTarget,
@@ -322,7 +322,7 @@ namespace ChessBot
 
             if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
             {
-                return Error($"Move is invalid since it lets {ActiveColor}'s king be attacked");
+                return Error($"Move is invalid since it lets {ActiveSide}'s king be attacked");
             }
 
             return Result(result);
@@ -336,18 +336,18 @@ namespace ChessBot
             var (sourceIndex, destinationIndex) = (GetBoardIndex(source), GetBoardIndex(destination));
 
             Debug.Assert(board[sourceIndex].HasPiece);
-            Debug.Assert(!board[destinationIndex].HasPiece || board[destinationIndex].Piece.Color != board[sourceIndex].Piece.Color);
+            Debug.Assert(!board[destinationIndex].HasPiece || board[destinationIndex].Piece.Side != board[sourceIndex].Piece.Side);
 
             newBoard[sourceIndex] = newBoard[sourceIndex].SetPiece(null);
             var piece = board[sourceIndex].Piece;
-            if (promotionKind != null) piece = new Piece(piece.Color, promotionKind.Value);
+            if (promotionKind != null) piece = new Piece(piece.Side, promotionKind.Value);
             newBoard[destinationIndex] = newBoard[destinationIndex].SetPiece(piece);
 
             if (isEnPassantCapture)
             {
-                var target = piece.Color == PlayerColor.White ? destination.Down(1) : destination.Up(1);
+                var target = piece.Side == Side.White ? destination.Down(1) : destination.Up(1);
                 int targetIndex = GetBoardIndex(target);
-                Debug.Assert(board[targetIndex].HasPiece && board[targetIndex].Piece.Color != board[sourceIndex].Piece.Color && board[targetIndex].Piece.Kind == PieceKind.Pawn);
+                Debug.Assert(board[targetIndex].HasPiece && board[targetIndex].Piece.Side != board[sourceIndex].Piece.Side && board[targetIndex].Piece.Kind == PieceKind.Pawn);
                 newBoard[targetIndex] = newBoard[targetIndex].SetPiece(null);
             }
 
@@ -366,7 +366,7 @@ namespace ChessBot
             var rookSource = (kingside ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation);
             bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => this[loc].HasPiece);
             var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
-            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingColor, loc));
+            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
@@ -376,7 +376,7 @@ namespace ChessBot
         {
             if (other == null) return false;
 
-            if (ActiveColor != other.ActiveColor ||
+            if (ActiveSide != other.ActiveSide ||
                 !White.Equals(other.White) ||
                 !Black.Equals(other.Black) || 
                 EnPassantTarget != other.EnPassantTarget ||
@@ -408,7 +408,7 @@ namespace ChessBot
                 }
             }
 
-            hc.Add(ActiveColor);
+            hc.Add(ActiveSide);
             hc.Add(White.CanCastleKingside);
             hc.Add(White.CanCastleQueenside);
             hc.Add(Black.CanCastleKingside);
@@ -448,8 +448,8 @@ namespace ChessBot
                 .GetOccupiedTiles()
                 .Select(t => t.Location)
                 .SelectMany(s => GetPossibleMoves(s))
-                .Append(Move.Castle(ActiveColor, kingside: true))
-                .Append(Move.Castle(ActiveColor, kingside: false));
+                .Append(Move.Castle(ActiveSide, kingside: true))
+                .Append(Move.Castle(ActiveSide, kingside: false));
 
             foreach (var move in movesToTry)
             {
@@ -478,7 +478,7 @@ namespace ChessBot
             return _occupiedTiles;
         }
 
-        public PlayerInfo GetPlayer(PlayerColor color) => (color == PlayerColor.White) ? White : Black;
+        public PlayerInfo GetPlayer(Side side) => (side == Side.White) ? White : Black;
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
@@ -499,7 +499,7 @@ namespace ChessBot
                     PieceKind.King => 'K',
                     _ => throw new ArgumentOutOfRangeException()
                 };
-                if (piece.Color == PlayerColor.Black)
+                if (piece.Side == Side.Black)
                 {
                     result = char.ToLowerInvariant(result);
                 }
@@ -554,10 +554,10 @@ namespace ChessBot
             return fen.ToString();
         }
 
-        internal Location? GetKingsLocation(PlayerColor color)
+        internal Location? GetKingsLocation(Side side)
         {
             // todo: fix impl so it doesn't throw if there are 2+ matches
-            return GetPlayer(color)
+            return GetPlayer(side)
                 .GetOccupiedTiles()
                 .SingleOrDefault(t => t.Piece.Kind == PieceKind.King)?
                 .Location;
@@ -582,7 +582,7 @@ namespace ChessBot
             var destinationTile = this[destination];
             var piece = sourceTile.Piece;
 
-            if (destinationTile.HasPiece && destinationTile.Piece.Color == piece.Color)
+            if (destinationTile.HasPiece && destinationTile.Piece.Side == piece.Side)
             {
                 return false;
             }
@@ -605,8 +605,8 @@ namespace ChessBot
                     canMoveIfUnblocked = (Math.Abs(delta.x) == 1 && Math.Abs(delta.y) == 2) || (Math.Abs(delta.x) == 2 && Math.Abs(delta.y) == 1);
                     break;
                 case PieceKind.Pawn:
-                    int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    var homeRank = (piece.Color == PlayerColor.White ? Rank2 : Rank7);
+                    int forward = (piece.Side == Side.White ? 1 : -1);
+                    var homeRank = (piece.Side == Side.White ? Rank2 : Rank7);
                     bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || (delta.y == forward * 2 && source.Rank == homeRank)));
                     bool isValidCapture = (destinationTile.HasPiece || destination == EnPassantTarget) && (Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
 
@@ -669,9 +669,9 @@ namespace ChessBot
                     break;
                 // todo: support en passant captures
                 case PieceKind.Pawn:
-                    int forward = (piece.Color == PlayerColor.White ? 1 : -1);
-                    var homeRank = (piece.Color == PlayerColor.White ? Rank2 : Rank7);
-                    var backRank = (piece.Color == PlayerColor.White ? Rank8 : Rank1);
+                    int forward = (piece.Side == Side.White ? 1 : -1);
+                    var homeRank = (piece.Side == Side.White ? Rank2 : Rank7);
+                    var backRank = (piece.Side == Side.White ? Rank8 : Rank1);
 
                     // Because pawns are automatically promoted at the back bank, we shouldn't have to do a bounds check here
                     Debug.Assert(source.Rank != backRank);
@@ -686,7 +686,7 @@ namespace ChessBot
                     if (source.File > FileA)
                     {
                         var nw = n1.Left(1);
-                        if ((this[nw].HasPiece && this[nw].Piece.Color != piece.Color) || nw == EnPassantTarget)
+                        if ((this[nw].HasPiece && this[nw].Piece.Side != piece.Side) || nw == EnPassantTarget)
                         {
                             destinations.Add(nw);
                         }
@@ -695,7 +695,7 @@ namespace ChessBot
                     if (source.File < FileH)
                     {
                         var ne = n1.Right(1);
-                        if ((this[ne].HasPiece && this[ne].Piece.Color != piece.Color) || ne == EnPassantTarget)
+                        if ((this[ne].HasPiece && this[ne].Piece.Side != piece.Side) || ne == EnPassantTarget)
                         {
                             destinations.Add(ne);
                         }
@@ -710,7 +710,7 @@ namespace ChessBot
                     break;
             }
 
-            return destinations.Where(d => !this[d].HasPiece || this[d].Piece.Color != piece.Color);
+            return destinations.Where(d => !this[d].HasPiece || this[d].Piece.Side != piece.Side);
         }
 
         // note: May include squares occupied by friendly pieces
@@ -801,9 +801,9 @@ namespace ChessBot
         /// Determines whether <paramref name="location"/> is attacked by an enemy piece.
         /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
         /// </summary>
-        private bool IsAttackedBy(PlayerColor color, Location location)
+        private bool IsAttackedBy(Side side, Location location)
             // It's ok that IsMovePossible() ignores castling, since the rook/king cannot perform captures while castling.
-            => GetPlayer(color).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location));
+            => GetPlayer(side).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location));
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.

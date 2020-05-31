@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ChessBot.Types
+﻿namespace ChessBot.Types
 {
     public enum PieceKind
     {

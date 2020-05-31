@@ -22,23 +22,23 @@ namespace ChessBot
             int count = 0;
             foreach (var tile in _state.GetTiles())
             {
-                if (tile.HasPiece && tile.Piece.Color == Color) count++;
+                if (tile.HasPiece && tile.Piece.Side == Side) count++;
             }
             return count;
         }
 
         public PlayerInfo(
-            PlayerColor color,
+            Side side,
             bool canCastleKingside = true,
             bool canCastleQueenside = true)
         {
-            Color = color;
+            Side = side;
             CanCastleKingside = canCastleKingside;
             CanCastleQueenside = canCastleQueenside;
         }
 
         private PlayerInfo(PlayerInfo other) : this(
-            other.Color,
+            other.Side,
             other.CanCastleKingside,
             other.CanCastleQueenside)
         {
@@ -47,23 +47,23 @@ namespace ChessBot
             _pieceCount = other._pieceCount;
         }
 
-        public PlayerColor Color { get; private set; }
+        public Side Side { get; private set; }
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
 
         // todo: avoid use of Parse() here
         public Location InitialKingLocation =>
-            Color == PlayerColor.White ? Location.Parse("e1") : Location.Parse("e8");
+            Side == Side.White ? Location.Parse("e1") : Location.Parse("e8");
         public Location InitialKingsideRookLocation =>
-            Color == PlayerColor.White ? Location.Parse("h1") : Location.Parse("h8");
+            Side == Side.White ? Location.Parse("h1") : Location.Parse("h8");
         public Location InitialQueensideRookLocation =>
-            Color == PlayerColor.White ? Location.Parse("a1") : Location.Parse("a8");
+            Side == Side.White ? Location.Parse("a1") : Location.Parse("a8");
 
         public bool Equals([AllowNull] PlayerInfo other)
         {
             // We ignore _state and the associated fields intentionally
             if (other == null) return false;
-            return Color == other.Color
+            return Side == other.Side
                 && CanCastleKingside == other.CanCastleKingside
                 && CanCastleQueenside == other.CanCastleQueenside;
         }
@@ -79,7 +79,7 @@ namespace ChessBot
                 var builder = ImmutableArray.CreateBuilder<Tile>(PieceCount);
                 foreach (var tile in _state.GetTiles())
                 {
-                    if (tile.HasPiece && tile.Piece.Color == Color)
+                    if (tile.HasPiece && tile.Piece.Side == Side)
                     {
                         builder.Add(tile);
                     }
@@ -89,7 +89,7 @@ namespace ChessBot
             return _occupiedTiles;
         }
 
-        public PlayerInfo SetColor(PlayerColor value) => new PlayerInfo(this) { Color = value };
+        public PlayerInfo SetSide(Side value) => new PlayerInfo(this) { Side = value };
         public PlayerInfo SetCanCastleKingside(bool value) => new PlayerInfo(this) { CanCastleKingside = value };
         public PlayerInfo SetCanCastleQueenside(bool value) => new PlayerInfo(this) { CanCastleQueenside = value };
 

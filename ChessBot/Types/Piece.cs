@@ -1,6 +1,6 @@
 ﻿using System;
 using static ChessBot.Types.PieceKind;
-using static ChessBot.Types.PlayerColor;
+using static ChessBot.Types.Side;
 
 namespace ChessBot.Types
 {
@@ -22,25 +22,25 @@ namespace ChessBot.Types
         public static bool operator ==(Piece left, Piece right) => left.Equals(right);
         public static bool operator !=(Piece left, Piece right) => !(left == right);
 
-        public Piece(PlayerColor color, PieceKind kind)
+        public Piece(Side side, PieceKind kind)
         {
-            Color = Enum.IsDefined(typeof(PlayerColor), color) ? color : throw new ArgumentOutOfRangeException(nameof(color));
+            Side = Enum.IsDefined(typeof(Side), side) ? side : throw new ArgumentOutOfRangeException(nameof(side));
             Kind = Enum.IsDefined(typeof(PieceKind), kind) ? kind : throw new ArgumentOutOfRangeException(nameof(kind));
         }
 
-        public PlayerColor Color { get; }
+        public Side Side { get; }
         public PieceKind Kind { get; }
 
         public override bool Equals(object obj) => obj is Piece other && Equals(other);
 
         public bool Equals(Piece other)
-            => Color == other.Color && Kind == other.Kind;
+            => Side == other.Side && Kind == other.Kind;
 
-        public override int GetHashCode() => HashCode.Combine(Color, Kind);
+        public override int GetHashCode() => HashCode.Combine(Side, Kind);
 
         public override string ToString()
         {
-            return $"{Color.ToString().ToLowerInvariant()} {Kind.ToString().ToLowerInvariant()}";
+            return $"{Side.ToString().ToLowerInvariant()} {Kind.ToString().ToLowerInvariant()}";
         }
     }
 }

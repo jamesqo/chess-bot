@@ -1,6 +1,5 @@
 ﻿using ChessBot.Exceptions;
 using System;
-using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
@@ -9,9 +8,7 @@ namespace ChessBot.Types
         public static implicit operator Location((File, Rank) tuple)
             => new Location(tuple.Item1, tuple.Item2);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool operator ==(Location left, Location right)
-            => (left.File == right.File && left.Rank == right.Rank);
+        public static bool operator ==(Location left, Location right) => left.Equals(right);
 
         public static bool operator !=(Location left, Location right) => !(left == right);
 
@@ -59,7 +56,8 @@ namespace ChessBot.Types
         public override bool Equals(object obj)
             => obj is Location other && Equals(other);
 
-        public bool Equals(Location other) => this == other;
+        public bool Equals(Location other)
+            => (File == other.File && Rank == other.Rank);
 
         public override int GetHashCode() => HashCode.Combine(File, Rank);
 

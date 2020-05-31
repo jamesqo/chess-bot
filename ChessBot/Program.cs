@@ -10,7 +10,7 @@ namespace ChessBot
 {
     class Program
     {
-        static PlayerColor GetUserColor()
+        static Side GetUserSide()
         {
             while (true)
             {
@@ -18,8 +18,8 @@ namespace ChessBot
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
-                    case "b": return PlayerColor.Black;
-                    case "w": return PlayerColor.White;
+                    case "b": return Side.Black;
+                    case "w": return Side.White;
                 }
             }
         }
@@ -61,15 +61,15 @@ namespace ChessBot
             WriteLine("Welcome! This is a simple chess bot written in C#.");
             WriteLine();
 
-            var userColor = GetUserColor();
+            var userSide = GetUserSide();
             var aiStrategy = GetAIStrategy();
             var fen = GetStartFen();
             WriteLine();
 
-            var whitePlayer = (userColor == PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
-            var blackPlayer = (userColor != PlayerColor.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
+            var whitePlayer = (userSide == Side.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
+            var blackPlayer = (userSide != Side.White) ? new HumanPlayer() : GetAIPlayer(aiStrategy);
 
-            WriteLine($"Playing as: {userColor}");
+            WriteLine($"Playing as: {userSide}");
             WriteLine();
 
             var state = State.ParseFen(fen);
@@ -87,10 +87,10 @@ namespace ChessBot
                 WriteLine(GetDisplayString(state));
                 WriteLine();
 
-                WriteLine($"It's {state.ActiveColor}'s turn.");
+                WriteLine($"It's {state.ActiveSide}'s turn.");
                 var player = state.WhiteToMove ? whitePlayer : blackPlayer;
                 var nextMove = player.GetNextMove(state);
-                WriteLine($"{state.ActiveColor} played: {nextMove}");
+                WriteLine($"{state.ActiveSide} played: {nextMove}");
                 state = state.ApplyMove(nextMove);
                 WriteLine();
                 CheckForEnd(state);
@@ -109,7 +109,7 @@ namespace ChessBot
         {
             if (state.IsCheckmate)
             {
-                WriteLine($"{state.OpposingColor} wins!");
+                WriteLine($"{state.OpposingSide} wins!");
                 Environment.Exit(0);
             }
 
@@ -154,7 +154,7 @@ namespace ChessBot
                 _ => throw new ArgumentOutOfRangeException()
             };
 
-            if (piece.Color == PlayerColor.Black)
+            if (piece.Side == Side.Black)
             {
                 result = char.ToLowerInvariant(result);
             }
@@ -341,10 +341,10 @@ namespace ChessBot
                 return state.WhiteToMove ? int.MaxValue : -int.MaxValue;
             }
 
-            return HeuristicForPlayer(state, PlayerColor.White) - HeuristicForPlayer(state, PlayerColor.Black);
+            return HeuristicForPlayer(state, Side.White) - HeuristicForPlayer(state, Side.Black);
         }
 
-        private static int HeuristicForPlayer(State state, PlayerColor color)
+        private static int HeuristicForPlayer(State state, Side side)
         {
             // temporarily disabling this for perf reasons
             /*
@@ -367,10 +367,10 @@ namespace ChessBot
             bool isEndgame = false;
 
             int result = 0;
-            foreach (var tile in state.GetPlayer(color).GetOccupiedTiles())
+            foreach (var tile in state.GetPlayer(side).GetOccupiedTiles())
             {
                 result += PieceValues[(int)tile.Piece.Kind];
-                int locationInt = 8 * (color == PlayerColor.White ? (7 - (int)tile.Location.Rank) : (int)tile.Location.Rank) + (int)tile.Location.File;
+                int locationInt = 8 * (side == Side.White ? (7 - (int)tile.Location.Rank) : (int)tile.Location.Rank) + (int)tile.Location.File;
                 if (tile.Piece.Kind != PieceKind.King)
                 {
                     result += PieceSquareValues[(int)tile.Piece.Kind][locationInt];
