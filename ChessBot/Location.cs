@@ -1,5 +1,6 @@
 ﻿using ChessBot.Exceptions;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace ChessBot
@@ -18,20 +19,16 @@ namespace ChessBot
 
         public static bool operator !=(Location left, Location right) => !(left == right);
 
-        public static Location Parse(string an)
+        public static Location Parse(string an) => TryParse(an) ?? throw new AnParseException($"Unable to parse location from '{an}'");
+
+        public static Location? TryParse(string an)
         {
-            if (an?.Length != 2)
-            {
-                throw new AnParseException("Expected input of length 2");
-            }
+            if (an?.Length != 2) return null;
 
             int column = (an[0] - 'a');
             int row = (an[1] - '1');
 
-            if ((column < 0 || column >= 8) || (row < 0 || row >= 8))
-            {
-                throw new AnParseException("Invalid rank or file specified");
-            }
+            if ((column < 0 || column >= 8) || (row < 0 || row >= 8)) return null;
 
             return (column, row);
         }

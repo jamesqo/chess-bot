@@ -58,7 +58,7 @@ namespace ChessBot
             var enPassantTarget = parts[3] switch
             {
                 "-" => (Location?)null,
-                _ => Location.Parse(parts[3]) // todo: wrap AnParseException
+                _ => Location.TryParse(parts[3]) ?? throw new InvalidFenException($"Invalid en passant target: {parts[3]}")
             };
             var rule50Counter = parts[4]; // todo: don't ignore
             var fullMoveCounter = parts[5]; // todo: don't ignore
