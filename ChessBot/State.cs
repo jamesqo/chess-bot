@@ -194,19 +194,19 @@ namespace ChessBot
         }
         public Tile this[string location] => this[Location.Parse(location)];
 
-        public State ApplyMove(string move) => ApplyMove(Move.Parse(move, this));
+        public State Apply(string move) => Apply(Move.Parse(move, this));
 
-        public State ApplyMove(Move move)
+        public State Apply(Move move)
         {
-            var (newState, error) = TryApplyMove(move);
+            var (newState, error) = TryApply(move);
             if (error != null) throw new InvalidMoveException(error);
             return newState;
         }
 
-        public (State newState, string error) TryApplyMove(string move) => TryApplyMove(Move.Parse(move, this));
+        public (State newState, string error) TryApply(string move) => TryApply(Move.Parse(move, this));
 
         // todo: instead of a string, error should be some kind of enum type
-        public (State newState, string error) TryApplyMove(Move move)
+        public (State newState, string error) TryApply(Move move)
         {
             (State, string) Result(State newState) => (newState, null);
             (State, string) Error(string error) => (null, error);
@@ -259,7 +259,7 @@ namespace ChessBot
                 // Move the rook
                 var rookSource = move.IsKingsideCastle ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation;
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
-                newBoard = ApplyMoveInternal(newBoard, rookSource, rookDestination);
+                newBoard = ApplyInternal(newBoard, rookSource, rookDestination);
             }
             else if (!IsMovePossible(source, destination))
             {
@@ -309,7 +309,7 @@ namespace ChessBot
             int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
 
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
-            newBoard = ApplyMoveInternal(newBoard, source, destination, move.PromotionKind, isEnPassantCapture);
+            newBoard = ApplyInternal(newBoard, source, destination, move.PromotionKind, isEnPassantCapture);
 
             var result = new State(
                 board: newBoard,
@@ -328,7 +328,7 @@ namespace ChessBot
             return Result(result);
         }
 
-        private static ImmutableArray<Tile> ApplyMoveInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null, bool isEnPassantCapture = false)
+        private static ImmutableArray<Tile> ApplyInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null, bool isEnPassantCapture = false)
         {
             Debug.Assert(source != destination);
 
@@ -453,7 +453,7 @@ namespace ChessBot
 
             foreach (var move in movesToTry)
             {
-                var (newState, error) = TryApplyMove(move);
+                var (newState, error) = TryApply(move);
                 if (error == null)
                 {
                     yield return (move, newState);

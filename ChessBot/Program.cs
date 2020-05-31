@@ -14,12 +14,12 @@ namespace ChessBot
         {
             while (true)
             {
-                Write("Pick your color [b for black, w for white]: ");
+                Write("Pick your color [b, w (default)]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
                     case "b": return Side.Black;
-                    case "w": return Side.White;
+                    case "": case "w": return Side.White;
                 }
             }
         }
@@ -28,13 +28,13 @@ namespace ChessBot
         {
             while (true)
             {
-                Write("Pick ai strategy [random, minimax, alphabeta]: ");
+                Write("Pick ai strategy [random, minimax, alphabeta (default)]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
                     case "random": return AIStrategy.Random;
                     case "minimax": return AIStrategy.Minimax;
-                    case "alphabeta": return AIStrategy.AlphaBeta;
+                    case "": case "alphabeta": return AIStrategy.AlphaBeta;
                 }
             }
         }
@@ -91,7 +91,7 @@ namespace ChessBot
                 var player = state.WhiteToMove ? whitePlayer : blackPlayer;
                 var nextMove = player.GetNextMove(state);
                 WriteLine($"{state.ActiveSide} played: {nextMove}");
-                state = state.ApplyMove(nextMove);
+                state = state.Apply(nextMove);
                 WriteLine();
                 CheckForEnd(state);
             }
@@ -181,18 +181,20 @@ namespace ChessBot
             while (true)
             {
                 Write("> ");
-                string input = ReadLine();
-                switch (input)
+                string input = ReadLine().Trim();
+                switch (input.ToLower())
                 {
                     case "exit":
                     case "quit":
                         Environment.Exit(0);
                         break;
                     case "help":
+                        // todo: have some kind of _commands object that you loop thru
                         WriteLine("List of commands:");
                         WriteLine();
+                        WriteLine("exit|quit - exits the program");
                         WriteLine("help - displays this message");
-                        WriteLine("list - list of all valid moves");
+                        WriteLine("list - lists all valid moves");
                         break;
                     case "list":
                         WriteLine("List of valid moves:");
@@ -203,7 +205,7 @@ namespace ChessBot
                         try
                         {
                             var move = Move.Parse(input, state);
-                            _ = state.ApplyMove(move); // make sure it's valid
+                            _ = state.Apply(move); // make sure it's valid
                             return move;
                         }
                         catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
