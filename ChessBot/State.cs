@@ -284,7 +284,8 @@ namespace ChessBot
                 }
             }
 
-            bool is2Advance = (piece.Kind == PieceKind.Pawn && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
+            int pawnRow = WhiteToMove ? 1 : 6;
+            bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Row == pawnRow && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
             var newEnPassantTarget = is2Advance ? (WhiteToMove ? source.Up(1) : source.Down(1)) : (Location?)null;
 
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
