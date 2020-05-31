@@ -15,12 +15,12 @@ namespace ChessBot.Tests
         {
             var state = State.ParseFen("8/8/8/8/8/8/4P3/8 w - - 0 1");
 
-            Assert.Equal(State.ParseFen("8/8/8/8/8/4P3/8/8 b - - 1 1"), state.ApplyMove("e3"));
-            Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/8/8 b - e3 1 1"), state.ApplyMove("e4"));
+            Assert.Equal(State.ParseFen("8/8/8/8/8/4P3/8/8 b - - 0 1"), state.ApplyMove("e3"));
+            Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/8/8 b - e3 0 1"), state.ApplyMove("e4"));
 
             state = state.ApplyMove("e3").SetActiveColor(PlayerColor.White);
 
-            Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/8/8 b - - 2 1"), state.ApplyMove("e4"));
+            Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/8/8 b - - 0 1"), state.ApplyMove("e4"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e5"));
         }
 
@@ -30,11 +30,11 @@ namespace ChessBot.Tests
             var state = State.ParseFen("8/8/8/8/8/4P3/4P3/8 w - - 0 1");
 
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e3"));
-            Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/4P3/8 b - - 1 1"), state.ApplyMove("e4"));
+            Assert.Equal(State.ParseFen("8/8/8/8/4P3/8/4P3/8 b - - 0 1"), state.ApplyMove("e4"));
 
             state = state.ApplyMove("e4").SetActiveColor(PlayerColor.White);
 
-            Assert.Equal(State.ParseFen("8/8/8/8/4P3/4P3/8/8 b - - 2 1"), state.ApplyMove("e3"));
+            Assert.Equal(State.ParseFen("8/8/8/8/4P3/4P3/8/8 b - - 0 1"), state.ApplyMove("e3"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e4"));
         }
 
@@ -48,7 +48,7 @@ namespace ChessBot.Tests
 
             state = State.ParseFen("8/8/8/8/4p3/8/4P3/8 w - - 0 1");
 
-            Assert.Equal(State.ParseFen("8/8/8/8/4p3/4P3/8/8 b - - 1 1"), state.ApplyMove("e3"));
+            Assert.Equal(State.ParseFen("8/8/8/8/4p3/4P3/8/8 b - - 0 1"), state.ApplyMove("e3"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("e4"));
         }
 
@@ -58,13 +58,13 @@ namespace ChessBot.Tests
             var state = State.ParseFen("8/8/8/3p4/3PP3/8/8/8 w - - 0 1");
 
             // capture on left
-            Assert.Equal(State.ParseFen("8/8/8/3P4/3P4/8/8/8 b - - 1 1"), state.ApplyMove("xd5"));
+            Assert.Equal(State.ParseFen("8/8/8/3P4/3P4/8/8/8 b - - 0 1"), state.ApplyMove("xd5"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("d5"));
 
             state = State.ParseFen("8/8/8/5p2/4PP2/8/8/8 w - - 0 1");
 
             // capture on right
-            Assert.Equal(State.ParseFen("8/8/8/5P2/5P2/8/8/8 b - - 1 1"), state.ApplyMove("xf5"));
+            Assert.Equal(State.ParseFen("8/8/8/5P2/5P2/8/8/8 b - - 0 1"), state.ApplyMove("xf5"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("f5"));
         }
 
@@ -77,26 +77,26 @@ namespace ChessBot.Tests
             var state = State.ParseFen("8/pppp1ppp/8/4P3/4p3/8/PPPP1PPP/8 w - - 0 1");
 
             // on left
-            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/3Pp3/8/PPP2PPP/8 b - d3 1 1"), state.ApplyMove("d4"));
-            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/8/3p4/PPP2PPP/8 w - - 1 2"), state.ApplyMove("d4").ApplyMove("xd3"));
+            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/3Pp3/8/PPP2PPP/8 b - d3 0 1"), state.ApplyMove("d4"));
+            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/8/3p4/PPP2PPP/8 w - - 0 2"), state.ApplyMove("d4").ApplyMove("xd3"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("d4").ApplyMove("xd5"));
 
             // on right
-            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/4pP2/8/PPPP2PP/8 b - f3 1 1"), state.ApplyMove("f4"));
-            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/8/5p2/PPPP2PP/8 w - - 1 2"), state.ApplyMove("f4").ApplyMove("xf3"));
+            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/4pP2/8/PPPP2PP/8 b - f3 0 1"), state.ApplyMove("f4"));
+            Assert.Equal(State.ParseFen("8/pppp1ppp/8/4P3/8/5p2/PPPP2PP/8 w - - 0 2"), state.ApplyMove("f4").ApplyMove("xf3"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("d4").ApplyMove("xf5"));
 
             // white captures en passant
             state = state.SetActiveColor(PlayerColor.Black);
 
             // on left
-            Assert.Equal(State.ParseFen("8/ppp2ppp/8/3pP3/4p3/8/PPPP1PPP/8 w - d6 1 1"), state.ApplyMove("d5"));
-            Assert.Equal(State.ParseFen("8/ppp2ppp/3P4/8/4p3/8/PPPP1PPP/8 b - - 1 2"), state.ApplyMove("d5").ApplyMove("xd6"));
+            Assert.Equal(State.ParseFen("8/ppp2ppp/8/3pP3/4p3/8/PPPP1PPP/8 w - d6 0 2"), state.ApplyMove("d5"));
+            Assert.Equal(State.ParseFen("8/ppp2ppp/3P4/8/4p3/8/PPPP1PPP/8 b - - 0 2"), state.ApplyMove("d5").ApplyMove("xd6"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("d5").ApplyMove("xd4"));
 
             // on right
-            Assert.Equal(State.ParseFen("8/pppp2pp/8/4Pp2/4p3/8/PPPP1PPP/8 w - f6 1 1"), state.ApplyMove("f5"));
-            Assert.Equal(State.ParseFen("8/pppp2pp/5P2/8/4p3/8/PPPP1PPP/8 b - - 1 2"), state.ApplyMove("f5").ApplyMove("xf6"));
+            Assert.Equal(State.ParseFen("8/pppp2pp/8/4Pp2/4p3/8/PPPP1PPP/8 w - f6 0 2"), state.ApplyMove("f5"));
+            Assert.Equal(State.ParseFen("8/pppp2pp/5P2/8/4p3/8/PPPP1PPP/8 b - - 0 2"), state.ApplyMove("f5").ApplyMove("xf6"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("f5").ApplyMove("xf4"));
         }
 
@@ -125,28 +125,28 @@ namespace ChessBot.Tests
 
             // king is moved
             var state2 = state.ApplyMove("Kd1").SetActiveColor(PlayerColor.White).ApplyMove("Ke1").SetActiveColor(PlayerColor.White);
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w - - 2 2"), state2);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w - - 2 1"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
 
             // rook is moved
             state2 = state.ApplyMove("Ra2").SetActiveColor(PlayerColor.White).ApplyMove("Ra1").SetActiveColor(PlayerColor.White);
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w K - 2 2"), state2);
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R4RK1 b - - 3 2"), state2.ApplyMove("O-O"));
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w K - 2 1"), state2);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R4RK1 b - - 3 1"), state2.ApplyMove("O-O"));
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
 
             state2 = state.ApplyMove("Rh2").SetActiveColor(PlayerColor.White).ApplyMove("Rh1").SetActiveColor(PlayerColor.White);
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w Q - 2 2"), state2);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/R3K2R w Q - 2 1"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 3 2"), state2.ApplyMove("O-O-O"));
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 3 1"), state2.ApplyMove("O-O-O"));
 
             // rook is captured
             state = State.ParseFen("8/8/8/8/8/8/r6r/R3K2R b KQ - 0 1");
             state2 = state.ApplyMove("Rxa1");
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/7r/r3K2R w K - 1 1"), state2);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/7r/r3K2R w K - 0 2"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O-O"));
             state2 = state.ApplyMove("Rxh1");
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/r7/R3K2r w Q - 1 1"), state2);
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/r7/R3K2r w Q - 0 2"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.ApplyMove("O-O"));
 
             // friendly piece in between king and rook
@@ -190,10 +190,10 @@ namespace ChessBot.Tests
         {
             var state = State.ParseFen("8/P7/8/8/8/8/p7/8 w - - 0 1");
 
-            Assert.Equal(State.ParseFen("N7/8/8/8/8/8/p7/8 b - - 1 1"), state.ApplyMove("a8N"));
-            Assert.Equal(State.ParseFen("B7/8/8/8/8/8/p7/8 b - - 1 1"), state.ApplyMove("a8B"));
-            Assert.Equal(State.ParseFen("R7/8/8/8/8/8/p7/8 b - - 1 1"), state.ApplyMove("a8R"));
-            Assert.Equal(State.ParseFen("Q7/8/8/8/8/8/p7/8 b - - 1 1"), state.ApplyMove("a8Q"));
+            Assert.Equal(State.ParseFen("N7/8/8/8/8/8/p7/8 b - - 0 1"), state.ApplyMove("a8N"));
+            Assert.Equal(State.ParseFen("B7/8/8/8/8/8/p7/8 b - - 0 1"), state.ApplyMove("a8B"));
+            Assert.Equal(State.ParseFen("R7/8/8/8/8/8/p7/8 b - - 0 1"), state.ApplyMove("a8R"));
+            Assert.Equal(State.ParseFen("Q7/8/8/8/8/8/p7/8 b - - 0 1"), state.ApplyMove("a8Q"));
 
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a8"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a8P"));
@@ -201,10 +201,10 @@ namespace ChessBot.Tests
 
             state = state.SetActiveColor(PlayerColor.Black);
 
-            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/n7 w - - 1 1"), state.ApplyMove("a1N"));
-            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/b7 w - - 1 1"), state.ApplyMove("a1B"));
-            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/r7 w - - 1 1"), state.ApplyMove("a1R"));
-            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/q7 w - - 1 1"), state.ApplyMove("a1Q"));
+            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/n7 w - - 0 2"), state.ApplyMove("a1N"));
+            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/b7 w - - 0 2"), state.ApplyMove("a1B"));
+            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/r7 w - - 0 2"), state.ApplyMove("a1R"));
+            Assert.Equal(State.ParseFen("8/P7/8/8/8/8/8/q7 w - - 0 2"), state.ApplyMove("a1Q"));
 
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a1"));
             Assert.Throws<InvalidMoveException>(() => state.ApplyMove("a1P"));
@@ -318,8 +318,8 @@ namespace ChessBot.Tests
         [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR foo KQkq - 0 1")]
         [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w foo - 0 1")]
         [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq foo 0 1")]
-        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - foo 1", Skip = "not implemented yet")]
-        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 foo", Skip = "not implemented yet")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - foo 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 foo")]
         // bad number of ranks
         [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1")]
         [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR/RNBQKBNR w KQkq - 0 1")]
@@ -328,6 +328,9 @@ namespace ChessBot.Tests
         [InlineData("rnbqkbnr/pppppppp/8/8/8/7/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
         // digits can't follow other digits
         [InlineData("rnbqkbnr/pppppppp/8/8/8/35/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
+        // negative halfmove clock / fullmove number
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - -1 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 -1")]
         public void ParseFen_Fails(string badFen)
         {
             Assert.Throws<InvalidFenException>(() => State.ParseFen(badFen));

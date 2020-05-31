@@ -24,13 +24,17 @@ namespace ChessBot
             PlayerColor activeColor,
             PlayerInfo white,
             PlayerInfo black,
-            Location? enPassantTarget)
+            Location? enPassantTarget,
+            int halfMoveClock,
+            int fullMoveNumber)
         {
             _board = board;
             ActiveColor = activeColor;
             White = white.SetState(this);
             Black = black.SetState(this);
             EnPassantTarget = enPassantTarget;
+            HalfMoveClock = halfMoveClock;
+            FullMoveNumber = fullMoveNumber;
         }
 
         private State(State other) : this(
@@ -38,7 +42,9 @@ namespace ChessBot
             other.ActiveColor,
             other.White,
             other.Black,
-            other.EnPassantTarget)
+            other.EnPassantTarget,
+            other.HalfMoveClock,
+            other.FullMoveNumber)
         {
         }
 
@@ -60,8 +66,8 @@ namespace ChessBot
                 "-" => (Location?)null,
                 _ => Location.TryParse(parts[3]) ?? throw new InvalidFenException($"Invalid en passant target: {parts[3]}")
             };
-            var rule50Counter = parts[4]; // todo: don't ignore
-            var fullMoveCounter = parts[5]; // todo: don't ignore
+            if (!int.TryParse(parts[4], out var halfMoveClock) || halfMoveClock < 0) throw new InvalidFenException($"Invalid halfmove clock: {parts[4]}");
+            if (!int.TryParse(parts[5], out var fullMoveNumber) || fullMoveNumber <= 0) throw new InvalidFenException($"Invalid fullmove number: {parts[5]}");
 
             var ranks = piecePlacement.Split('/');
             if (ranks.Length != 8) throw new InvalidFenException("Incorrect number of ranks");
@@ -92,7 +98,7 @@ namespace ChessBot
                     else
                     {
                         if (c == 8) throw new InvalidFenException("Incorrect number of files");
-                        var color = char.IsLower(ch) ? PlayerColor.Black : PlayerColor.White; // is this invariant?
+                        var color = (char.ToLowerInvariant(ch) == ch) ? PlayerColor.Black : PlayerColor.White;
                         var kind = char.ToLowerInvariant(ch) switch
                         {
                             'p' => PieceKind.Pawn,
@@ -137,7 +143,9 @@ namespace ChessBot
                 activeColor: activeColor,
                 white: white,
                 black: black,
-                enPassantTarget: enPassantTarget);
+                enPassantTarget: enPassantTarget,
+                halfMoveClock: halfMoveClock,
+                fullMoveNumber: fullMoveNumber);
         }
 
         private static int GetBoardIndex(int column, int row) => (8 * column + row);
@@ -150,11 +158,15 @@ namespace ChessBot
         public PlayerInfo White { get; private set; }
         public PlayerInfo Black { get; private set; }
         public Location? EnPassantTarget { get; private set; }
+        public int HalfMoveClock { get; private set; }
+        public int FullMoveNumber { get; private set; }
 
         public State SetActiveColor(PlayerColor value) => new State(this) { ActiveColor = value };
-        public State SetWhite(PlayerInfo value) => new State(this) { White = value };
-        public State SetBlack(PlayerInfo value) => new State(this) { Black = value };
-        public State SetEnPassantTarget(Location? value) => new State(this) { EnPassantTarget = value };
+        //public State SetWhite(PlayerInfo value) => new State(this) { White = value };
+        //public State SetBlack(PlayerInfo value) => new State(this) { Black = value };
+        //public State SetEnPassantTarget(Location? value) => new State(this) { EnPassantTarget = value };
+        //SetHalfMoveClock()
+        //SetFullMoveNumber()
 
         public PlayerInfo ActivePlayer => GetPlayer(ActiveColor);
         public PlayerColor OpposingColor => WhiteToMove ? PlayerColor.Black : PlayerColor.White;
@@ -288,6 +300,9 @@ namespace ChessBot
             bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Row == pawnRow && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
             var newEnPassantTarget = is2Advance ? (WhiteToMove ? source.Up(1) : source.Down(1)) : (Location?)null;
 
+            int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
+            int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
+
             // Step 3: Apply the changes and ensure our king isn't attacked afterwards
             newBoard = ApplyMoveInternal(newBoard, source, destination, move.PromotionKind, isEnPassantCapture);
 
@@ -296,7 +311,9 @@ namespace ChessBot
                 activeColor: OpposingColor,
                 white: WhiteToMove ? newActivePlayer : newOpposingPlayer,
                 black: WhiteToMove ? newOpposingPlayer : newActivePlayer,
-                enPassantTarget: newEnPassantTarget);
+                enPassantTarget: newEnPassantTarget,
+                halfMoveClock: newHalfMoveClock,
+                fullMoveNumber: newFullMoveNumber);
 
             if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
             {
@@ -357,7 +374,9 @@ namespace ChessBot
             if (ActiveColor != other.ActiveColor ||
                 !White.Equals(other.White) ||
                 !Black.Equals(other.Black) || 
-                EnPassantTarget != other.EnPassantTarget)
+                EnPassantTarget != other.EnPassantTarget ||
+                HalfMoveClock != other.HalfMoveClock ||
+                FullMoveNumber != other.FullMoveNumber)
             {
                 return false;
             }
@@ -479,9 +498,12 @@ namespace ChessBot
             fen.Append(' ');
 
             fen.Append(EnPassantTarget?.ToString() ?? "-");
-            //fen.Append(' ');
+            fen.Append(' ');
 
-            // todo: append rule 50 counter, full move counter
+            fen.Append(HalfMoveClock);
+            fen.Append(' ');
+
+            fen.Append(FullMoveNumber);
 
             return fen.ToString();
         }
