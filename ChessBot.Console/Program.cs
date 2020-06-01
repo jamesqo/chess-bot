@@ -418,8 +418,14 @@ namespace ChessBot.Console
     class AlphaBetaAIPlayer : IPlayer
     {
         private readonly int _depth;
+        private readonly TranspositionCache _cache;
 
-        public AlphaBetaAIPlayer(int depth) => _depth = depth;
+        public AlphaBetaAIPlayer(int depth)
+        {
+            Debug.Assert(depth > 0);
+            _depth = depth;
+            _cache = new TranspositionCache();
+        }
 
         public Move GetNextMove(State state)
         {
@@ -463,11 +469,15 @@ namespace ChessBot.Console
             return bestMove;
         }
 
-        private static int AlphaBeta(State state, int d, int alpha, int beta)
+        private int AlphaBeta(State state, int d, int alpha, int beta)
         {
             if (d == 0 || state.IsTerminal)
             {
                 return Eval.Heuristic(state);
+            }
+            if (_cache.TryGetValue(state, out int cachedValue))
+            {
+                return cachedValue;
             }
 
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
@@ -492,6 +502,7 @@ namespace ChessBot.Console
                 }
             }
 
+            _cache.TryAdd(state, bestValue);
             return bestValue;
         }
     }
