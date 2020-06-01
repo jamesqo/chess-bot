@@ -320,7 +320,7 @@ namespace ChessBot.Console
             {
                 // todo: give preference to checkmates that occur in fewer moves
                 if (state.IsStalemate) return 0;
-                return state.WhiteToMove ? int.MaxValue : -int.MaxValue;
+                return state.WhiteToMove ? int.MaxValue : int.MinValue;
             }
 
             return HeuristicForPlayer(state, Side.White) - HeuristicForPlayer(state, Side.Black);
@@ -372,46 +372,36 @@ namespace ChessBot.Console
     {
         private readonly int _depth;
 
-        public MinimaxAIPlayer(int depth) => _depth = depth;
-
-        public Move GetNextMove(State state)
+        public MinimaxAIPlayer(int depth)
         {
-            // todo: throw something if it's terminal
-
-            Move bestMove = null;
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
-            foreach (var (move, succ) in state.GetMovesAndSuccessors())
-            {
-                int value = Minimax(succ, _depth - 1);
-                bool better = state.WhiteToMove ? value > bestValue : value < bestValue;
-                if (better)
-                {
-                    bestMove = move;
-                    bestValue = value;
-                }
-            }
-
-            return bestMove;
+            Debug.Assert(depth > 0);
+            _depth = depth;
         }
 
-        private static int Minimax(State state, int d)
+        public Move GetNextMove(State state) => Minimax(state, _depth).move;
+
+        private static (int value, Move move) Minimax(State state, int d)
         {
             if (d == 0 || state.IsTerminal)
             {
-                return Eval.Heuristic(state);
+                return (value: Eval.Heuristic(state), move: null);
             }
 
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
+            Move bestMove = null;
 
-            foreach (var succ in state.GetSuccessors())
+            foreach (var (move, succ) in state.GetMovesAndSuccessors())
             {
-                int value = Minimax(succ, d - 1);
-                bestValue = state.WhiteToMove
-                    ? Math.Max(bestValue, value)
-                    : Math.Min(bestValue, value);
+                var (value, _) = Minimax(succ, d - 1);
+                bool better = state.WhiteToMove ? (value > bestValue) : (value < bestValue);
+                if (better)
+                {
+                    bestValue = value;
+                    bestMove = move;
+                }
             }
 
-            return bestValue;
+            return (value: bestValue, move: bestMove);
         }
     }
 
@@ -419,70 +409,40 @@ namespace ChessBot.Console
     {
         private readonly int _depth;
 
-        public AlphaBetaAIPlayer(int depth) => _depth = depth;
-
-        public Move GetNextMove(State state)
+        public AlphaBetaAIPlayer(int depth)
         {
-            // todo: throw something if it's terminal
-
-            Move bestMove = null;
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
-
-            var (alpha, beta) = (-int.MaxValue, int.MaxValue);
-
-            foreach (var (move, succ) in state.GetMovesAndSuccessors())
-            {
-                int value = AlphaBeta(succ, _depth - 1, alpha, beta);
-                if (state.WhiteToMove)
-                {
-                    bool better = (value > bestValue);
-                    if (better)
-                    {
-                        bestValue = value;
-                        bestMove = move;
-                    }
-                    alpha = Math.Max(alpha, bestValue);
-                }
-                else
-                {
-                    bool better = (value < bestValue);
-                    if (better)
-                    {
-                        bestValue = value;
-                        bestMove = move;
-                    }
-                    beta = Math.Min(beta, bestValue);
-                }
-
-                if (alpha >= beta)
-                {
-                    break;
-                }
-            }
-
-            return bestMove;
+            Debug.Assert(_depth > 0);
+            _depth = depth;
         }
 
-        private static int AlphaBeta(State state, int d, int alpha, int beta)
+        public Move GetNextMove(State state) => AlphaBeta(state, _depth, int.MinValue, int.MaxValue).move;
+
+        private static (int value, Move move) AlphaBeta(State state, int d, int alpha, int beta)
         {
             if (d == 0 || state.IsTerminal)
             {
-                return Eval.Heuristic(state);
+                return (value: Eval.Heuristic(state), move: null);
             }
 
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
+            Move bestMove = null;
 
-            foreach (var succ in state.GetSuccessors())
+            foreach (var (move, succ) in state.GetMovesAndSuccessors())
             {
-                int value = AlphaBeta(succ, d - 1, alpha, beta);
+                var (value, _) = AlphaBeta(succ, d - 1, alpha, beta);
+
+                bool better = state.WhiteToMove ? (value > bestValue) : (value < bestValue);
+                if (better)
+                {
+                    bestValue = value;
+                    bestMove = move;
+                }
                 if (state.WhiteToMove)
                 {
-                    bestValue = Math.Max(bestValue, value);
                     alpha = Math.Max(alpha, bestValue);
                 }
                 else
                 {
-                    bestValue = Math.Min(bestValue, value);
                     beta = Math.Min(beta, bestValue);
                 }
 
@@ -492,7 +452,7 @@ namespace ChessBot.Console
                 }
             }
 
-            return bestValue;
+            return (value: bestValue, move: bestMove);
         }
     }
 }
