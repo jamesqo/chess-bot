@@ -1,6 +1,7 @@
 ﻿using ChessBot.Types;
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -17,7 +18,7 @@ namespace ChessBot
 
         private int ComputePieceCount()
         {
-            // todo: enforce _state isn't null
+            Debug.Assert(_state != null);
 
             int count = 0;
             foreach (var tile in _state.GetTiles())
@@ -64,7 +65,10 @@ namespace ChessBot
 
         public ImmutableArray<Tile> GetOccupiedTiles()
         {
-            // todo: enforce _state isn't null
+            if (_state == null)
+            {
+                throw new InvalidOperationException($"{nameof(_state)} isn't set");
+            }
 
             if (_occupiedTiles.IsDefault)
             {

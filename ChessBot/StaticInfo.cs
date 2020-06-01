@@ -16,9 +16,7 @@ namespace ChessBot
             if (!isKindValid) throw new ArgumentOutOfRangeException(nameof(kind));
 
             var rank = BackRank(side);
-#pragma warning disable CS8509
             return kind switch
-#pragma warning restore CS8509
             {
                 PieceKind.Knight => (kingside.Value ? FileG : FileB, rank),
                 PieceKind.Bishop => (kingside.Value ? FileF : FileC, rank),

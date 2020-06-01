@@ -139,27 +139,7 @@ namespace ChessBot
         }
 
         static char GetDisplayChar(Tile tile)
-        {
-            if (!tile.HasPiece) return '.';
-            var piece = tile.Piece;
-
-            char result = piece.Kind switch
-            {
-                PieceKind.Pawn => 'P',
-                PieceKind.Knight => 'N',
-                PieceKind.Bishop => 'B',
-                PieceKind.Rook => 'R',
-                PieceKind.Queen => 'Q',
-                PieceKind.King => 'K',
-                _ => throw new ArgumentOutOfRangeException()
-            };
-
-            if (!piece.IsWhite)
-            {
-                result = char.ToLowerInvariant(result);
-            }
-            return result;
-        }
+            => tile.HasPiece ? tile.Piece.ToDisplayChar() : '.';
     }
 
     enum AIStrategy

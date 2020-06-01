@@ -5,7 +5,12 @@ VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ChessBot", "ChessBot\ChessBot.csproj", "{C63DD7B7-00D4-4208-BE66-9086E8C1706F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessBot.Tests", "ChessBot.Tests\ChessBot.Tests.csproj", "{BAC3F5C3-4260-4646-AD36-89CEC516ED5F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ChessBot.Tests", "ChessBot.Tests\ChessBot.Tests.csproj", "{BAC3F5C3-4260-4646-AD36-89CEC516ED5F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{DC683DD7-8D70-4368-A6E9-5C69F3E0C0DC}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

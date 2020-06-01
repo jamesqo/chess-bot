@@ -39,6 +39,21 @@ namespace ChessBot.Types
 
         public override int GetHashCode() => HashCode.Combine(Side, Kind);
 
+        public char ToDisplayChar()
+        {
+            char result = Kind switch
+            {
+                Pawn => 'P',
+                Knight => 'N',
+                Bishop => 'B',
+                Rook => 'R',
+                Queen => 'Q',
+                King => 'K',
+            };
+            if (!IsWhite) result = char.ToLowerInvariant(result);
+            return result;
+        }
+
         public override string ToString()
         {
             return $"{Side.ToString().ToLowerInvariant()} {Kind.ToString().ToLowerInvariant()}";

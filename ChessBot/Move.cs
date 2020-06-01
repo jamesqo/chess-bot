@@ -76,8 +76,12 @@ namespace ChessBot
             }
         }
 
-        // note: This method only checks that the specified piece occupies the source square.
-        // It doesn't actually check whether the move is valid; that's done in ChessState.ApplyMove.
+        /// <summary>
+        /// Parses a <see cref="Move"/> from algebraic notation and a <see cref="State"/> object.
+        /// </summary>
+        /// <remarks>
+        /// For the most part, this method doesn't actually check whether the move is valid; that's done in <see cref="State.Apply(Move)"/>.
+        /// </remarks>
         public static Move Parse(string an, State state)
         {
             var moveNode = ParseInternal(an);

@@ -24,17 +24,17 @@ namespace ChessBot
 
         private State(
             ImmutableArray<Tile> board,
-            Side activeSide,
             PlayerInfo white,
             PlayerInfo black,
+            Side activeSide,
             Location? enPassantTarget,
             int halfMoveClock,
             int fullMoveNumber)
         {
             _board = board;
-            ActiveSide = activeSide;
             White = white.SetState(this);
             Black = black.SetState(this);
+            ActiveSide = activeSide;
             EnPassantTarget = enPassantTarget;
             HalfMoveClock = halfMoveClock;
             FullMoveNumber = fullMoveNumber;
@@ -42,15 +42,20 @@ namespace ChessBot
 
         private State(State other) : this(
             other._board,
-            other.ActiveSide,
             other.White,
             other.Black,
+            other.ActiveSide,
             other.EnPassantTarget,
             other.HalfMoveClock,
             other.FullMoveNumber)
         {
         }
 
+        private static int GetBoardIndex(Location location) => 8 * (int)location.File + (int)location.Rank;
+
+        /// <summary>
+        /// Creates a <see cref="State"/> from FEN notation.
+        /// </summary>
         public static State ParseFen(string fen)
         {
             var parts = fen.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -94,7 +99,7 @@ namespace ChessBot
                         for (int i = 0; i < skip; i++)
                         {
                             var emptyTile = new Tile((file + i, rank));
-                            board[GetBoardIndex(file + i, rank)] = emptyTile;
+                            board[GetBoardIndex((file + i, rank))] = emptyTile;
                         }
 
                         file += skip;
@@ -117,7 +122,7 @@ namespace ChessBot
                         };
                         var piece = new Piece(side, kind);
                         var tile = new Tile((file, rank), piece);
-                        board[GetBoardIndex(file, rank)] = tile;
+                        board[GetBoardIndex((file, rank))] = tile;
                         file++;
                         allowDigit = true;
                     }
@@ -132,7 +137,6 @@ namespace ChessBot
             {
                 foreach (char ch in castlingRights)
                 {
-                    // todo: we should keep track of whether we've seen duplicates, eg. 'KKqkq'
                     switch (ch)
                     {
                         case 'K': white = white.SetCanCastleKingside(true); break;
@@ -146,36 +150,27 @@ namespace ChessBot
 
             return new State(
                 board: board.MoveToImmutable(),
-                activeSide: activeSide,
                 white: white,
                 black: black,
+                activeSide: activeSide,
                 enPassantTarget: enPassantTarget,
                 halfMoveClock: halfMoveClock,
                 fullMoveNumber: fullMoveNumber);
         }
 
-        private static int GetBoardIndex(File file, Rank rank) => (8 * (int)file + (int)rank);
-        private static int GetBoardIndex(Location location) => GetBoardIndex(location.File, location.Rank);
-
+        // todo: use bitboards instead
         private readonly ImmutableArray<Tile> _board;
         private ImmutableArray<Tile> _occupiedTiles;
 
-        public Side ActiveSide { get; private set; } // todo: remove this from public api?
         public PlayerInfo White { get; private set; }
         public PlayerInfo Black { get; private set; }
+        public Side ActiveSide { get; private set; }
         public Location? EnPassantTarget { get; private set; }
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
 
-        public State SetActiveSide(Side value) => new State(this) { ActiveSide = value };
-        //public State SetWhite(PlayerInfo value) => new State(this) { White = value };
-        //public State SetBlack(PlayerInfo value) => new State(this) { Black = value };
-        //public State SetEnPassantTarget(Location? value) => new State(this) { EnPassantTarget = value };
-        //SetHalfMoveClock()
-        //SetFullMoveNumber()
-
         public PlayerInfo ActivePlayer => GetPlayer(ActiveSide);
-        public Side OpposingSide => WhiteToMove ? Side.Black : Side.White;
+        public Side OpposingSide => ActiveSide.Flip();
         public PlayerInfo OpposingPlayer => GetPlayer(OpposingSide);
 
         public bool IsCheck => GetKingsLocation(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc);
@@ -184,10 +179,7 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        private bool IsOpposingKingAttacked => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
-        private int PieceCount => White.PieceCount + Black.PieceCount;
-
-        public Tile this[File file, Rank rank] => _board[GetBoardIndex(file, rank)];
+        public Tile this[File file, Rank rank] => _board[GetBoardIndex((file, rank))];
         public Tile this[Location location]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -322,7 +314,7 @@ namespace ChessBot
                 halfMoveClock: newHalfMoveClock,
                 fullMoveNumber: newFullMoveNumber);
 
-            if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
+            if (result.CanAttackOpposingKing) // note: this corresponds to the king that was active in the previous state
             {
                 error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
             }
@@ -442,8 +434,7 @@ namespace ChessBot
                 foreach (var destination in GetPossibleDestinations(source))
                 {
                     // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
-                    var promotionRank = WhiteToMove ? Rank7 : Rank2;
-                    if (source.Rank == promotionRank && this[source].Piece.Kind == PieceKind.Pawn)
+                    if (source.Rank == SeventhRank(ActiveSide) && this[source].Piece.Kind == PieceKind.Pawn)
                     {
                         yield return new Move(source, destination, promotionKind: PieceKind.Knight);
                         yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
@@ -494,28 +485,10 @@ namespace ChessBot
 
         public ImmutableArray<Tile> GetTiles() => _board;
 
+        public State SetActiveSide(Side value) => new State(this) { ActiveSide = value }; // todo: remove this from public api?
+
         public override string ToString()
         {
-            // todo: this should be an ext method. this code is repeated elsewhere
-            char ToChar(Piece piece)
-            {
-                char result = piece.Kind switch
-                {
-                    PieceKind.Pawn => 'P',
-                    PieceKind.Knight => 'N',
-                    PieceKind.Bishop => 'B',
-                    PieceKind.Rook => 'R',
-                    PieceKind.Queen => 'Q',
-                    PieceKind.King => 'K',
-                    _ => throw new ArgumentOutOfRangeException()
-                };
-                if (piece.Side == Side.Black)
-                {
-                    result = char.ToLowerInvariant(result);
-                }
-                return result;
-            }
-
             var fen = new StringBuilder();
 
             for (var rank = Rank8; rank >= Rank1; rank--)
@@ -524,14 +497,11 @@ namespace ChessBot
                 for (var file = FileA; file <= FileH; file++)
                 {
                     var tile = this[file, rank];
-                    if (!tile.HasPiece)
-                    {
-                        gap++;
-                    }
+                    if (!tile.HasPiece) gap++;
                     else
                     {
                         if (gap > 0) fen.Append(gap);
-                        fen.Append(ToChar(tile.Piece));
+                        fen.Append(tile.Piece.ToDisplayChar());
                         gap = 0;
                     }
                 }
@@ -563,6 +533,12 @@ namespace ChessBot
 
             return fen.ToString();
         }
+
+        #region Helper methods and properties
+
+        // this shoulndn't be true of any valid state
+        private bool CanAttackOpposingKing => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
+        private int PieceCount => White.PieceCount + Black.PieceCount;
 
         internal Location? GetKingsLocation(Side side)
         {
@@ -857,5 +833,7 @@ namespace ChessBot
                 }
             }
         }
+
+        #endregion
     }
 }
