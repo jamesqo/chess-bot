@@ -16,7 +16,7 @@ namespace ChessBot.Tests
         {
             var state = State.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
-            // todo: should we throw here if the castling flags are not set, or wait until ApplyMove?
+            // todo: should we throw here if the castling flags are not set, or wait until Apply?
             var move = Move.Parse(moveString, state);
             Assert.True(move.IsKingsideCastle);
             Assert.False(move.IsQueensideCastle);

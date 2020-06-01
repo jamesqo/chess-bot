@@ -197,21 +197,25 @@ namespace ChessBot
 
         public State Apply(string move) => Apply(Move.Parse(move, this));
 
-        public State Apply(Move move)
+        public State Apply(Move move) => TryApply(move, out var error) ?? throw error;
+
+        public State? TryApply(string move, out InvalidMoveException error)
         {
-            var (newState, error) = TryApply(move);
-            if (error != null) throw new InvalidMoveException(error);
-            return newState;
+            Move moveObj;
+            try
+            {
+                moveObj = Move.Parse(move, this);
+            }
+            catch (InvalidMoveException e)
+            {
+                error = e;
+                return null;
+            }
+            return TryApply(moveObj, out error);
         }
 
-        public (State newState, string error) TryApply(string move) => TryApply(Move.Parse(move, this));
-
-        // todo: instead of a string, error should be some kind of enum type
-        public (State newState, string error) TryApply(Move move)
+        public State? TryApply(Move move, out InvalidMoveException error)
         {
-            (State, string) Result(State newState) => (newState, null);
-            (State, string) Error(string error) => (null, error);
-
             if (move == null)
             {
                 throw new ArgumentNullException(nameof(move));
@@ -220,30 +224,30 @@ namespace ChessBot
             var (source, destination) = (move.Source, move.Destination);
             if (!this[source].HasPiece)
             {
-                return Error("Source tile is empty");
+                error = new InvalidMoveException("Source tile is empty"); return null;
             }
 
             var piece = this[source].Piece;
             if (piece.Side != ActiveSide)
             {
-                return Error("Piece's color does not match active player's color");
+                error = new InvalidMoveException("Piece's color does not match active player's color"); return null;
             }
             if (this[destination].HasPiece && this[destination].Piece.Side == piece.Side)
             {
-                return Error("Destination tile is already occupied by a piece of the same color");
+                error = new InvalidMoveException("Destination tile is already occupied by a piece of the same color"); return null;
             }
 
             bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
             bool isCapture = this[destination].HasPiece || isEnPassantCapture;
             if (move.IsCapture.HasValue && move.IsCapture.Value != isCapture)
             {
-                return Error($"{nameof(move.IsCapture)} property is not set properly");
+                error = new InvalidMoveException($"{nameof(move.IsCapture)} property is not set properly"); return null;
             }
 
             bool promotes = (piece.Kind == PieceKind.Pawn && destination.Rank == EighthRank(ActiveSide));
             if (move.PromotionKind.HasValue != promotes)
             {
-                return Error("A promotion happens iff a pawn moves to the back rank");
+                error = new InvalidMoveException("A promotion happens iff a pawn moves to the back rank"); return null;
             }
 
             // Step 1: Check that the move is valid movement-wise
@@ -254,7 +258,7 @@ namespace ChessBot
                 bool canCastle = CanCastle(move.IsKingsideCastle);
                 if (!canCastle)
                 {
-                    return Error("Requirements for castling not met");
+                    error = new InvalidMoveException("Requirements for castling not met"); return null;
                 }
 
                 // Move the rook
@@ -264,7 +268,7 @@ namespace ChessBot
             }
             else if (!IsMovePossible(source, destination))
             {
-                return Error($"Movement rules do not allow {piece} to be brought from {source} to {destination}");
+                error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
             }
             // todo: as an optimization, we could narrow our search if our king is currently in check.
             // we may only bother for the three types of moves that could possibly get us out of check.
@@ -320,20 +324,21 @@ namespace ChessBot
 
             if (result.IsOpposingKingAttacked) // note: this corresponds to the king that was active in the previous state
             {
-                return Error($"Move is invalid since it lets {ActiveSide}'s king be attacked");
+                error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
             }
 
             if (move.IsCheck.HasValue && move.IsCheck.Value != result.IsCheck)
             {
-                return Error($"{nameof(move.IsCheck)} property is not set properly");
+                error = new InvalidMoveException($"{nameof(move.IsCheck)} property is not set properly"); return null;
             }
 
             if (move.IsCheckmate.HasValue && move.IsCheckmate.Value != result.IsCheckmate)
             {
-                return Error($"{nameof(move.IsCheckmate)} property is not set properly");
+                error = new InvalidMoveException($"{nameof(move.IsCheckmate)} property is not set properly"); return null;
             }
 
-            return Result(result);
+            error = null;
+            return result;
         }
 
         private static ImmutableArray<Tile> ApplyInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null, bool isEnPassantCapture = false)
@@ -461,11 +466,8 @@ namespace ChessBot
 
             foreach (var move in movesToTry)
             {
-                var (newState, error) = TryApply(move);
-                if (error == null)
-                {
-                    yield return (move, newState);
-                }
+                var succ = TryApply(move, out _);
+                if (succ != null) yield return (move, succ);
             }
         }
 
