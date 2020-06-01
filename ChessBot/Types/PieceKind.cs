@@ -1,4 +1,6 @@
-﻿namespace ChessBot.Types
+﻿using System.Diagnostics;
+
+namespace ChessBot.Types
 {
     public enum PieceKind
     {

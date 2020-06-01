@@ -2,7 +2,7 @@
 
 namespace ChessBot.Utils
 {
-    internal static class IntExtensions
+    internal static class IntHelpers
     {
         // This doesn't check for int.MinValue like Math.Abs() does, so it performs slightly better
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

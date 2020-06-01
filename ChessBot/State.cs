@@ -151,6 +151,8 @@ namespace ChessBot
 
         private ImmutableArray<Tile> _tiles;
         private ImmutableArray<Tile> _occupiedTiles;
+        private bool? _canCastleKingside;
+        private bool? _canCastleQueenside;
 
         public PlayerState White { get; private set; }
         public PlayerState Black { get; private set; }
@@ -227,8 +229,7 @@ namespace ChessBot
                 error = new InvalidMoveException("Destination tile is already occupied by a piece of the same color"); return null;
             }
 
-            bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
-            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = this[destination].HasPiece || (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
             if (move.IsCapture.HasValue && move.IsCapture.Value != isCapture)
             {
                 error = new InvalidMoveException($"{nameof(move.IsCapture)} property is not set properly"); return null;
@@ -244,6 +245,44 @@ namespace ChessBot
             {
                 error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
             }
+
+            if ((move.IsKingsideCastle || move.IsQueensideCastle) && !(move.IsKingsideCastle ? CanCastleKingside : CanCastleQueenside))
+            {
+                error = new InvalidMoveException("Requirements for castling not met"); return null;
+            }
+
+            var result = ApplyUnsafe(move);
+
+            // Ensure our king isn't attacked afterwards
+
+            // todo: as an optimization, we could narrow our search if our king is currently in check.
+            // we may only bother for the three types of moves that could possibly get us out of check.
+
+            if (result.CanAttackOpposingKing) // this corresponds to the king that was active in the previous state
+            {
+                error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
+            }
+
+            if (move.IsCheck.HasValue && move.IsCheck.Value != result.IsCheck)
+            {
+                error = new InvalidMoveException($"{nameof(move.IsCheck)} property is not set properly"); return null;
+            }
+
+            if (move.IsCheckmate.HasValue && move.IsCheckmate.Value != result.IsCheckmate)
+            {
+                error = new InvalidMoveException($"{nameof(move.IsCheckmate)} property is not set properly"); return null;
+            }
+
+            error = null;
+            return result;
+        }
+
+        private State ApplyUnsafe(Move move)
+        {
+            var (source, destination) = (move.Source, move.Destination);
+            var piece = this[source].Piece;
+            bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
+            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
 
             ulong newHash = Hash;
 
@@ -283,12 +322,6 @@ namespace ChessBot
 
             if (move.IsKingsideCastle || move.IsQueensideCastle)
             {
-                bool canCastle = CanCastle(move.IsKingsideCastle);
-                if (!canCastle)
-                {
-                    error = new InvalidMoveException("Requirements for castling not met"); return null;
-                }
-
                 var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, move.IsKingsideCastle);
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 ApplyInternal(ref newActive, ref newOpposing, ref newHash, rookSource, rookDestination);
@@ -320,7 +353,7 @@ namespace ChessBot
             if (EnPassantTarget.HasValue) newHash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
             if (newEnPassantTarget.HasValue) newHash ^= ZobristKey.ForEnPassantFile(newEnPassantTarget.Value.File);
 
-            var result = new State(
+            return new State(
                 activeSide: OpposingSide,
                 white: newWhite,
                 black: newBlack,
@@ -328,29 +361,6 @@ namespace ChessBot
                 halfMoveClock: newHalfMoveClock,
                 fullMoveNumber: newFullMoveNumber,
                 hash: newHash);
-
-            // Ensure our king isn't attacked afterwards
-
-            // todo: as an optimization, we could narrow our search if our king is currently in check.
-            // we may only bother for the three types of moves that could possibly get us out of check.
-
-            if (result.CanAttackOpposingKing) // this corresponds to the king that was active in the previous state
-            {
-                error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
-            }
-
-            if (move.IsCheck.HasValue && move.IsCheck.Value != result.IsCheck)
-            {
-                error = new InvalidMoveException($"{nameof(move.IsCheck)} property is not set properly"); return null;
-            }
-
-            if (move.IsCheckmate.HasValue && move.IsCheckmate.Value != result.IsCheckmate)
-            {
-                error = new InvalidMoveException($"{nameof(move.IsCheckmate)} property is not set properly"); return null;
-            }
-
-            error = null;
-            return result;
         }
 
         private void ApplyInternal(
@@ -455,8 +465,8 @@ namespace ChessBot
 
             foreach (var move in movesToTry)
             {
-                var succ = TryApply(move, out _);
-                if (succ != null) yield return (move, succ);
+                var succ = ApplyUnsafe(move);
+                if (!succ.CanAttackOpposingKing) yield return (move, succ);
             }
         }
 
@@ -576,9 +586,10 @@ namespace ChessBot
         // this shoulndn't be true of any valid state
         private bool CanAttackOpposingKing => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
 
-        private int GetPieceCount() => White.GetPieceCount() + Black.GetPieceCount();
+        private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
+        private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
 
-        private bool CanCastle(bool kingside)
+        private bool CanCastleCore(bool kingside)
         {
             bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
             if (!flag) return false;
@@ -593,6 +604,8 @@ namespace ChessBot
             bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
+
+        private int GetPieceCount() => White.GetPieceCount() + Black.GetPieceCount();
 
         internal Location? GetKingsLocation(Side side)
         {
@@ -631,33 +644,32 @@ namespace ChessBot
             bool canMoveIfUnblocked;
             bool canPieceBeBlocked = false;
             var (deltaX, deltaY) = (destination.File - source.File, destination.Rank - source.Rank);
+            var (deltaXAbs, deltaYAbs) = (deltaX.Abs(), deltaY.Abs());
 
             switch (piece.Kind)
             {
                 case PieceKind.Bishop:
-                    canMoveIfUnblocked = (deltaX.Abs() == deltaY.Abs());
+                    canMoveIfUnblocked = (deltaXAbs == deltaYAbs);
                     canPieceBeBlocked = true;
                     break;
                 case PieceKind.King:
-                    canMoveIfUnblocked = (deltaX.Abs() <= 1 && deltaY.Abs() <= 1) ||
-                        (allowCastling && deltaX == 2 && deltaY == 0 && CanCastle(kingside: true)) ||
-                        (allowCastling && deltaX == -2 && deltaY == 0 && CanCastle(kingside: false));
+                    canMoveIfUnblocked = (deltaXAbs <= 1 && deltaYAbs <= 1) ||
+                        (allowCastling && deltaX == 2 && deltaY == 0 && CanCastleKingside) ||
+                        (allowCastling && deltaX == -2 && deltaY == 0 && CanCastleQueenside);
                     break;
                 case PieceKind.Knight:
-                    canMoveIfUnblocked = (deltaX.Abs() == 1 && deltaY.Abs() == 2) || (deltaX.Abs() == 2 && deltaY.Abs() == 1);
+                    canMoveIfUnblocked = (deltaXAbs == 1 && deltaYAbs == 2) || (deltaXAbs == 2 && deltaYAbs == 1);
                     break;
                 case PieceKind.Pawn:
                     var (forward, secondRank) = (ForwardStep(piece.Side), SecondRank(piece.Side));
-                    bool isValidAdvance = (!destinationTile.HasPiece && deltaX == 0 &&
-                        (deltaY == forward || (deltaY == forward * 2 && source.Rank == secondRank)));
-                    bool isValidCapture = ((destinationTile.HasPiece || destination == EnPassantTarget) &&
-                        (deltaX.Abs() == 1 && deltaY == forward));
+                    bool isValidAdvance = (deltaX == 0 && (deltaY == forward || (deltaY == forward * 2 && source.Rank == secondRank)) && !destinationTile.HasPiece);
+                    bool isValidCapture = ((deltaXAbs == 1 && deltaY == forward) && (destinationTile.HasPiece || destination == EnPassantTarget));
 
                     canMoveIfUnblocked = (isValidAdvance || isValidCapture);
                     canPieceBeBlocked = isValidAdvance;
                     break;
                 case PieceKind.Queen:
-                    canMoveIfUnblocked = (deltaX == 0 || deltaY == 0 || deltaX.Abs() == deltaY.Abs());
+                    canMoveIfUnblocked = (deltaX == 0 || deltaY == 0 || deltaXAbs == deltaYAbs);
                     canPieceBeBlocked = true;
                     break;
                 case PieceKind.Rook:
@@ -668,7 +680,6 @@ namespace ChessBot
                     throw new ArgumentOutOfRangeException();
             }
 
-            // todo (perf): All is a bottleneck
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
 
@@ -702,8 +713,8 @@ namespace ChessBot
                         destinations.Add(source.Up(1));
                         if (source.File < FileH) destinations.Add(source.Up(1).Right(1));
                     }
-                    if (CanCastle(kingside: true)) destinations.Add(source.Right(2));
-                    if (CanCastle(kingside: false)) destinations.Add(source.Left(2));
+                    if (CanCastleKingside) destinations.Add(source.Right(2));
+                    if (CanCastleQueenside) destinations.Add(source.Left(2));
                     break;
                 case PieceKind.Knight:
                     if (source.Rank > Rank1 && source.File > FileB) destinations.Add(source.Down(1).Left(2));
@@ -847,8 +858,14 @@ namespace ChessBot
         /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
         /// </summary>
         private bool IsAttackedBy(Side side, Location location)
-            // allowCastling = false is a small optimization, as the rook / king cannot perform captures while castling.
-            => GetPlayer(side).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location, allowCastling: false));
+        {
+            foreach (var tile in GetPlayer(side).GetOccupiedTiles())
+            {
+                // allowCastling = false is a small optimization, as the rook / king cannot perform captures while castling.
+                if (IsMovePossible(tile.Location, location, allowCastling: false)) return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.
