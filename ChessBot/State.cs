@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -24,7 +23,6 @@ namespace ChessBot
         public static State Start { get; } = ParseFen(StartFen);
 
         private State(
-            ImmutableArray<Tile> board,
             PlayerState white,
             PlayerState black,
             Side activeSide,
@@ -32,9 +30,8 @@ namespace ChessBot
             int halfMoveClock,
             int fullMoveNumber)
         {
-            _board = board;
-            White = white.SetState(this);
-            Black = black.SetState(this);
+            White = white;
+            Black = black;
             ActiveSide = activeSide;
             EnPassantTarget = enPassantTarget;
             HalfMoveClock = halfMoveClock;
@@ -42,7 +39,6 @@ namespace ChessBot
         }
 
         private State(State other) : this(
-            other._board,
             other.White,
             other.Black,
             other.ActiveSide,
@@ -50,6 +46,8 @@ namespace ChessBot
             other.HalfMoveClock,
             other.FullMoveNumber)
         {
+            _tiles = other._tiles;
+            _occupiedTiles = other._occupiedTiles;
         }
 
         /// <summary>
@@ -79,9 +77,7 @@ namespace ChessBot
             var rankDescs = piecePlacement.Split('/');
             if (rankDescs.Length != 8) throw new InvalidFenException("Incorrect number of ranks");
 
-            var board = ImmutableArray.CreateBuilder<Tile>(64);
-            board.Count = 64;
-
+            var bbs = new Bitboard[][] { new Bitboard[6], new Bitboard[6] };
             for (var rank = Rank1; rank <= Rank8; rank++)
             {
                 string rankDesc = rankDescs[7 - (int)rank];
@@ -90,16 +86,11 @@ namespace ChessBot
                 bool allowDigit = true;
                 foreach (char ch in rankDesc)
                 {
+                    var location = new Location(file, rank);
                     if ((ch >= '1' && ch <= '8') && allowDigit)
                     {
                         int skip = (ch - '0');
                         if ((int)file + skip > 8) throw new InvalidFenException("Incorrect number of files");
-
-                        for (int i = 0; i < skip; i++)
-                        {
-                            var emptyTile = new Tile((file + i, rank));
-                            board[GetBoardIndex(file + i, rank)] = emptyTile;
-                        }
 
                         file += skip;
                         allowDigit = false;
@@ -120,8 +111,7 @@ namespace ChessBot
                             _ => throw new InvalidFenException($"Invalid piece kind: {ch}")
                         };
                         var piece = new Piece(side, kind);
-                        var tile = new Tile((file, rank), piece);
-                        board[GetBoardIndex(file, rank)] = tile;
+                        bbs[(int)side][(int)kind] |= location.GetMask(); 
                         file++;
                         allowDigit = true;
                     }
@@ -130,8 +120,8 @@ namespace ChessBot
                 if ((int)file != 8) throw new InvalidFenException("Incorrect number of files");
             }
 
-            var white = new PlayerState(Side.White, canCastleKingside: false, canCastleQueenside: false);
-            var black = new PlayerState(Side.Black, canCastleKingside: false, canCastleQueenside: false);
+            var white = new PlayerState(Side.White, bitboards: ImmutableArray.Create(bbs[0]), canCastleKingside: false, canCastleQueenside: false);
+            var black = new PlayerState(Side.Black, bitboards: ImmutableArray.Create(bbs[1]), canCastleKingside: false, canCastleQueenside: false);
             if (castlingRights != "-")
             {
                 foreach (char ch in castlingRights)
@@ -148,7 +138,6 @@ namespace ChessBot
             }
 
             return new State(
-                board: board.MoveToImmutable(),
                 white: white,
                 black: black,
                 activeSide: activeSide,
@@ -157,8 +146,7 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        // todo: use bitboards instead
-        private readonly ImmutableArray<Tile> _board;
+        private ImmutableArray<Tile> _tiles;
         private ImmutableArray<Tile> _occupiedTiles;
 
         public PlayerState White { get; private set; }
@@ -178,8 +166,8 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        public Tile this[File file, Rank rank] => _board[GetBoardIndex(file, rank)];
-        public Tile this[Location location] => _board[GetBoardIndex(location)];
+        public Tile this[Location location] => GetTiles()[location.Value];
+        public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
 
         public State Apply(string move) => Apply(Move.Parse(move, this));
@@ -242,9 +230,40 @@ namespace ChessBot
                 error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
             }
 
+            // Update the state of each player
+
+            var newActive = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
+            switch (piece.Kind)
+            {
+                case PieceKind.King:
+                    newActive = newActive.SetCanCastleKingside(false).SetCanCastleQueenside(false);
+                    break;
+                case PieceKind.Rook:
+                    // todo: we should also update these properties if the rook is captured, as opposed to being moved.
+                    if (source == GetStartLocation(ActiveSide, PieceKind.Rook, kingside: true)) newActive = newActive.SetCanCastleKingside(false);
+                    if (source == GetStartLocation(ActiveSide, PieceKind.Rook, kingside: false)) newActive = newActive.SetCanCastleQueenside(false);
+                    break;
+            }
+
+            var newOpposing = OpposingPlayer;
+            if (isCapture)
+            {
+                newOpposing = newOpposing.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
+
+                if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: true))
+                {
+                    newOpposing = newOpposing.SetCanCastleKingside(false);
+                }
+                else if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: false))
+                {
+                    newOpposing = newOpposing.SetCanCastleQueenside(false);
+                }
+            }
+
+            (newActive, newOpposing) = ApplyInternal(newActive, newOpposing, source, destination, move.PromotionKind, isEnPassantCapture);
+
             // Handle castling specially because we have to move the rook too
 
-            var newBoard = _board;
             if (move.IsKingsideCastle || move.IsQueensideCastle)
             {
                 bool canCastle = CanCastle(move.IsKingsideCastle);
@@ -255,39 +274,10 @@ namespace ChessBot
 
                 var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, move.IsKingsideCastle);
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
-                newBoard = ApplyInternal(newBoard, rookSource, rookDestination);
+                (newActive, newOpposing) = ApplyInternal(newActive, newOpposing, rookSource, rookDestination);
             }
 
             // Update other fields
-
-            var newActivePlayer = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
-            switch (piece.Kind)
-            {
-                case PieceKind.King:
-                    newActivePlayer = newActivePlayer.SetCanCastleKingside(false).SetCanCastleQueenside(false);
-                    break;
-                case PieceKind.Rook:
-                    // todo: we should also update these properties if the rook is captured, as opposed to being moved.
-                    if (source == GetStartLocation(ActiveSide, PieceKind.Rook, kingside: true)) newActivePlayer = newActivePlayer.SetCanCastleKingside(false);
-                    if (source == GetStartLocation(ActiveSide, PieceKind.Rook, kingside: false)) newActivePlayer = newActivePlayer.SetCanCastleQueenside(false);
-                    break;
-            }
-
-            var newOpposingPlayer = OpposingPlayer;
-            if (isCapture)
-            {
-                newOpposingPlayer = newOpposingPlayer.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
-                newOpposingPlayer = newOpposingPlayer.SetPieceCount(newOpposingPlayer.PieceCount - 1);
-
-                if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: true))
-                {
-                    newOpposingPlayer = newOpposingPlayer.SetCanCastleKingside(false);
-                }
-                else if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: false))
-                {
-                    newOpposingPlayer = newOpposingPlayer.SetCanCastleQueenside(false);
-                }
-            }
 
             bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
             var newEnPassantTarget = isPawnAdvanceBy2 ? source.Up(ForwardStep(ActiveSide)) : (Location?)null;
@@ -295,15 +285,10 @@ namespace ChessBot
             int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
             int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
 
-            // Update the board
-
-            newBoard = ApplyInternal(newBoard, source, destination, move.PromotionKind, isEnPassantCapture);
-
             var result = new State(
-                board: newBoard,
                 activeSide: OpposingSide,
-                white: WhiteToMove ? newActivePlayer : newOpposingPlayer,
-                black: WhiteToMove ? newOpposingPlayer : newActivePlayer,
+                white: WhiteToMove ? newActive : newOpposing,
+                black: WhiteToMove ? newOpposing : newActive,
                 enPassantTarget: newEnPassantTarget,
                 halfMoveClock: newHalfMoveClock,
                 fullMoveNumber: newFullMoveNumber);
@@ -332,33 +317,37 @@ namespace ChessBot
             return result;
         }
 
-        private static ImmutableArray<Tile> ApplyInternal(ImmutableArray<Tile> board, Location source, Location destination, PieceKind? promotionKind = null, bool isEnPassantCapture = false)
+        private (PlayerState newActive, PlayerState newOpposing) ApplyInternal(
+            PlayerState active,
+            PlayerState opposing,
+            Location source,
+            Location destination,
+            PieceKind? promotionKind = null,
+            bool isEnPassantCapture = false)
         {
             Debug.Assert(source != destination);
+            Debug.Assert(this[source].HasPiece);
+            Debug.Assert(!this[destination].HasPiece || this[destination].Piece.Side != this[source].Piece.Side);
 
-            var newBoard = board.ToBuilder();
-            var (sourceIndex, destinationIndex) = (GetBoardIndex(source), GetBoardIndex(destination));
+            var piece = this[source].Piece;
+            var newBbs = active.Bitboards.ToBuilder();
+            newBbs[(int)piece.Kind] &= ~source.GetMask();
+            newBbs[(int)(promotionKind ?? piece.Kind)] |= destination.GetMask();
+            active = active.SetBitboards(newBbs.MoveToImmutable());
 
-            Debug.Assert(board[sourceIndex].HasPiece);
-            Debug.Assert(!board[destinationIndex].HasPiece || board[destinationIndex].Piece.Side != board[sourceIndex].Piece.Side);
-
-            newBoard[sourceIndex] = newBoard[sourceIndex].SetPiece(null);
-            var piece = board[sourceIndex].Piece;
-            if (promotionKind != null) piece = new Piece(piece.Side, promotionKind.Value);
-            newBoard[destinationIndex] = newBoard[destinationIndex].SetPiece(piece);
-
-            if (isEnPassantCapture)
+            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
+            if (isCapture)
             {
-                var target = piece.IsWhite ? destination.Down(1) : destination.Up(1);
-                int targetIndex = GetBoardIndex(target);
-                Debug.Assert(board[targetIndex].HasPiece);
-                Debug.Assert(board[targetIndex].Piece.Side != board[sourceIndex].Piece.Side);
-                Debug.Assert(board[targetIndex].Piece.Kind == PieceKind.Pawn);
-
-                newBoard[targetIndex] = newBoard[targetIndex].SetPiece(null);
+                var newOpposingBbs = opposing.Bitboards.ToBuilder();
+                var toClear = isEnPassantCapture
+                    ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
+                    : destination;
+                var kind = this[toClear].Piece.Kind;
+                newOpposingBbs[(int)kind] &= ~toClear.GetMask();
+                opposing = opposing.SetBitboards(newOpposingBbs.MoveToImmutable());
             }
 
-            return newBoard.MoveToImmutable();
+            return (active, opposing);
         }
 
         public override bool Equals(object obj) => Equals(obj as State);
@@ -367,22 +356,14 @@ namespace ChessBot
         {
             if (other == null) return false;
 
-            if (ActiveSide != other.ActiveSide ||
-                !White.Equals(other.White) ||
-                !Black.Equals(other.Black) || 
+            if (!White.Equals(other.White) ||
+                !Black.Equals(other.Black) ||
+                ActiveSide != other.ActiveSide ||
                 EnPassantTarget != other.EnPassantTarget ||
                 HalfMoveClock != other.HalfMoveClock ||
                 FullMoveNumber != other.FullMoveNumber)
             {
                 return false;
-            }
-
-            for (var file = FileA; file <= FileH; file++)
-            {
-                for (var rank = Rank1; rank <= Rank8; rank++)
-                {
-                    if (!this[file, rank].Equals(other[file, rank])) return false;
-                }
             }
 
             return true;
@@ -391,23 +372,12 @@ namespace ChessBot
         public override int GetHashCode()
         {
             var hc = new HashCode();
-            for (var file = FileA; file <= FileH; file++)
-            {
-                for (var rank = Rank1; rank <= Rank8; rank++)
-                {
-                    hc.Add(this[file, rank]);
-                }
-            }
-
+            hc.Add(White);
+            hc.Add(Black);
             hc.Add(ActiveSide);
-            hc.Add(White.CanCastleKingside);
-            hc.Add(White.CanCastleQueenside);
-            hc.Add(Black.CanCastleKingside);
-            hc.Add(Black.CanCastleQueenside);
             hc.Add(EnPassantTarget);
             hc.Add(HalfMoveClock);
             hc.Add(FullMoveNumber);
-
             return hc.ToHashCode();
         }
 
@@ -453,14 +423,9 @@ namespace ChessBot
         {
             if (_occupiedTiles.IsDefault)
             {
-                var builder = ImmutableArray.CreateBuilder<Tile>(PieceCount);
-                foreach (var tile in GetTiles())
-                {
-                    if (tile.HasPiece)
-                    {
-                        builder.Add(tile);
-                    }
-                }
+                var builder = ImmutableArray.CreateBuilder<Tile>(GetPieceCount());
+                White.GetOccupiedTiles(builder);
+                Black.GetOccupiedTiles(builder);
                 _occupiedTiles = builder.MoveToImmutable();
             }
             return _occupiedTiles;
@@ -470,7 +435,51 @@ namespace ChessBot
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
-        public ImmutableArray<Tile> GetTiles() => _board;
+        public ImmutableArray<Tile> GetTiles()
+        {
+            if (_tiles.IsDefault)
+            {
+                var mutableTiles = new Tile[64];
+                GetOccupiedTilesIndexedByLocation(mutableTiles, White);
+                GetOccupiedTilesIndexedByLocation(mutableTiles, Black);
+                FillInMissingTiles(mutableTiles);
+                // necessary for perf reasons, IA.Builder just isn't cutting it
+                _tiles = Unsafe.As<Tile[], ImmutableArray<Tile>>(ref mutableTiles);
+            }
+            return _tiles;
+        }
+
+        // We don't reuse code from GetOccupiedTiles(), as we need to return the tiles in a specific order so that indexing works quickly.
+        private void GetOccupiedTilesIndexedByLocation(Tile[] buffer, PlayerState player)
+        {
+            for (int i = 0; i < player.Bitboards.Length; i++)
+            {
+                var bb = player.Bitboards[i];
+                var kind = (PieceKind)i;
+                Debug.Assert(kind.IsValid());
+
+                var piece = new Piece(player.Side, kind);
+                while (bb != Bitboard.Zero)
+                {
+                    var location = new Location((byte)bb.IndexOfLsb());
+                    var tile = new Tile(location, piece);
+                    buffer[location.Value] = tile; // <<< here
+                    bb = bb.ClearLsb();
+                }
+            }
+        }
+
+        private void FillInMissingTiles(Tile[] buffer)
+        {
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                if (buffer[i].IsDefault)
+                {
+                    var location = new Location((byte)i);
+                    buffer[i] = new Tile(location);
+                }
+            }
+        }
 
         public State SetActiveSide(Side value) => new State(this) { ActiveSide = value }; // todo: remove this from public api?
 
@@ -525,10 +534,8 @@ namespace ChessBot
 
         // this shoulndn't be true of any valid state
         private bool CanAttackOpposingKing => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
-        private int PieceCount => White.PieceCount + Black.PieceCount;
 
-        private static int GetBoardIndex(File file, Rank rank) => 8 * (int)file + (int)rank;
-        private static int GetBoardIndex(Location location) => GetBoardIndex(location.File, location.Rank);
+        private int GetPieceCount() => White.GetPieceCount() + Black.GetPieceCount();
 
         private bool CanCastle(bool kingside)
         {

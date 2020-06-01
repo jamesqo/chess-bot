@@ -77,6 +77,8 @@ namespace ChessBot.Types
 
         public override int GetHashCode() => HashCode.Combine(File, Rank);
 
+        public Bitboard GetMask() => (1UL << _value);
+
         public override string ToString() => $"{File.ToChar()}{Rank.ToChar()}";
     }
 }

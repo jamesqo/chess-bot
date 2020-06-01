@@ -32,6 +32,9 @@ namespace ChessBot.Types
             }
         }
 
+        // warning: this being true doesn't mean we can't be a valid Tile value!
+        internal bool IsDefault => _value == 0;
+
         // We separate this out into a non-inlined method because we want to make it easy for the JIT to inline Piece
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Piece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
