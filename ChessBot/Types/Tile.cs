@@ -25,6 +25,7 @@ namespace ChessBot.Types
         public bool HasPiece => Convert.ToBoolean((_value & HasPieceMask) >> HasPieceShift);
         public Piece Piece
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 if (!HasPiece) BadPieceCall();

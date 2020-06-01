@@ -6,6 +6,8 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net.WebSockets;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using static ChessBot.Types.File;
@@ -166,9 +168,20 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        public Tile this[Location location] => GetTiles()[location.Value];
+        public Tile this[Location location]
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if (!_tiles.IsDefault) return _tiles[location.Value];
+                return SlowGetItem(location);
+            }
+        }
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Tile SlowGetItem(Location location) => GetTiles()[location.Value];
 
         public State Apply(string move) => Apply(Move.Parse(move, this));
 
