@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -242,9 +243,14 @@ namespace ChessBot
                 error = new InvalidMoveException("A promotion happens iff a pawn moves to the back rank"); return null;
             }
 
-            // Step 1: Check that the move is valid movement-wise
-            var newBoard = _board;
+            if (!IsMovePossible(source, destination))
+            {
+                error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
+            }
 
+            // Handle castling specially because we have to move the rook too
+
+            var newBoard = _board;
             if (move.IsKingsideCastle || move.IsQueensideCastle)
             {
                 bool canCastle = CanCastle(move.IsKingsideCastle);
@@ -253,19 +259,13 @@ namespace ChessBot
                     error = new InvalidMoveException("Requirements for castling not met"); return null;
                 }
 
-                // Move the rook
                 var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, move.IsKingsideCastle);
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 newBoard = ApplyInternal(newBoard, rookSource, rookDestination);
             }
-            else if (!IsMovePossible(source, destination))
-            {
-                error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
-            }
-            // todo: as an optimization, we could narrow our search if our king is currently in check.
-            // we may only bother for the three types of moves that could possibly get us out of check.
 
-            // Step 2: Update player infos
+            // Update other fields
+
             var newActivePlayer = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
 
             switch (piece.Kind)
@@ -302,7 +302,8 @@ namespace ChessBot
             int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
             int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
 
-            // Step 3: Apply the changes and ensure our king isn't attacked afterwards
+            // Update the board
+
             newBoard = ApplyInternal(newBoard, source, destination, move.PromotionKind, isEnPassantCapture);
 
             var result = new State(
@@ -314,7 +315,11 @@ namespace ChessBot
                 halfMoveClock: newHalfMoveClock,
                 fullMoveNumber: newFullMoveNumber);
 
-            if (result.CanAttackOpposingKing) // note: this corresponds to the king that was active in the previous state
+            // Ensure our king isn't attacked afterwards
+            // todo: as an optimization, we could narrow our search if our king is currently in check.
+            // we may only bother for the three types of moves that could possibly get us out of check.
+
+            if (result.CanAttackOpposingKing) // this corresponds to the king that was active in the previous state
             {
                 error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
             }
@@ -431,10 +436,11 @@ namespace ChessBot
         {
             IEnumerable<Move> GetPossibleMoves(Location source)
             {
+                var piece = this[source].Piece;
                 foreach (var destination in GetPossibleDestinations(source))
                 {
                     // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
-                    if (source.Rank == SeventhRank(ActiveSide) && this[source].Piece.Kind == PieceKind.Pawn)
+                    if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(ActiveSide))
                     {
                         yield return new Move(source, destination, promotionKind: PieceKind.Knight);
                         yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
@@ -443,7 +449,9 @@ namespace ChessBot
                     }
                     else
                     {
-                        yield return new Move(source, destination);
+                        bool isKingsideCastle = (piece.Kind == PieceKind.King && destination == source.Right(2));
+                        bool isQueensideCastle = (piece.Kind == PieceKind.King && destination == source.Left(2));
+                        yield return new Move(source, destination, isKingsideCastle: isKingsideCastle, isQueensideCastle: isQueensideCastle);
                     }
                 }
             }
@@ -451,9 +459,7 @@ namespace ChessBot
             var movesToTry = ActivePlayer
                 .GetOccupiedTiles()
                 .Select(t => t.Location)
-                .SelectMany(s => GetPossibleMoves(s))
-                .Append(Move.Castle(ActiveSide, kingside: true))
-                .Append(Move.Castle(ActiveSide, kingside: false));
+                .SelectMany(s => GetPossibleMoves(s));
 
             foreach (var move in movesToTry)
             {
@@ -555,7 +561,7 @@ namespace ChessBot
         /// <br/>
         /// This is basically equivalent to checking whether GetPossibleDestinations(<paramref name="source"/>) contains <paramref name="destination"/>.
         /// </summary>
-        internal bool IsMovePossible(Location source, Location destination)
+        internal bool IsMovePossible(Location source, Location destination, bool allowCastling = true)
         {
             Debug.Assert(this[source].HasPiece);
 
@@ -584,8 +590,9 @@ namespace ChessBot
                     canPieceBeBlocked = true;
                     break;
                 case PieceKind.King:
-                    // note: We ignore the possibility of castling since we already have logic in place to handle that
-                    canMoveIfUnblocked = (Math.Abs(delta.x) <= 1 && Math.Abs(delta.y) <= 1);
+                    canMoveIfUnblocked = (Math.Abs(delta.x) <= 1 && Math.Abs(delta.y) <= 1) ||
+                        (allowCastling && delta.x == 2 && delta.y == 0 && CanCastle(kingside: true)) ||
+                        (allowCastling && delta.x == -2 && delta.y == 0 && CanCastle(kingside: false));
                     break;
                 case PieceKind.Knight:
                     canMoveIfUnblocked = (Math.Abs(delta.x) == 1 && Math.Abs(delta.y) == 2) || (Math.Abs(delta.x) == 2 && Math.Abs(delta.y) == 1);
@@ -616,6 +623,10 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
 
+        /// <summary>
+        /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
+        /// Does not account for whether the move would be invalid because its king is currently in check.
+        /// </summary>
         private IEnumerable<Location> GetPossibleDestinations(Location source)
         {
             var sourceTile = this[source];
@@ -628,7 +639,6 @@ namespace ChessBot
                     destinations.AddRange(GetDiagonalExtension(source));
                     break;
                 case PieceKind.King:
-                    // Again, we don't handle castling here; that's taken care of directly by the caller.
                     if (source.Rank > Rank1)
                     {
                         if (source.File > FileA) destinations.Add(source.Down(1).Left(1));
@@ -643,6 +653,8 @@ namespace ChessBot
                         destinations.Add(source.Up(1));
                         if (source.File < FileH) destinations.Add(source.Up(1).Right(1));
                     }
+                    if (CanCastle(kingside: true)) destinations.Add(source.Right(2));
+                    if (CanCastle(kingside: false)) destinations.Add(source.Left(2));
                     break;
                 case PieceKind.Knight:
                     if (source.Rank > Rank1 && source.File > FileB) destinations.Add(source.Down(1).Left(2));
@@ -654,7 +666,6 @@ namespace ChessBot
                     if (source.Rank > Rank2 && source.File < FileH) destinations.Add(source.Down(2).Right(1));
                     if (source.Rank < Rank7 && source.File < FileH) destinations.Add(source.Up(2).Right(1));
                     break;
-                // todo: support en passant captures
                 case PieceKind.Pawn:
                     var (forward, secondRank, eighthRank) = (ForwardStep(piece.Side), SecondRank(piece.Side), EighthRank(piece.Side));
 
@@ -787,8 +798,8 @@ namespace ChessBot
         /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
         /// </summary>
         private bool IsAttackedBy(Side side, Location location)
-            // It's ok that IsMovePossible() ignores castling, since the rook/king cannot perform captures while castling.
-            => GetPlayer(side).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location));
+            // allowCastling = false is a small optimization, as the rook / king cannot perform captures while castling.
+            => GetPlayer(side).GetOccupiedTiles().Any(t => IsMovePossible(t.Location, location, allowCastling: false));
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.

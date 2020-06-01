@@ -21,14 +21,6 @@ namespace ChessBot
             ["K"] = PieceKind.King,
         };
 
-        // todo: this is misplaced
-        internal static Move Castle(Side side, bool kingside)
-        {
-            var source = new Location(File.FileE, side.IsWhite() ? Rank.Rank1 : Rank.Rank8);
-            var destination = kingside ? source.Right(2) : source.Left(2);
-            return new Move(source, destination, isKingsideCastle: kingside, isQueensideCastle: !kingside);
-        }
-
         private static MoveContext ParseInternal(string an)
         {
             var inputStream = new AntlrInputStream(an);
@@ -67,7 +59,9 @@ namespace ChessBot
 
             try
             {
-                var sourceTile = possibleSources.Single(t => t.Piece.Kind == pieceKind && state.IsMovePossible(t.Location, destination));
+                var sourceTile = possibleSources.Single(t => t.Piece.Kind == pieceKind
+                    // Castling should be denoted with the special notation O-O / O-O-O, we don't want to accept Kg1 / Kc1
+                    && state.IsMovePossible(t.Location, destination, allowCastling: false));
                 return sourceTile.Location;
             }
             catch (InvalidOperationException e)
