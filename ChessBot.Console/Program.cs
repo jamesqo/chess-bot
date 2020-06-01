@@ -348,9 +348,20 @@ namespace ChessBot.Console
             foreach (var tile in state.GetOccupiedTiles())
             {
                 var (piece, location) = (tile.Piece, tile.Location);
-                result += PieceValues[(int)piece.Kind];
                 int locationInt = 8 * (piece.IsWhite ? (7 - (int)location.Rank) : (int)location.Rank) + (int)location.File;
-                result += PieceSquareValues[(int)piece.Kind + Convert.ToInt32(piece.Kind == PieceKind.King && isEndgame)][locationInt];
+                int pieceValue = PieceValues[(int)piece.Kind];
+                int pieceSquareValue = PieceSquareValues[(int)piece.Kind + Convert.ToInt32(piece.Kind == PieceKind.King && isEndgame)][locationInt];
+
+                if (piece.IsWhite)
+                {
+                    result += pieceValue;
+                    result += pieceSquareValue;
+                }
+                else
+                {
+                    result -= pieceValue;
+                    result -= pieceSquareValue;
+                }
             }
             return result;
         }
