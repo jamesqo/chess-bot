@@ -16,7 +16,6 @@ namespace ChessBot.Types
             => new Location(tuple.Item1, tuple.Item2);
 
         public static bool operator ==(Location left, Location right) => left.Equals(right);
-
         public static bool operator !=(Location left, Location right) => !(left == right);
 
         public static Location Parse(string an) => TryParse(an) ?? throw new AnParseException($"Unable to parse location from '{an}'");
@@ -72,10 +71,9 @@ namespace ChessBot.Types
         public override bool Equals(object obj)
             => obj is Location other && Equals(other);
 
-        public bool Equals(Location other)
-            => (File == other.File && Rank == other.Rank);
+        public bool Equals(Location other) => _value == other._value;
 
-        public override int GetHashCode() => HashCode.Combine(File, Rank);
+        public override int GetHashCode() => _value;
 
         public Bitboard GetMask() => (1UL << _value);
 

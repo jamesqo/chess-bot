@@ -53,10 +53,9 @@ namespace ChessBot.Types
 
         public override bool Equals(object obj) => obj is Piece other && Equals(other);
 
-        public bool Equals(Piece other)
-            => Side == other.Side && Kind == other.Kind;
+        public bool Equals(Piece other) => _value == other._value;
 
-        public override int GetHashCode() => HashCode.Combine(Side, Kind);
+        public override int GetHashCode() => _value;
 
         public char ToDisplayChar()
         {

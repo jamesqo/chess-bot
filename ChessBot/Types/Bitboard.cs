@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
@@ -13,7 +14,7 @@ namespace ChessBot.Types
             51, 25, 36, 32, 60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12
         };
 
-        public static Bitboard Zero { get; } = default;
+        public static readonly Bitboard Zero = default;
 
         public static implicit operator ulong(Bitboard bb) => bb._value;
         public static implicit operator Bitboard(ulong value) => new Bitboard(value);
@@ -34,6 +35,7 @@ namespace ChessBot.Types
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int IndexOfLsb()
         {
             unchecked

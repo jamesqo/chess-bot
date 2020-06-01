@@ -22,7 +22,7 @@ namespace ChessBot.Types
         }
 
         public Location Location => new Location((byte)(_value & LocationMask));
-        public bool HasPiece => Convert.ToBoolean((_value & HasPieceMask) >> HasPieceShift);
+        public bool HasPiece => (_value & HasPieceMask) != 0;
         public Piece Piece
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,13 +42,7 @@ namespace ChessBot.Types
 
         public override bool Equals(object obj) => obj is Tile other && Equals(other);
 
-        public bool Equals(Tile other)
-        {
-            if (Location != other.Location) return false;
-            return HasPiece
-                ? other.HasPiece && Piece == other.Piece
-                : !other.HasPiece;
-        }
+        public bool Equals(Tile other) => _value == other._value;
 
         public override int GetHashCode() => _value;
 

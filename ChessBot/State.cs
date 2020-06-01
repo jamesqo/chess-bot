@@ -1,5 +1,6 @@
 ﻿using ChessBot.Exceptions;
 using ChessBot.Types;
+using ChessBot.Utils;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -600,38 +601,38 @@ namespace ChessBot
 
             bool canMoveIfUnblocked;
             bool canPieceBeBlocked = false;
-            var delta = (x: destination.File - source.File, y: destination.Rank - source.Rank);
+            var (deltaX, deltaY) = (destination.File - source.File, destination.Rank - source.Rank);
 
             switch (piece.Kind)
             {
                 case PieceKind.Bishop:
-                    canMoveIfUnblocked = (Math.Abs(delta.x) == Math.Abs(delta.y));
+                    canMoveIfUnblocked = (deltaX.Abs() == deltaY.Abs());
                     canPieceBeBlocked = true;
                     break;
                 case PieceKind.King:
-                    canMoveIfUnblocked = (Math.Abs(delta.x) <= 1 && Math.Abs(delta.y) <= 1) ||
-                        (allowCastling && delta.x == 2 && delta.y == 0 && CanCastle(kingside: true)) ||
-                        (allowCastling && delta.x == -2 && delta.y == 0 && CanCastle(kingside: false));
+                    canMoveIfUnblocked = (deltaX.Abs() <= 1 && deltaY.Abs() <= 1) ||
+                        (allowCastling && deltaX == 2 && deltaY == 0 && CanCastle(kingside: true)) ||
+                        (allowCastling && deltaX == -2 && deltaY == 0 && CanCastle(kingside: false));
                     break;
                 case PieceKind.Knight:
-                    canMoveIfUnblocked = (Math.Abs(delta.x) == 1 && Math.Abs(delta.y) == 2) || (Math.Abs(delta.x) == 2 && Math.Abs(delta.y) == 1);
+                    canMoveIfUnblocked = (deltaX.Abs() == 1 && deltaY.Abs() == 2) || (deltaX.Abs() == 2 && deltaY.Abs() == 1);
                     break;
                 case PieceKind.Pawn:
                     var (forward, secondRank) = (ForwardStep(piece.Side), SecondRank(piece.Side));
-                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 &&
-                        (delta.y == forward || (delta.y == forward * 2 && source.Rank == secondRank)));
+                    bool isValidAdvance = (!destinationTile.HasPiece && deltaX == 0 &&
+                        (deltaY == forward || (deltaY == forward * 2 && source.Rank == secondRank)));
                     bool isValidCapture = ((destinationTile.HasPiece || destination == EnPassantTarget) &&
-                        (Math.Abs(delta.x) == 1 && delta.y == forward));
+                        (deltaX.Abs() == 1 && deltaY == forward));
 
                     canMoveIfUnblocked = (isValidAdvance || isValidCapture);
                     canPieceBeBlocked = isValidAdvance;
                     break;
                 case PieceKind.Queen:
-                    canMoveIfUnblocked = (delta.x == 0 || delta.y == 0 || Math.Abs(delta.x) == Math.Abs(delta.y));
+                    canMoveIfUnblocked = (deltaX == 0 || deltaY == 0 || deltaX.Abs() == deltaY.Abs());
                     canPieceBeBlocked = true;
                     break;
                 case PieceKind.Rook:
-                    canMoveIfUnblocked = (delta.x == 0 || delta.y == 0);
+                    canMoveIfUnblocked = (deltaX == 0 || deltaY == 0);
                     canPieceBeBlocked = true;
                     break;
                 default:
@@ -826,23 +827,23 @@ namespace ChessBot
         private static IEnumerable<Location> GetLocationsBetween(Location source, Location destination)
         {
             Debug.Assert(source != destination);
-            var delta = (x: destination.File - source.File, y: destination.Rank - source.Rank);
+            var (deltaX, deltaY) = (destination.File - source.File, destination.Rank - source.Rank);
 
-            if (delta.x == 0)
+            if (deltaX == 0)
             {
                 // Vertical
-                var start = (delta.y > 0) ? source : destination;
-                int shift = Math.Abs(delta.y);
+                var start = (deltaY > 0) ? source : destination;
+                int shift = deltaY.Abs();
                 for (int dy = 1; dy < shift; dy++)
                 {
                     yield return start.Up(dy);
                 }
             }
-            else if (delta.y == 0)
+            else if (deltaY == 0)
             {
                 // Horizontal
-                var start = (delta.x > 0) ? source : destination;
-                int shift = Math.Abs(delta.x);
+                var start = (deltaX > 0) ? source : destination;
+                int shift = deltaX.Abs();
                 for (int dx = 1; dx < shift; dx++)
                 {
                     yield return start.Right(dx);
@@ -851,11 +852,11 @@ namespace ChessBot
             else
             {
                 // Diagonal
-                Debug.Assert(Math.Abs(delta.x) == Math.Abs(delta.y));
+                Debug.Assert(deltaX.Abs() == deltaY.Abs());
 
-                var start = (delta.x > 0) ? source : destination;
-                int shift = Math.Abs(delta.x);
-                int slope = (delta.x == delta.y) ? 1 : -1;
+                var start = (deltaX > 0) ? source : destination;
+                int shift = deltaX.Abs();
+                int slope = (deltaX == deltaY) ? 1 : -1;
                 for (int dx = 1; dx < shift; dx++)
                 {
                     int dy = dx * slope;
