@@ -29,7 +29,8 @@ namespace ChessBot
             Side activeSide,
             Location? enPassantTarget,
             int halfMoveClock,
-            int fullMoveNumber)
+            int fullMoveNumber,
+            ulong? hash = null)
         {
             White = white;
             Black = black;
@@ -37,6 +38,7 @@ namespace ChessBot
             EnPassantTarget = enPassantTarget;
             HalfMoveClock = halfMoveClock;
             FullMoveNumber = fullMoveNumber;
+            Hash = hash ?? ComputeZobristHash();
         }
 
         private State(State other) : this(
@@ -156,6 +158,7 @@ namespace ChessBot
         public Location? EnPassantTarget { get; private set; }
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
+        public ulong Hash { get; private set; }
 
         public PlayerState ActivePlayer => GetPlayer(ActiveSide);
         public Side OpposingSide => ActiveSide.Flip();
@@ -242,6 +245,8 @@ namespace ChessBot
                 error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
             }
 
+            ulong newHash = Hash;
+
             // Update the state of each player
 
             var newActive = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
@@ -272,7 +277,7 @@ namespace ChessBot
                 }
             }
 
-            (newActive, newOpposing) = ApplyInternal(newActive, newOpposing, source, destination, move.PromotionKind, isEnPassantCapture);
+            ApplyInternal(ref newActive, ref newOpposing, ref newHash, source, destination, move.PromotionKind, isEnPassantCapture);
 
             // Handle castling specially because we have to move the rook too
 
@@ -286,10 +291,13 @@ namespace ChessBot
 
                 var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, move.IsKingsideCastle);
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
-                (newActive, newOpposing) = ApplyInternal(newActive, newOpposing, rookSource, rookDestination);
+                ApplyInternal(ref newActive, ref newOpposing, ref newHash, rookSource, rookDestination);
             }
 
             // Update other fields
+
+            var newWhite = WhiteToMove ? newActive : newOpposing;
+            var newBlack = WhiteToMove ? newOpposing : newActive;
 
             bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
             var newEnPassantTarget = isPawnAdvanceBy2 ? source.Up(ForwardStep(ActiveSide)) : (Location?)null;
@@ -297,13 +305,29 @@ namespace ChessBot
             int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
             int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
 
+            newHash ^= ZobristKey.ForActiveSide(ActiveSide);
+            newHash ^= ZobristKey.ForActiveSide(OpposingSide);
+            newHash ^= ZobristKey.ForCastlingRights(
+                White.CanCastleKingside,
+                White.CanCastleQueenside,
+                Black.CanCastleKingside,
+                Black.CanCastleQueenside);
+            newHash ^= ZobristKey.ForCastlingRights(
+                newWhite.CanCastleKingside,
+                newWhite.CanCastleQueenside,
+                newBlack.CanCastleKingside,
+                newBlack.CanCastleQueenside);
+            if (EnPassantTarget.HasValue) newHash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
+            if (newEnPassantTarget.HasValue) newHash ^= ZobristKey.ForEnPassantFile(newEnPassantTarget.Value.File);
+
             var result = new State(
                 activeSide: OpposingSide,
-                white: WhiteToMove ? newActive : newOpposing,
-                black: WhiteToMove ? newOpposing : newActive,
+                white: newWhite,
+                black: newBlack,
                 enPassantTarget: newEnPassantTarget,
                 halfMoveClock: newHalfMoveClock,
-                fullMoveNumber: newFullMoveNumber);
+                fullMoveNumber: newFullMoveNumber,
+                hash: newHash);
 
             // Ensure our king isn't attacked afterwards
 
@@ -329,9 +353,10 @@ namespace ChessBot
             return result;
         }
 
-        private (PlayerState newActive, PlayerState newOpposing) ApplyInternal(
-            PlayerState active,
-            PlayerState opposing,
+        private void ApplyInternal(
+            ref PlayerState active,
+            ref PlayerState opposing,
+            ref ulong hash,
             Location source,
             Location destination,
             PieceKind? promotionKind = null,
@@ -342,10 +367,14 @@ namespace ChessBot
             Debug.Assert(!this[destination].HasPiece || this[destination].Piece.Side != this[source].Piece.Side);
 
             var piece = this[source].Piece;
+            var newKind = promotionKind ?? piece.Kind;
             var newBbs = active.Bitboards.ToBuilder();
             newBbs[(int)piece.Kind] &= ~source.GetMask();
-            newBbs[(int)(promotionKind ?? piece.Kind)] |= destination.GetMask();
+            newBbs[(int)newKind] |= destination.GetMask();
             active = active.SetBitboards(newBbs.MoveToImmutable());
+
+            hash ^= ZobristKey.ForPieceSquare(piece, source);
+            hash ^= ZobristKey.ForPieceSquare(new Piece(piece.Side, newKind), destination);
 
             bool isCapture = this[destination].HasPiece || isEnPassantCapture;
             if (isCapture)
@@ -354,12 +383,12 @@ namespace ChessBot
                 var toClear = isEnPassantCapture
                     ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
                     : destination;
-                var kind = this[toClear].Piece.Kind;
-                newOpposingBbs[(int)kind] &= ~toClear.GetMask();
+                var capturedPiece = this[toClear].Piece;
+                newOpposingBbs[(int)capturedPiece.Kind] &= ~toClear.GetMask();
                 opposing = opposing.SetBitboards(newOpposingBbs.MoveToImmutable());
-            }
 
-            return (active, opposing);
+                hash ^= ZobristKey.ForPieceSquare(capturedPiece, toClear);
+            }
         }
 
         public override bool Equals(object obj) => Equals(obj as State);
@@ -863,6 +892,24 @@ namespace ChessBot
                     yield return start.Right(dx).Up(dy);
                 }
             }
+        }
+
+        private ulong ComputeZobristHash()
+        {
+            ulong hash = 0;
+            foreach (var tile in GetOccupiedTiles())
+            {
+                hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
+            }
+
+            hash ^= ZobristKey.ForActiveSide(ActiveSide);
+            hash ^= ZobristKey.ForCastlingRights(
+                White.CanCastleKingside,
+                White.CanCastleQueenside,
+                Black.CanCastleKingside,
+                Black.CanCastleQueenside);
+            if (EnPassantTarget.HasValue) hash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
+            return hash;
         }
 
         #endregion

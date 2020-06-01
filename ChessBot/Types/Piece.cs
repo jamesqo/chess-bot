@@ -40,9 +40,7 @@ namespace ChessBot.Types
         internal Piece(byte value)
         {
             _value = value;
-
-            Debug.Assert(Side.IsValid());
-            Debug.Assert(Kind.IsValid());
+            Debug.Assert(IsValid);
         }
 
         public Side Side => (Side)(_value & SideMask);
@@ -50,6 +48,7 @@ namespace ChessBot.Types
         public bool IsWhite => Side.IsWhite();
 
         internal byte Value => _value;
+        internal bool IsValid => Side.IsValid() && Kind.IsValid();
 
         public override bool Equals(object obj) => obj is Piece other && Equals(other);
 

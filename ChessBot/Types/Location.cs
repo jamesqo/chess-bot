@@ -47,15 +47,14 @@ namespace ChessBot.Types
         internal Location(byte value)
         {
             _value = value;
-
-            Debug.Assert(File.IsValid());
-            Debug.Assert(Rank.IsValid());
+            Debug.Assert(IsValid);
         }
 
         public File File => (File)(_value & FileMask);
         public Rank Rank => (Rank)((_value & RankMask) >> RankShift);
 
         internal byte Value => _value;
+        internal bool IsValid => File.IsValid() && Rank.IsValid();
 
         public void Deconstruct(out File file, out Rank rank)
         {
