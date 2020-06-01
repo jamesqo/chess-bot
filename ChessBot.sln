@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessBot.Console", "ChessBot.Console\ChessBot.Console.csproj", "{12F444B1-7F25-446D-AFEA-57591F84CCCE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,6 +28,10 @@ Global
 		{BAC3F5C3-4260-4646-AD36-89CEC516ED5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BAC3F5C3-4260-4646-AD36-89CEC516ED5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BAC3F5C3-4260-4646-AD36-89CEC516ED5F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12F444B1-7F25-446D-AFEA-57591F84CCCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12F444B1-7F25-446D-AFEA-57591F84CCCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12F444B1-7F25-446D-AFEA-57591F84CCCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12F444B1-7F25-446D-AFEA-57591F84CCCE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

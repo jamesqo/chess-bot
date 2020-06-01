@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using static System.Console;
 
-namespace ChessBot
+namespace ChessBot.Console
 {
     class Program
     {
