@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
 
@@ -181,7 +182,7 @@ namespace ChessBot
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
         public bool IsTerminal => !GetMoves().Any();
-        public bool WhiteToMove => ActiveSide == Side.White; // todo: use this everywhere
+        public bool WhiteToMove => ActiveSide.IsWhite();
 
         private bool IsOpposingKingAttacked => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
         private int PieceCount => White.PieceCount + Black.PieceCount;
@@ -231,16 +232,16 @@ namespace ChessBot
             {
                 return Error("Destination tile is already occupied by a piece of the same color");
             }
-            if (move.IsCapture.HasValue && move.IsCapture.Value != this[destination].HasPiece)
+
+            bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
+            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
+            if (move.IsCapture.HasValue && move.IsCapture.Value != isCapture)
             {
-                if (!(move.IsCapture.Value && piece.Kind == PieceKind.Pawn && EnPassantTarget.HasValue && destination == EnPassantTarget.Value))
-                {
-                    return Error($"{nameof(move.IsCapture)} property is not set properly");
-                }
+                return Error($"{nameof(move.IsCapture)} property is not set properly");
             }
-            bool promotes = (move.PromotionKind != null);
-            var promotionRank = WhiteToMove ? Rank8 : Rank1;
-            if (promotes != (piece.Kind == PieceKind.Pawn && destination.Rank == promotionRank))
+
+            bool promotes = (piece.Kind == PieceKind.Pawn && destination.Rank == EighthRank(ActiveSide));
+            if (move.PromotionKind.HasValue != promotes)
             {
                 return Error("A promotion happens iff a pawn moves to the back rank");
             }
@@ -257,7 +258,7 @@ namespace ChessBot
                 }
 
                 // Move the rook
-                var rookSource = move.IsKingsideCastle ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation;
+                var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, move.IsKingsideCastle);
                 var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 newBoard = ApplyInternal(newBoard, rookSource, rookDestination);
             }
@@ -278,32 +279,29 @@ namespace ChessBot
                     break;
                 case PieceKind.Rook:
                     // todo: we should also update these properties if the rook is captured, as opposed to being moved.
-                    if (source == newActivePlayer.InitialKingsideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleKingside(false);
-                    if (source == newActivePlayer.InitialQueensideRookLocation) newActivePlayer = newActivePlayer.SetCanCastleQueenside(false);
+                    if (source == GetStartLocation(ActiveSide, PieceKind.Rook, kingside: true)) newActivePlayer = newActivePlayer.SetCanCastleKingside(false);
+                    if (source == GetStartLocation(ActiveSide, PieceKind.Rook, kingside: false)) newActivePlayer = newActivePlayer.SetCanCastleQueenside(false);
                     break;
             }
 
             var newOpposingPlayer = OpposingPlayer;
-            bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && EnPassantTarget.HasValue && destination == EnPassantTarget.Value);
-            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
             if (isCapture)
             {
                 newOpposingPlayer = newOpposingPlayer.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
                 newOpposingPlayer = newOpposingPlayer.SetPieceCount(newOpposingPlayer.PieceCount - 1);
 
-                if (destination == OpposingPlayer.InitialKingsideRookLocation)
+                if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: true))
                 {
                     newOpposingPlayer = newOpposingPlayer.SetCanCastleKingside(false);
                 }
-                else if (destination == OpposingPlayer.InitialQueensideRookLocation)
+                else if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: false))
                 {
                     newOpposingPlayer = newOpposingPlayer.SetCanCastleQueenside(false);
                 }
             }
 
-            var pawnRank = WhiteToMove ? Rank2 : Rank7;
-            bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Rank == pawnRank && (WhiteToMove ? (destination == source.Up(2)) : (destination == source.Down(2))));
-            var newEnPassantTarget = is2Advance ? (WhiteToMove ? source.Up(1) : source.Down(1)) : (Location?)null;
+            bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
+            var newEnPassantTarget = is2Advance ? source.Up(ForwardStep(ActiveSide)) : (Location?)null;
 
             int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
             int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
@@ -345,7 +343,7 @@ namespace ChessBot
 
             if (isEnPassantCapture)
             {
-                var target = piece.Side == Side.White ? destination.Down(1) : destination.Up(1);
+                var target = piece.IsWhite ? destination.Down(1) : destination.Up(1);
                 int targetIndex = GetBoardIndex(target);
                 Debug.Assert(board[targetIndex].HasPiece && board[targetIndex].Piece.Side != board[sourceIndex].Piece.Side && board[targetIndex].Piece.Kind == PieceKind.Pawn);
                 newBoard[targetIndex] = newBoard[targetIndex].SetPiece(null);
@@ -359,13 +357,13 @@ namespace ChessBot
             bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
             if (!flag) return false;
 
-            // note: the above flag does not account for moves that temporarily prevent castling
+            // the above flag does not account for situations that temporarily prevent castling, so check for those here
             // note: we don't guard against castling into check because that's taken care of later
-            // todo: if we're castling queenside, the b1 square may be occupied, but not attacked
-            var kingSource = ActivePlayer.InitialKingLocation;
-            var rookSource = (kingside ? ActivePlayer.InitialKingsideRookLocation : ActivePlayer.InitialQueensideRookLocation);
+            var kingSource = GetStartLocation(ActiveSide, PieceKind.King);
+            var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, kingside);
+            var kingDestination = kingside ? kingSource.Right(2) : kingSource.Left(2);
+
             bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => this[loc].HasPiece);
-            var kingDestination = (kingside ? kingSource.Right(2) : kingSource.Left(2));
             bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
@@ -478,7 +476,7 @@ namespace ChessBot
             return _occupiedTiles;
         }
 
-        public PlayerInfo GetPlayer(Side side) => (side == Side.White) ? White : Black;
+        public PlayerInfo GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
@@ -605,10 +603,11 @@ namespace ChessBot
                     canMoveIfUnblocked = (Math.Abs(delta.x) == 1 && Math.Abs(delta.y) == 2) || (Math.Abs(delta.x) == 2 && Math.Abs(delta.y) == 1);
                     break;
                 case PieceKind.Pawn:
-                    int forward = (piece.Side == Side.White ? 1 : -1);
-                    var homeRank = (piece.Side == Side.White ? Rank2 : Rank7);
-                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 && (delta.y == forward || (delta.y == forward * 2 && source.Rank == homeRank)));
-                    bool isValidCapture = (destinationTile.HasPiece || destination == EnPassantTarget) && (Math.Abs(delta.x) == 1 && delta.y == forward); // todo: support en passant captures
+                    var (forward, secondRank) = (ForwardStep(piece.Side), SecondRank(piece.Side));
+                    bool isValidAdvance = (!destinationTile.HasPiece && delta.x == 0 &&
+                        (delta.y == forward || (delta.y == forward * 2 && source.Rank == secondRank)));
+                    bool isValidCapture = ((destinationTile.HasPiece || destination == EnPassantTarget) &&
+                        (Math.Abs(delta.x) == 1 && delta.y == forward));
 
                     canMoveIfUnblocked = (isValidAdvance || isValidCapture);
                     canPieceBeBlocked = isValidAdvance;
@@ -669,15 +668,13 @@ namespace ChessBot
                     break;
                 // todo: support en passant captures
                 case PieceKind.Pawn:
-                    int forward = (piece.Side == Side.White ? 1 : -1);
-                    var homeRank = (piece.Side == Side.White ? Rank2 : Rank7);
-                    var backRank = (piece.Side == Side.White ? Rank8 : Rank1);
+                    var (forward, secondRank, eighthRank) = (ForwardStep(piece.Side), SecondRank(piece.Side), EighthRank(piece.Side));
 
                     // Because pawns are automatically promoted at the back bank, we shouldn't have to do a bounds check here
-                    Debug.Assert(source.Rank != backRank);
+                    Debug.Assert(source.Rank != eighthRank);
                     var n1 = source.Up(forward);
                     if (!this[n1].HasPiece) destinations.Add(n1);
-                    if (source.Rank == homeRank)
+                    if (source.Rank == secondRank)
                     {
                         var n2 = source.Up(forward * 2);
                         if (!this[n1].HasPiece && !this[n2].HasPiece) destinations.Add(n2);

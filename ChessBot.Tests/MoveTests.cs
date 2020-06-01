@@ -1,6 +1,4 @@
 using ChessBot.Types;
-using System;
-using System.Collections.Generic;
 using Xunit;
 
 namespace ChessBot.Tests

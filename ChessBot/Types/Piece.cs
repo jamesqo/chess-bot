@@ -24,8 +24,8 @@ namespace ChessBot.Types
 
         public Piece(Side side, PieceKind kind)
         {
-            Side = Enum.IsDefined(typeof(Side), side) ? side : throw new ArgumentOutOfRangeException(nameof(side));
-            Kind = Enum.IsDefined(typeof(PieceKind), kind) ? kind : throw new ArgumentOutOfRangeException(nameof(kind));
+            Side = side.IsValid() ? side : throw new ArgumentOutOfRangeException(nameof(side));
+            Kind = kind.IsValid() ? kind : throw new ArgumentOutOfRangeException(nameof(kind));
         }
 
         public Side Side { get; }

@@ -51,14 +51,6 @@ namespace ChessBot
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
 
-        // todo: avoid use of Parse() here
-        public Location InitialKingLocation =>
-            Side.IsWhite() ? Location.Parse("e1") : Location.Parse("e8");
-        public Location InitialKingsideRookLocation =>
-            Side.IsWhite() ? Location.Parse("h1") : Location.Parse("h8");
-        public Location InitialQueensideRookLocation =>
-            Side.IsWhite() ? Location.Parse("a1") : Location.Parse("a8");
-
         public bool Equals([AllowNull] PlayerInfo other)
         {
             // We ignore _state and the associated fields intentionally

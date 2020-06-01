@@ -129,10 +129,10 @@ namespace ChessBot
         public Move(
             Location source,
             Location destination,
-            bool? isCapture = null,
             bool isKingsideCastle = false,
             bool isQueensideCastle = false,
-            PieceKind? promotionKind = null)
+            PieceKind? promotionKind = null,
+            bool? isCapture = null)
         {
             if (source == destination)
             {
@@ -153,18 +153,20 @@ namespace ChessBot
 
             Source = source;
             Destination = destination;
-            IsCapture = isCapture;
             IsKingsideCastle = isKingsideCastle;
             IsQueensideCastle = isQueensideCastle;
             PromotionKind = promotionKind;
+
+            IsCapture = isCapture;
         }
 
         public Location Source { get; }
         public Location Destination { get; }
-        public bool? IsCapture { get; }
         public bool IsKingsideCastle { get; }
         public bool IsQueensideCastle { get; }
         public PieceKind? PromotionKind { get; }
+
+        public bool? IsCapture { get; }
 
         public override bool Equals(object obj) => Equals(obj as Move);
 
@@ -173,10 +175,10 @@ namespace ChessBot
             if (other == null) return false;
             return Source == other.Source
                 && Destination == other.Destination
-                && (!IsCapture.HasValue || !other.IsCapture.HasValue || IsCapture.Value == other.IsCapture.Value)
                 && IsKingsideCastle == other.IsKingsideCastle
                 && IsQueensideCastle == other.IsQueensideCastle
-                && PromotionKind == other.PromotionKind;
+                && PromotionKind == other.PromotionKind
+                && (!IsCapture.HasValue || !other.IsCapture.HasValue || IsCapture.Value == other.IsCapture.Value);
         }
 
         public override int GetHashCode()
@@ -184,10 +186,10 @@ namespace ChessBot
             var hc = new HashCode();
             hc.Add(Source);
             hc.Add(Destination);
-            // We exclude IsCapture intentionally
             hc.Add(IsKingsideCastle);
             hc.Add(IsQueensideCastle);
             hc.Add(PromotionKind);
+            // We exclude IsCapture intentionally
             return hc.ToHashCode();
         }
 
