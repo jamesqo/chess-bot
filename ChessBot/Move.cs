@@ -78,13 +78,14 @@ namespace ChessBot
 
         // note: This method only checks that the specified piece occupies the source square.
         // It doesn't actually check whether the move is valid; that's done in ChessState.ApplyMove.
-        // todo: an empty input leads to nullrefs here
         public static Move Parse(string an, State state)
         {
             var moveNode = ParseInternal(an);
-            if (moveNode.exception != null)
+            // For some reason, the former is null for empty inputs
+            var error = moveNode.exception ?? moveNode.moveDesc().exception;
+            if (error != null)
             {
-                throw new AnParseException("Could not parse input", moveNode.exception);
+                throw new AnParseException("Could not parse input", error);
             }
 
             var statusNode = moveNode.status();
