@@ -87,7 +87,12 @@ namespace ChessBot
                 throw new AnParseException("Could not parse input", moveNode.exception);
             }
 
-            // todo: enforce check/checkmate if they are specified
+            var statusNode = moveNode.status();
+            var checkNode = statusNode?.CHECK();
+            var checkmateNode = statusNode?.CHECKMATE();
+            bool isCheck = (checkNode != null);
+            bool isCheckmate = (checkmateNode != null);
+
             var moveDescNode = moveNode.moveDesc();
             var kingsideCastleNode = moveDescNode.KINGSIDE_CASTLE();
             var queensideCastleNode = moveDescNode.QUEENSIDE_CASTLE();
@@ -99,9 +104,12 @@ namespace ChessBot
                 return new Move(
                     source,
                     destination,
-                    isCapture: false,
                     isKingsideCastle: (kingsideCastleNode != null),
-                    isQueensideCastle: (queensideCastleNode != null));
+                    isQueensideCastle: (queensideCastleNode != null),
+                    isCapture: false,
+                    isCheck: isCheck,
+                    isCheckmate: isCheckmate
+                    );
             }
             else
             {
@@ -113,7 +121,7 @@ namespace ChessBot
                 var promotionKindNode = ordinaryMoveDescNode.promotionKind();
 
                 var pieceKind = (pieceKindNode != null) ? s_pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
-                bool isCapture = (captureNode != null); // todo: enforce this if true. take en passant captures into account.
+                bool isCapture = (captureNode != null);
                 var destination = Location.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? s_pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
                 var source = InferSource(sourceNode, state, pieceKind, destination);
@@ -121,8 +129,11 @@ namespace ChessBot
                 return new Move(
                     source,
                     destination,
+                    promotionKind: promotionKind,
                     isCapture: isCapture,
-                    promotionKind: promotionKind);
+                    isCheck: isCheck,
+                    isCheckmate: isCheckmate
+                    );
             }
         }
 
@@ -132,7 +143,9 @@ namespace ChessBot
             bool isKingsideCastle = false,
             bool isQueensideCastle = false,
             PieceKind? promotionKind = null,
-            bool? isCapture = null)
+            bool? isCapture = null,
+            bool? isCheck = null,
+            bool? isCheckmate = null)
         {
             if (source == destination)
             {
@@ -158,6 +171,8 @@ namespace ChessBot
             PromotionKind = promotionKind;
 
             IsCapture = isCapture;
+            IsCheck = isCheck;
+            IsCheckmate = isCheckmate;
         }
 
         public Location Source { get; }
@@ -167,6 +182,8 @@ namespace ChessBot
         public PieceKind? PromotionKind { get; }
 
         public bool? IsCapture { get; }
+        public bool? IsCheck { get; }
+        public bool? IsCheckmate { get; }
 
         public override bool Equals(object obj) => Equals(obj as Move);
 
@@ -178,7 +195,10 @@ namespace ChessBot
                 && IsKingsideCastle == other.IsKingsideCastle
                 && IsQueensideCastle == other.IsQueensideCastle
                 && PromotionKind == other.PromotionKind
-                && (!IsCapture.HasValue || !other.IsCapture.HasValue || IsCapture.Value == other.IsCapture.Value);
+                // The only cases in which these 3 fields will affect the result is when they're specified for both objects, but differ
+                && (!IsCapture.HasValue || !other.IsCapture.HasValue || IsCapture.Value == other.IsCapture.Value)
+                && (!IsCheck.HasValue || !other.IsCheck.HasValue || IsCheck.Value == other.IsCheck.Value)
+                && (!IsCheckmate.HasValue || !other.IsCheckmate.HasValue || IsCheckmate.Value == other.IsCheckmate.Value);
         }
 
         public override int GetHashCode()
@@ -189,7 +209,7 @@ namespace ChessBot
             hc.Add(IsKingsideCastle);
             hc.Add(IsQueensideCastle);
             hc.Add(PromotionKind);
-            // We exclude IsCapture intentionally
+            // We exclude IsCapture / IsCheck / IsCheckmate intentionally
             return hc.ToHashCode();
         }
 

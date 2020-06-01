@@ -323,6 +323,16 @@ namespace ChessBot
                 return Error($"Move is invalid since it lets {ActiveSide}'s king be attacked");
             }
 
+            if (move.IsCheck.HasValue && move.IsCheck.Value != result.IsCheck)
+            {
+                return Error($"{nameof(move.IsCheck)} property is not set properly");
+            }
+
+            if (move.IsCheckmate.HasValue && move.IsCheckmate.Value != result.IsCheckmate)
+            {
+                return Error($"{nameof(move.IsCheckmate)} property is not set properly");
+            }
+
             return Result(result);
         }
 

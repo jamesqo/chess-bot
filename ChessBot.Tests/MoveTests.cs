@@ -7,6 +7,8 @@ namespace ChessBot.Tests
     {
         // todo: some tests ie. en passant captures need to be moved here
 
+        // todo: tests for moves that result in check/checkmate
+
         [Theory]
         [InlineData("O-O")]
         [InlineData("0-0")]

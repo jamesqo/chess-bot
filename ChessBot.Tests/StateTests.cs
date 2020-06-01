@@ -142,12 +142,12 @@ namespace ChessBot.Tests
             Assert.Equal(State.ParseFen("8/8/8/8/8/8/8/2KR3R b - - 3 1"), state2.Apply("O-O-O"));
 
             // rook is captured
-            state = State.ParseFen("8/8/8/8/8/8/r6r/R3K2R b KQ - 0 1");
-            state2 = state.Apply("Rxa1");
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/7r/r3K2R w K - 0 2"), state2);
+            state = State.ParseFen("8/8/8/8/8/8/1b4b1/R3K2R b KQ - 0 1");
+            state2 = state.Apply("Bxa1");
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/6b1/b3K2R w K - 0 2"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.Apply("O-O-O"));
-            state2 = state.Apply("Rxh1");
-            Assert.Equal(State.ParseFen("8/8/8/8/8/8/r7/R3K2r w Q - 0 2"), state2);
+            state2 = state.Apply("Bxh1");
+            Assert.Equal(State.ParseFen("8/8/8/8/8/8/1b6/R3K2b w Q - 0 2"), state2);
             Assert.Throws<InvalidMoveException>(() => state2.Apply("O-O"));
 
             // friendly piece in between king and rook
