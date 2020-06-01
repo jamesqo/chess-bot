@@ -179,11 +179,7 @@ namespace ChessBot
         public bool WhiteToMove => ActiveSide.IsWhite();
 
         public Tile this[File file, Rank rank] => _board[GetBoardIndex(file, rank)];
-        public Tile this[Location location]
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => this[location.File, location.Rank];
-        }
+        public Tile this[Location location] => _board[GetBoardIndex(location)];
         public Tile this[string location] => this[Location.Parse(location)];
 
         public State Apply(string move) => Apply(Move.Parse(move, this));
