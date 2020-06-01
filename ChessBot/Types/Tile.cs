@@ -1,29 +1,34 @@
 ﻿using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
-    public class Tile : IEquatable<Tile>
+    public struct Tile : IEquatable<Tile>
     {
-        private readonly Piece _piece;
+        private readonly ushort _value;
+
+        private const ushort LocationMask = 0b0000_0000_0011_1111;
+        private const ushort HasPieceMask = 0b0000_0000_0100_0000;
+        private const int HasPieceShift = 6;
+        private const ushort PieceMask = 0b0000_0111_1000_0000;
+        private const int PieceShift = HasPieceShift + 1;
 
         public Tile(Location location, Piece? piece = null)
         {
-            Location = location;
-            HasPiece = (piece != null);
-            _piece = piece ?? default;
+            bool hasPiece = (piece != null);
+            var pieceOrDefault = piece ?? default;
+
+            _value = (ushort)(location.Value | (Convert.ToInt32(hasPiece) << HasPieceShift) | (pieceOrDefault.Value << PieceShift));
         }
 
-        public Location Location { get; }
-
-        public bool HasPiece { get; }
+        public Location Location => new Location((byte)(_value & LocationMask));
+        public bool HasPiece => Convert.ToBoolean((_value & HasPieceMask) >> HasPieceShift);
         public Piece Piece
         {
             get
             {
                 if (!HasPiece) BadPieceCall();
-                return _piece;
+                return new Piece((byte)((_value & PieceMask) >> PieceShift));
             }
         }
 
@@ -31,32 +36,23 @@ namespace ChessBot.Types
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Piece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
 
-        public override bool Equals(object obj) => Equals(obj as Tile);
+        public override bool Equals(object obj) => obj is Tile other && Equals(other);
 
-        public bool Equals([AllowNull] Tile other)
+        public bool Equals(Tile other)
         {
-            if (other == null || Location != other.Location) return false;
+            if (Location != other.Location) return false;
             return HasPiece
                 ? other.HasPiece && Piece == other.Piece
                 : !other.HasPiece;
         }
 
-        public override int GetHashCode()
-        {
-            var hc = new HashCode();
-            hc.Add(Location);
-            if (HasPiece)
-            {
-                hc.Add(Piece);
-            }
-            return hc.ToHashCode();
-        }
+        public override int GetHashCode() => _value;
 
         public Tile SetPiece(Piece? piece) => new Tile(Location, piece);
 
         public override string ToString()
         {
-            return HasPiece ? $"{Location} - {_piece}" : $"{Location} - empty";
+            return HasPiece ? $"{Location} - {Piece}" : $"{Location} - empty";
         }
     }
 }

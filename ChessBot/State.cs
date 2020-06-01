@@ -548,11 +548,12 @@ namespace ChessBot
 
         internal Location? GetKingsLocation(Side side)
         {
-            // todo: fix impl so it doesn't throw if there are 2+ matches
-            return GetPlayer(side)
-                .GetOccupiedTiles()
-                .SingleOrDefault(t => t.Piece.Kind == PieceKind.King)?
-                .Location;
+            foreach (var tile in GetPlayer(side).GetOccupiedTiles())
+            {
+                // There should be at most one king
+                if (tile.Piece.Kind == PieceKind.King) return tile.Location;
+            }
+            return null;
         }
 
         /// <summary>

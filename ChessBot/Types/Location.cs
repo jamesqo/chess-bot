@@ -1,10 +1,17 @@
 ﻿using ChessBot.Exceptions;
 using System;
+using System.Diagnostics;
 
 namespace ChessBot.Types
 {
     public struct Location : IEquatable<Location>
     {
+        private readonly byte _value;
+
+        private const byte FileMask = 0b0000_0111;
+        private const byte RankMask = 0b0011_1000;
+        private const int RankShift = 3;
+
         public static implicit operator Location((File, Rank) tuple)
             => new Location(tuple.Item1, tuple.Item2);
 
@@ -35,12 +42,21 @@ namespace ChessBot.Types
                 throw new ArgumentOutOfRangeException(nameof(rank));
             }
 
-            File = file;
-            Rank = rank;
+            _value = (byte)((int)file | ((int)rank << RankShift));
         }
 
-        public File File { get; }
-        public Rank Rank { get; }
+        internal Location(byte value)
+        {
+            _value = value;
+
+            Debug.Assert(File.IsValid());
+            Debug.Assert(Rank.IsValid());
+        }
+
+        public File File => (File)(_value & FileMask);
+        public Rank Rank => (Rank)((_value & RankMask) >> RankShift);
+
+        internal byte Value => _value;
 
         public void Deconstruct(out File file, out Rank rank)
         {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using static ChessBot.Types.PieceKind;
 using static ChessBot.Types.Side;
 
@@ -22,15 +23,33 @@ namespace ChessBot.Types
         public static bool operator ==(Piece left, Piece right) => left.Equals(right);
         public static bool operator !=(Piece left, Piece right) => !(left == right);
 
+        private readonly byte _value;
+
+        private const byte SideMask = 0b0000_0001;
+        private const byte KindMask = 0b0000_1110;
+        private const int KindShift = 1;
+
         public Piece(Side side, PieceKind kind)
         {
-            Side = side.IsValid() ? side : throw new ArgumentOutOfRangeException(nameof(side));
-            Kind = kind.IsValid() ? kind : throw new ArgumentOutOfRangeException(nameof(kind));
+            if (!side.IsValid()) throw new ArgumentOutOfRangeException(nameof(side));
+            if (!kind.IsValid()) throw new ArgumentOutOfRangeException(nameof(kind));
+
+            _value = (byte)((int)side | ((int)kind << KindShift));
         }
 
-        public Side Side { get; }
-        public PieceKind Kind { get; }
+        internal Piece(byte value)
+        {
+            _value = value;
+
+            Debug.Assert(Side.IsValid());
+            Debug.Assert(Kind.IsValid());
+        }
+
+        public Side Side => (Side)(_value & SideMask);
+        public PieceKind Kind => (PieceKind)((_value & KindMask) >> KindShift);
         public bool IsWhite => Side.IsWhite();
+
+        internal byte Value => _value;
 
         public override bool Equals(object obj) => obj is Piece other && Equals(other);
 
