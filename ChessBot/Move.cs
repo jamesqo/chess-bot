@@ -10,6 +10,7 @@ using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 
 namespace ChessBot
 {
+    // todo: consider representing this with a struct
     public class Move : IEquatable<Move>
     {
         private static readonly Dictionary<string, PieceKind> s_pieceKindMap = new Dictionary<string, PieceKind>

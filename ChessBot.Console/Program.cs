@@ -286,48 +286,43 @@ namespace ChessBot.Console
                 -10,  5,  5,  5,  5,  5,  0,-10,
                 -10,  0,  5,  0,  0,  0,  0,-10,
                 -20,-10,-10, -5, -5,-10,-10,-20
+            },
+            // king middlegame
+            new int[]
+            {
+                -30,-40,-40,-50,-50,-40,-40,-30,
+                -30,-40,-40,-50,-50,-40,-40,-30,
+                -30,-40,-40,-50,-50,-40,-40,-30,
+                -30,-40,-40,-50,-50,-40,-40,-30,
+                -20,-30,-30,-40,-40,-30,-30,-20,
+                -10,-20,-20,-20,-20,-20,-20,-10,
+                 20, 20,  0,  0,  0,  0, 20, 20,
+                 20, 30, 10,  0,  0, 10, 30, 20
+            },
+            // king endgame
+            new int[]
+            {
+                -50,-40,-30,-20,-20,-30,-40,-50,
+                -30,-20,-10,  0,  0,-10,-20,-30,
+                -30,-10, 20, 30, 30, 20,-10,-30,
+                -30,-10, 30, 40, 40, 30,-10,-30,
+                -30,-10, 30, 40, 40, 30,-10,-30,
+                -30,-10, 20, 30, 30, 20,-10,-30,
+                -30,-30,  0,  0,  0,  0,-30,-30,
+                -50,-30,-30,-30,-30,-30,-30,-50
             }
         };
 
-        private static readonly int[] KingMiddlegameValues =
-        {
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -20,-30,-30,-40,-40,-30,-30,-20,
-            -10,-20,-20,-20,-20,-20,-20,-10,
-             20, 20,  0,  0,  0,  0, 20, 20,
-             20, 30, 10,  0,  0, 10, 30, 20
-        };
-
-        private static readonly int[] KingEndgameValues =
-        {
-            -50,-40,-30,-20,-20,-30,-40,-50,
-            -30,-20,-10,  0,  0,-10,-20,-30,
-            -30,-10, 20, 30, 30, 20,-10,-30,
-            -30,-10, 30, 40, 40, 30,-10,-30,
-            -30,-10, 30, 40, 40, 30,-10,-30,
-            -30,-10, 20, 30, 30, 20,-10,-30,
-            -30,-30,  0,  0,  0,  0,-30,-30,
-            -50,-30,-30,-30,-30,-30,-30,-50
-        };
-
-        // Heuristic is always positive / calculated from white's viewpoint
+        // Heuristic is calculated from white's viewpoint (positive = good for white)
         public static int Heuristic(State state)
         {
             if (state.IsTerminal)
             {
                 // todo: give preference to checkmates that occur in fewer moves
                 if (state.IsStalemate) return 0;
-                return state.WhiteToMove ? int.MaxValue : -int.MaxValue;
+                return state.WhiteToMove ? int.MinValue : int.MaxValue;
             }
 
-            return HeuristicForPlayer(state, Side.White) - HeuristicForPlayer(state, Side.Black);
-        }
-
-        private static int HeuristicForPlayer(State state, Side side)
-        {
             // temporarily disabling this for perf reasons
             /*
             bool CheckForEndgame(PlayerInfo player)
@@ -346,22 +341,16 @@ namespace ChessBot.Console
             }
             bool isEndgame = CheckForEndgame(state.White) && CheckForEndgame(state.Black);
             */
+
             bool isEndgame = false;
 
             int result = 0;
-            foreach (var tile in state.GetPlayer(side).GetOccupiedTiles())
+            foreach (var tile in state.GetOccupiedTiles())
             {
-                result += PieceValues[(int)tile.Piece.Kind];
-                int locationInt = 8 * (side.IsWhite() ? (7 - (int)tile.Location.Rank) : (int)tile.Location.Rank) + (int)tile.Location.File;
-                if (tile.Piece.Kind != PieceKind.King)
-                {
-                    result += PieceSquareValues[(int)tile.Piece.Kind][locationInt];
-                }
-                else
-                {
-                    var kingValues = isEndgame ? KingEndgameValues : KingMiddlegameValues;
-                    result += kingValues[locationInt];
-                }
+                var (piece, location) = (tile.Piece, tile.Location);
+                result += PieceValues[(int)piece.Kind];
+                int locationInt = 8 * (piece.IsWhite ? (7 - (int)location.Rank) : (int)location.Rank) + (int)location.File;
+                result += PieceSquareValues[(int)piece.Kind + Convert.ToInt32(piece.Kind == PieceKind.King && isEndgame)][locationInt];
             }
             return result;
         }
@@ -379,7 +368,7 @@ namespace ChessBot.Console
             // todo: throw something if it's terminal
 
             Move bestMove = null;
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             foreach (var (move, succ) in state.GetMovesAndSuccessors())
             {
                 int value = Minimax(succ, _depth - 1);
@@ -401,7 +390,7 @@ namespace ChessBot.Console
                 return Eval.Heuristic(state);
             }
 
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
 
             foreach (var succ in state.GetSuccessors())
             {
@@ -426,9 +415,9 @@ namespace ChessBot.Console
             // todo: throw something if it's terminal
 
             Move bestMove = null;
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
 
-            var (alpha, beta) = (-int.MaxValue, int.MaxValue);
+            var (alpha, beta) = (int.MinValue, int.MaxValue);
 
             foreach (var (move, succ) in state.GetMovesAndSuccessors())
             {
@@ -470,7 +459,7 @@ namespace ChessBot.Console
                 return Eval.Heuristic(state);
             }
 
-            int bestValue = state.WhiteToMove ? -int.MaxValue : int.MaxValue;
+            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
 
             foreach (var succ in state.GetSuccessors())
             {
