@@ -70,6 +70,8 @@ namespace ChessBot
             }
         }
 
+        // todo: we shouldn't be outputting stuff to console when antlr can't parse the input
+
         /// <summary>
         /// Parses a <see cref="Move"/> from algebraic notation and a <see cref="State"/> object.
         /// </summary>
