@@ -8,7 +8,10 @@ using System.Reflection;
 
 namespace ChessBot
 {
-    public class PlayerInfo : IEquatable<PlayerInfo>
+    /// <summary>
+    /// Describes the state of a player in a chess game.
+    /// </summary>
+    public class PlayerState : IEquatable<PlayerState>
     {
         private State _state;
         private ImmutableArray<Tile> _occupiedTiles;
@@ -28,7 +31,7 @@ namespace ChessBot
             return count;
         }
 
-        public PlayerInfo(
+        public PlayerState(
             Side side,
             bool canCastleKingside = true,
             bool canCastleQueenside = true)
@@ -38,7 +41,7 @@ namespace ChessBot
             CanCastleQueenside = canCastleQueenside;
         }
 
-        private PlayerInfo(PlayerInfo other) : this(
+        private PlayerState(PlayerState other) : this(
             other.Side,
             other.CanCastleKingside,
             other.CanCastleQueenside)
@@ -52,7 +55,7 @@ namespace ChessBot
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
 
-        public bool Equals([AllowNull] PlayerInfo other)
+        public bool Equals([AllowNull] PlayerState other)
         {
             // We ignore _state and the associated fields intentionally
             if (other == null) return false;
@@ -61,7 +64,7 @@ namespace ChessBot
                 && CanCastleQueenside == other.CanCastleQueenside;
         }
 
-        public override int GetHashCode() => throw new NotImplementedException();
+        public override int GetHashCode() => HashCode.Combine(Side, CanCastleKingside, CanCastleQueenside);
 
         public ImmutableArray<Tile> GetOccupiedTiles()
         {
@@ -85,13 +88,11 @@ namespace ChessBot
             return _occupiedTiles;
         }
 
-        public PlayerInfo SetSide(Side value) => new PlayerInfo(this) { Side = value };
-        public PlayerInfo SetCanCastleKingside(bool value) => new PlayerInfo(this) { CanCastleKingside = value };
-        public PlayerInfo SetCanCastleQueenside(bool value) => new PlayerInfo(this) { CanCastleQueenside = value };
-
-        internal PlayerInfo SetState(State value) => new PlayerInfo(this) { _state = value };
-        internal PlayerInfo SetOccupiedTiles(ImmutableArray<Tile> value) => new PlayerInfo(this) { _occupiedTiles = value };
-        internal PlayerInfo SetPieceCount(int value) => new PlayerInfo(this) { _pieceCount = value };
+        internal PlayerState SetCanCastleKingside(bool value) => new PlayerState(this) { CanCastleKingside = value };
+        internal PlayerState SetCanCastleQueenside(bool value) => new PlayerState(this) { CanCastleQueenside = value };
+        internal PlayerState SetState(State value) => new PlayerState(this) { _state = value };
+        internal PlayerState SetOccupiedTiles(ImmutableArray<Tile> value) => new PlayerState(this) { _occupiedTiles = value };
+        internal PlayerState SetPieceCount(int value) => new PlayerState(this) { _pieceCount = value };
 
         public override string ToString()
         {

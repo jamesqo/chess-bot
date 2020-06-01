@@ -25,8 +25,8 @@ namespace ChessBot
 
         private State(
             ImmutableArray<Tile> board,
-            PlayerInfo white,
-            PlayerInfo black,
+            PlayerState white,
+            PlayerState black,
             Side activeSide,
             Location? enPassantTarget,
             int halfMoveClock,
@@ -51,8 +51,6 @@ namespace ChessBot
             other.FullMoveNumber)
         {
         }
-
-        private static int GetBoardIndex(Location location) => 8 * (int)location.File + (int)location.Rank;
 
         /// <summary>
         /// Creates a <see cref="State"/> from FEN notation.
@@ -100,7 +98,7 @@ namespace ChessBot
                         for (int i = 0; i < skip; i++)
                         {
                             var emptyTile = new Tile((file + i, rank));
-                            board[GetBoardIndex((file + i, rank))] = emptyTile;
+                            board[GetBoardIndex(file + i, rank)] = emptyTile;
                         }
 
                         file += skip;
@@ -123,7 +121,7 @@ namespace ChessBot
                         };
                         var piece = new Piece(side, kind);
                         var tile = new Tile((file, rank), piece);
-                        board[GetBoardIndex((file, rank))] = tile;
+                        board[GetBoardIndex(file, rank)] = tile;
                         file++;
                         allowDigit = true;
                     }
@@ -132,8 +130,8 @@ namespace ChessBot
                 if ((int)file != 8) throw new InvalidFenException("Incorrect number of files");
             }
 
-            var white = new PlayerInfo(Side.White, canCastleKingside: false, canCastleQueenside: false);
-            var black = new PlayerInfo(Side.Black, canCastleKingside: false, canCastleQueenside: false);
+            var white = new PlayerState(Side.White, canCastleKingside: false, canCastleQueenside: false);
+            var black = new PlayerState(Side.Black, canCastleKingside: false, canCastleQueenside: false);
             if (castlingRights != "-")
             {
                 foreach (char ch in castlingRights)
@@ -163,16 +161,16 @@ namespace ChessBot
         private readonly ImmutableArray<Tile> _board;
         private ImmutableArray<Tile> _occupiedTiles;
 
-        public PlayerInfo White { get; private set; }
-        public PlayerInfo Black { get; private set; }
+        public PlayerState White { get; private set; }
+        public PlayerState Black { get; private set; }
         public Side ActiveSide { get; private set; }
         public Location? EnPassantTarget { get; private set; }
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
 
-        public PlayerInfo ActivePlayer => GetPlayer(ActiveSide);
+        public PlayerState ActivePlayer => GetPlayer(ActiveSide);
         public Side OpposingSide => ActiveSide.Flip();
-        public PlayerInfo OpposingPlayer => GetPlayer(OpposingSide);
+        public PlayerState OpposingPlayer => GetPlayer(OpposingSide);
 
         public bool IsCheck => GetKingsLocation(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc);
         public bool IsCheckmate => IsCheck && IsTerminal;
@@ -180,7 +178,7 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        public Tile this[File file, Rank rank] => _board[GetBoardIndex((file, rank))];
+        public Tile this[File file, Rank rank] => _board[GetBoardIndex(file, rank)];
         public Tile this[Location location]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -267,7 +265,6 @@ namespace ChessBot
             // Update other fields
 
             var newActivePlayer = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
-
             switch (piece.Kind)
             {
                 case PieceKind.King:
@@ -296,8 +293,8 @@ namespace ChessBot
                 }
             }
 
-            bool is2Advance = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
-            var newEnPassantTarget = is2Advance ? source.Up(ForwardStep(ActiveSide)) : (Location?)null;
+            bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
+            var newEnPassantTarget = isPawnAdvanceBy2 ? source.Up(ForwardStep(ActiveSide)) : (Location?)null;
 
             int newHalfMoveClock = (isCapture || piece.Kind == PieceKind.Pawn) ? 0 : (HalfMoveClock + 1);
             int newFullMoveNumber = WhiteToMove ? FullMoveNumber : (FullMoveNumber + 1);
@@ -316,6 +313,7 @@ namespace ChessBot
                 fullMoveNumber: newFullMoveNumber);
 
             // Ensure our king isn't attacked afterwards
+
             // todo: as an optimization, we could narrow our search if our king is currently in check.
             // we may only bother for the three types of moves that could possibly get us out of check.
 
@@ -357,27 +355,14 @@ namespace ChessBot
             {
                 var target = piece.IsWhite ? destination.Down(1) : destination.Up(1);
                 int targetIndex = GetBoardIndex(target);
-                Debug.Assert(board[targetIndex].HasPiece && board[targetIndex].Piece.Side != board[sourceIndex].Piece.Side && board[targetIndex].Piece.Kind == PieceKind.Pawn);
+                Debug.Assert(board[targetIndex].HasPiece);
+                Debug.Assert(board[targetIndex].Piece.Side != board[sourceIndex].Piece.Side);
+                Debug.Assert(board[targetIndex].Piece.Kind == PieceKind.Pawn);
+
                 newBoard[targetIndex] = newBoard[targetIndex].SetPiece(null);
             }
 
             return newBoard.MoveToImmutable();
-        }
-
-        private bool CanCastle(bool kingside)
-        {
-            bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
-            if (!flag) return false;
-
-            // the above flag does not account for situations that temporarily prevent castling, so check for those here
-            // note: we don't guard against castling into check because that's taken care of later
-            var kingSource = GetStartLocation(ActiveSide, PieceKind.King);
-            var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, kingside);
-            var kingDestination = kingside ? kingSource.Right(2) : kingSource.Left(2);
-
-            bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => this[loc].HasPiece);
-            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
-            return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
         public override bool Equals(object obj) => Equals(obj as State);
@@ -485,7 +470,7 @@ namespace ChessBot
             return _occupiedTiles;
         }
 
-        public PlayerInfo GetPlayer(Side side) => side.IsWhite() ? White : Black;
+        public PlayerState GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
@@ -545,6 +530,25 @@ namespace ChessBot
         // this shoulndn't be true of any valid state
         private bool CanAttackOpposingKing => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
         private int PieceCount => White.PieceCount + Black.PieceCount;
+
+        private static int GetBoardIndex(File file, Rank rank) => 8 * (int)file + (int)rank;
+        private static int GetBoardIndex(Location location) => GetBoardIndex(location.File, location.Rank);
+
+        private bool CanCastle(bool kingside)
+        {
+            bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
+            if (!flag) return false;
+
+            // the above flag does not account for situations that temporarily prevent castling, so check for those here
+            // note: we don't guard against castling into check because that's taken care of later
+            var kingSource = GetStartLocation(ActiveSide, PieceKind.King);
+            var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, kingside);
+            var kingDestination = kingside ? kingSource.Right(2) : kingSource.Left(2);
+
+            bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => this[loc].HasPiece);
+            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
+            return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
+        }
 
         internal Location? GetKingsLocation(Side side)
         {
