@@ -6,13 +6,11 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Net.WebSockets;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
-using static ChessBot.Utils.StaticInfo;
 
 namespace ChessBot
 {

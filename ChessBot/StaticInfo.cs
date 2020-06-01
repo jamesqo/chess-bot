@@ -3,7 +3,7 @@ using System;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
 
-namespace ChessBot.Utils
+namespace ChessBot
 {
     internal static class StaticInfo
     {
