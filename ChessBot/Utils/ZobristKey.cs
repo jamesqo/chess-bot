@@ -1,16 +1,14 @@
 ﻿using ChessBot.Types;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Text;
 using static System.Convert;
 
 namespace ChessBot.Utils
 {
     internal static class ZobristKey
     {
-        private static readonly Random Rng = new Random();
+        private const int RngSeed = 0;
+        private static readonly Random Rng = new Random(RngSeed);
 
         private static readonly ulong[,] PieceSquareKeys = new ulong[12, 64];
         private static readonly ulong[] ActiveSideKeys = new ulong[2];
