@@ -465,38 +465,6 @@ namespace ChessBot
 
         public TilesEnumerator GetTiles() => new TilesEnumerator(_board);
 
-        // We don't reuse code from GetOccupiedTiles(), as we need to return the tiles in a specific order so that indexing works quickly.
-        private void GetOccupiedTilesIndexedByLocation(Tile[] buffer, PlayerState player)
-        {
-            for (int i = 0; i < player.Bitboards.Length; i++)
-            {
-                var bb = player.Bitboards[i];
-                var kind = (PieceKind)i;
-                Debug.Assert(kind.IsValid());
-
-                var piece = new Piece(player.Side, kind);
-                while (bb != Bitboard.Zero)
-                {
-                    var location = new Location((byte)bb.IndexOfLsb());
-                    var tile = new Tile(location, piece);
-                    buffer[location.Value] = tile; // <<< here
-                    bb = bb.ClearLsb();
-                }
-            }
-        }
-
-        private void FillInMissingTiles(Tile[] buffer)
-        {
-            for (int i = 0; i < buffer.Length; i++)
-            {
-                if (buffer[i].IsDefault)
-                {
-                    var location = new Location((byte)i);
-                    buffer[i] = new Tile(location);
-                }
-            }
-        }
-
         // todo: remove this from public api?
         public State SetActiveSide(Side value) => new State(this)
         {
