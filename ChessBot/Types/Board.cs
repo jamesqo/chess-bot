@@ -86,29 +86,31 @@ namespace ChessBot.Types
 
         public struct OccupiedTilesEnumerator
         {
-            // don't mark this as readonly since it's a mutable struct
-            private TilesEnumerator _inner;
+            private Board _board;
+            private int _location;
+            private Tile _current;
 
             internal OccupiedTilesEnumerator(Board board)
             {
-                _inner = new TilesEnumerator(board);
+                _board = board;
+                _location = -1;
+                _current = default;
             }
 
-            public Tile Current => _inner.Current;
+            public Tile Current => _current;
 
             public OccupiedTilesEnumerator GetEnumerator() => this;
 
             public bool MoveNext()
             {
-                do
+                Debug.Assert(_location < 64);
+
+                while (true)
                 {
-                    if (!_inner.MoveNext())
-                    {
-                        return false;
-                    }
+                    if (++_location >= 64) return false;
+                    _current = _board[new Location((byte)_location)];
+                    if (_current.HasPiece) return true;
                 }
-                while (!Current.HasPiece);
-                return true;
             }
         }
     }
