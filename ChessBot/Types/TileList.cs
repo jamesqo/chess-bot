@@ -3,14 +3,14 @@ using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
-    public class Board
+    internal class TileList
     {
         public readonly Bitboard Value1;
         public readonly Bitboard Value2;
         public readonly Bitboard Value3;
         public readonly Bitboard Value4;
 
-        public Board(Bitboard value1, Bitboard value2, Bitboard value3, Bitboard value4)
+        public TileList(Bitboard value1, Bitboard value2, Bitboard value3, Bitboard value4)
         {
             Value1 = value1;
             Value2 = value2;

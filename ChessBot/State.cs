@@ -32,7 +32,7 @@ namespace ChessBot
             int fullMoveNumber,
             ulong? hash = null)
         {
-            _board = InitBoard(white, black);
+            _tiles = InitTiles(white, black);
             White = white;
             Black = black;
             ActiveSide = activeSide;
@@ -149,7 +149,7 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        private Board _board;
+        private TileList _tiles;
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
@@ -171,7 +171,7 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        public Tile this[Location location] => _board[location];
+        public Tile this[Location location] => _tiles[location];
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
 
@@ -457,13 +457,13 @@ namespace ChessBot
             }
         }
 
-        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(_board);
+        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(_tiles);
 
         public PlayerState GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
-        public TilesEnumerator GetTiles() => new TilesEnumerator(_board);
+        public TilesEnumerator GetTiles() => new TilesEnumerator(_tiles);
 
         // todo: remove this from public api?
         public State SetActiveSide(Side value) => new State(this)
@@ -527,7 +527,7 @@ namespace ChessBot
         private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
         private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
 
-        private static Board InitBoard(PlayerState white, PlayerState black)
+        private static TileList InitTiles(PlayerState white, PlayerState black)
         {
             ulong value1 = 0, value2 = 0, value3 = 0, value4 = 0;
             for (int i = 0; i < Piece.NumberOfValues; i++)
@@ -543,7 +543,7 @@ namespace ChessBot
                 if ((pieceValue & 4) != 0) value3 |= bb;
                 if ((pieceValue & 8) != 0) value4 |= bb;
             }
-            return new Board(value1, value2, value3, value4);
+            return new TileList(value1, value2, value3, value4);
         }
 
         private ulong InitZobristHash()
@@ -579,8 +579,6 @@ namespace ChessBot
             bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
-
-        private int GetPieceCount() => White.GetPieceCount() + Black.GetPieceCount();
 
         internal Location? GetKingsLocation(Side side)
         {
@@ -887,50 +885,5 @@ namespace ChessBot
         }
 
         #endregion
-
-        public struct TilesEnumerator
-        {
-            private readonly Board _board;
-            private int _location;
-
-            internal TilesEnumerator(Board board)
-            {
-                _board = board;
-                _location = -1;
-            }
-
-            public Tile Current => _board[new Location((byte)_location)];
-
-            public TilesEnumerator GetEnumerator() => this;
-
-            public bool MoveNext() => ++_location < 64;
-        }
-
-        public struct OccupiedTilesEnumerator
-        {
-            private TilesEnumerator _inner;
-
-            internal OccupiedTilesEnumerator(Board board)
-            {
-                _inner = new TilesEnumerator(board);
-            }
-
-            public Tile Current => _inner.Current;
-
-            public OccupiedTilesEnumerator GetEnumerator() => this;
-
-            public bool MoveNext()
-            {
-                do
-                {
-                    if (!_inner.MoveNext())
-                    {
-                        return false;
-                    }
-                }
-                while (!Current.HasPiece);
-                return true;
-            }
-        }
     }
 }
