@@ -558,6 +558,7 @@ namespace ChessBot
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
+        // todo (perf): we should store this
         internal Location? GetKingsLocation(Side side)
         {
             foreach (var tile in GetPlayer(side).GetOccupiedTiles())
@@ -804,6 +805,7 @@ namespace ChessBot
             }
         }
 
+        // todo (perf): we should store attack vectors so this is a simple AND operation
         /// <summary>
         /// Determines whether <paramref name="location"/> is attacked by an enemy piece.
         /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
