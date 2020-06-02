@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace ChessBot.Types
 {
+    /// <summary>
+    /// Identifies a file (or column) of the chess board.
+    /// </summary>
     public enum File
     {
         FileA,

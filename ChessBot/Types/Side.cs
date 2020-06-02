@@ -1,5 +1,8 @@
 ﻿namespace ChessBot.Types
 {
+    /// <summary>
+    /// Identifies the side of a player.
+    /// </summary>
     public enum Side
     {
         White,

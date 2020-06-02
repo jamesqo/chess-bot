@@ -5,6 +5,9 @@ using static ChessBot.Types.Rank;
 
 namespace ChessBot
 {
+    /// <summary>
+    /// Helper methods to deal with fixed information about chess games.
+    /// </summary>
     internal static class StaticInfo
     {
         public static Location GetStartLocation(Side side, PieceKind kind, bool? kingside = null)

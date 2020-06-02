@@ -2,6 +2,9 @@
 
 namespace ChessBot.Exceptions
 {
+    /// <summary>
+    /// Exception thrown when there's an error parsing algebraic notation.
+    /// </summary>
     [Serializable]
     public class AnParseException : Exception
     {

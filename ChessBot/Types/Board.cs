@@ -3,9 +3,12 @@ using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
+    /// <summary>
+    /// Represents a list of tiles on a chess board.
+    /// </summary>
     public class Board
     {
-        private const int NumberOfTiles = 64;
+        public const int NumberOfTiles = 64;
 
         private readonly Bitboard _value1;
         private readonly Bitboard _value2;

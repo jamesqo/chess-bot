@@ -4,6 +4,9 @@ using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
+    /// <summary>
+    /// Stores a bit for each tile of a chess board.
+    /// </summary>
     public struct Bitboard : IEquatable<Bitboard>
     {
         private static readonly int[] MultiplyDeBruijnBitPosition = new int[64]

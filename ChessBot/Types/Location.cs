@@ -4,6 +4,9 @@ using System.Diagnostics;
 
 namespace ChessBot.Types
 {
+    /// <summary>
+    /// Represents a location on the chess board, such as a1. Does not store info about the <see cref="Piece"/> at that location (if any).
+    /// </summary>
     public struct Location : IEquatable<Location>
     {
         private readonly byte _value;

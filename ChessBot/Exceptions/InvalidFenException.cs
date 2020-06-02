@@ -2,6 +2,9 @@
 
 namespace ChessBot.Exceptions
 {
+    /// <summary>
+    /// Exception thrown when trying to parse an invalid FEN string.
+    /// </summary>
     [Serializable]
     public class InvalidFenException : Exception
     {

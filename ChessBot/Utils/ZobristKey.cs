@@ -5,6 +5,9 @@ using static System.Convert;
 
 namespace ChessBot.Utils
 {
+    /// <summary>
+    /// Stores keys for use with Zobrist hashing.
+    /// </summary>
     internal static class ZobristKey
     {
         private const int RngSeed = 0;

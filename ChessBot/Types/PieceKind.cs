@@ -2,6 +2,9 @@
 
 namespace ChessBot.Types
 {
+    /// <summary>
+    /// Represents the kind of a chess piece.
+    /// </summary>
     public enum PieceKind
     {
         Pawn,

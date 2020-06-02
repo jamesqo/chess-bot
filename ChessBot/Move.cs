@@ -11,6 +11,10 @@ using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 namespace ChessBot
 {
     // todo: consider representing this with a struct
+    // todo: move this under Types/
+    /// <summary>
+    /// Stores information about a chess move.
+    /// </summary>
     public class Move : IEquatable<Move>
     {
         private static readonly Dictionary<string, PieceKind> s_pieceKindMap = new Dictionary<string, PieceKind>
@@ -37,7 +41,7 @@ namespace ChessBot
             PieceKind pieceKind,
             Location destination)
         {
-            IEnumerable<Tile> Wrap(OccupiedTilesEnumerator e)
+            IEnumerable<Tile> Wrap(Board.OccupiedTilesEnumerator e)
             {
                 var result = new List<Tile>();
                 foreach (var item in e) result.Add(item);

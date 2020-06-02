@@ -2,6 +2,9 @@
 
 namespace ChessBot.Types
 {
+    /// <summary>
+    /// Identifies a rank (or row) of the chess board.
+    /// </summary>
     public enum Rank
     {
         Rank1,

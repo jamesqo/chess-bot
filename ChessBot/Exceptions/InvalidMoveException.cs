@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace ChessBot.Exceptions
 {
+    /// <summary>
+    /// Exception thrown when an attempt to make an invalid chess move is made.
+    /// </summary>
     [Serializable]
     public class InvalidMoveException : Exception
     {
