@@ -32,7 +32,7 @@ namespace ChessBot
             int fullMoveNumber,
             ulong? hash = null)
         {
-            _tiles = InitTiles(white, black);
+            _tiles = white.Tiles.Add(black.Tiles);
             White = white;
             Black = black;
             ActiveSide = activeSide;
@@ -149,7 +149,7 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        private TileList _tiles;
+        private readonly TileList _tiles;
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
@@ -275,7 +275,7 @@ namespace ChessBot
 
             // Update the state of each player
 
-            var newActive = ActivePlayer.SetOccupiedTiles(default); // occupied tiles have to be recomputed
+            var newActive = ActivePlayer;
             switch (piece.Kind)
             {
                 case PieceKind.King:
@@ -291,8 +291,6 @@ namespace ChessBot
             var newOpposing = OpposingPlayer;
             if (isCapture)
             {
-                newOpposing = newOpposing.SetOccupiedTiles(default); // other player's occupied tiles have to be recomputed iff there's a capture
-
                 if (destination == GetStartLocation(OpposingSide, PieceKind.Rook, kingside: true))
                 {
                     newOpposing = newOpposing.SetCanCastleKingside(false);
@@ -445,15 +443,14 @@ namespace ChessBot
                 }
             }
 
-            var movesToTry = ActivePlayer
-                .GetOccupiedTiles()
-                .Select(t => t.Location)
-                .SelectMany(s => GetPossibleMoves(s));
-
-            foreach (var move in movesToTry)
+            foreach (var tile in ActivePlayer.GetOccupiedTiles())
             {
-                var succ = ApplyUnsafe(move);
-                if (!succ.CanAttackOpposingKing) yield return (move, succ);
+                var movesToTry = GetPossibleMoves(tile.Location);
+                foreach (var move in movesToTry)
+                {
+                    var succ = ApplyUnsafe(move);
+                    if (!succ.CanAttackOpposingKing) yield return (move, succ);
+                }
             }
         }
 
@@ -526,25 +523,6 @@ namespace ChessBot
 
         private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
         private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
-
-        private static TileList InitTiles(PlayerState white, PlayerState black)
-        {
-            ulong value1 = 0, value2 = 0, value3 = 0, value4 = 0;
-            for (int i = 0; i < Piece.NumberOfValues; i++)
-            {
-                var piece = Piece.FromIndex(i);
-                int pieceValue = piece.Value + 1; // 0 represents an empty tile
-
-                var (side, kind) = (piece.Side, piece.Kind);
-                var bb = (side.IsWhite() ? white : black).Bitboards[(int)kind];
-
-                if ((pieceValue & 1) != 0) value1 |= bb;
-                if ((pieceValue & 2) != 0) value2 |= bb;
-                if ((pieceValue & 4) != 0) value3 |= bb;
-                if ((pieceValue & 8) != 0) value4 |= bb;
-            }
-            return new TileList(value1, value2, value3, value4);
-        }
 
         private ulong InitZobristHash()
         {

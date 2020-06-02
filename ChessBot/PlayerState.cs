@@ -13,8 +13,6 @@ namespace ChessBot
     /// </summary>
     public class PlayerState : IEquatable<PlayerState>
     {
-        private ImmutableArray<Tile> _occupiedTiles;
-
         public PlayerState(
             Side side,
             ImmutableArray<Bitboard> bitboards,
@@ -30,6 +28,7 @@ namespace ChessBot
             Bitboards = bitboards;
             CanCastleKingside = canCastleKingside;
             CanCastleQueenside = canCastleQueenside;
+            Tiles = InitTiles();
         }
 
         private PlayerState(PlayerState other) : this(
@@ -38,13 +37,14 @@ namespace ChessBot
             other.CanCastleKingside,
             other.CanCastleQueenside)
         {
-            _occupiedTiles = other._occupiedTiles;
         }
 
         public Side Side { get; private set; }
         public ImmutableArray<Bitboard> Bitboards { get; private set; }
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
+
+        internal TileList Tiles { get; private set; }
 
         public bool Equals([AllowNull] PlayerState other)
         {
@@ -69,40 +69,16 @@ namespace ChessBot
         }
 
         // todo: this could also simply write to an array instead of creating a new one
-        public ImmutableArray<Tile> GetOccupiedTiles()
+        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(Tiles);
+
+        internal PlayerState SetBitboards(ImmutableArray<Bitboard> value)
         {
-            if (_occupiedTiles.IsDefault)
-            {
-                var builder = ImmutableArray.CreateBuilder<Tile>(GetPieceCount());
-                GetOccupiedTiles(builder);
-                _occupiedTiles = builder.MoveToImmutable();
-            }
-            return _occupiedTiles;
+            var result = new PlayerState(this) { Bitboards = value };
+            result.Tiles = result.InitTiles(); // this has to be recomputed
+            return result;
         }
-
-        internal void GetOccupiedTiles(ImmutableArray<Tile>.Builder builder)
-        {
-            for (int i = 0; i < Bitboards.Length; i++)
-            {
-                var bb = Bitboards[i];
-                var kind = (PieceKind)i;
-                Debug.Assert(kind.IsValid());
-
-                var piece = new Piece(Side, kind);
-                while (bb != Bitboard.Zero)
-                {
-                    var location = new Location((byte)bb.IndexOfLsb());
-                    var tile = new Tile(location, piece);
-                    builder.Add(tile);
-                    bb = bb.ClearLsb();
-                }
-            }
-        }
-
-        internal PlayerState SetBitboards(ImmutableArray<Bitboard> value) => new PlayerState(this) { Bitboards = value };
         internal PlayerState SetCanCastleKingside(bool value) => new PlayerState(this) { CanCastleKingside = value };
         internal PlayerState SetCanCastleQueenside(bool value) => new PlayerState(this) { CanCastleQueenside = value };
-        internal PlayerState SetOccupiedTiles(ImmutableArray<Tile> value) => new PlayerState(this) { _occupiedTiles = value };
 
         public override string ToString()
         {
@@ -117,6 +93,23 @@ namespace ChessBot
             int count = 0;
             foreach (var bb in Bitboards) count += bb.PopCount();
             return count;
+        }
+
+        private TileList InitTiles()
+        {
+            ulong value1 = 0, value2 = 0, value3 = 0, value4 = 0;
+            for (var kind = PieceKind.Pawn; kind <= PieceKind.King; kind++)
+            {
+                var piece = new Piece(Side, kind);
+                int pieceValue = piece.Value + 1; // 0 represents an empty tile
+                var bb = Bitboards[(int)kind];
+
+                if ((pieceValue & 1) != 0) value1 |= bb;
+                if ((pieceValue & 2) != 0) value2 |= bb;
+                if ((pieceValue & 4) != 0) value3 |= bb;
+                if ((pieceValue & 8) != 0) value4 |= bb;
+            }
+            return new TileList(value1, value2, value3, value4);
         }
     }
 }
