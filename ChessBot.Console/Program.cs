@@ -345,8 +345,10 @@ namespace ChessBot.Console
             bool isEndgame = false;
 
             int result = 0;
-            foreach (var tile in state.GetOccupiedTiles())
+            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
+            foreach (var tile in state.GetTiles())
             {
+                if (!tile.HasPiece) continue;
                 var (piece, location) = (tile.Piece, tile.Location);
                 int locationInt = 8 * (piece.IsWhite ? (7 - (int)location.Rank) : (int)location.Rank) + (int)location.File;
                 int pieceValue = PieceValues[(int)piece.Kind];

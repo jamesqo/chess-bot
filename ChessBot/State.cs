@@ -444,8 +444,10 @@ namespace ChessBot
                 }
             }
 
-            foreach (var tile in ActivePlayer.GetOccupiedTiles())
+            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
+            foreach (var tile in ActivePlayer.Board.EnumerateTiles())
             {
+                if (!tile.HasPiece) continue;
                 var movesToTry = GetPossibleMoves(tile.Location);
                 foreach (var move in movesToTry)
                 {
@@ -528,9 +530,10 @@ namespace ChessBot
         private ulong InitZobristHash()
         {
             ulong hash = 0;
-            foreach (var tile in GetOccupiedTiles())
+            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
+            foreach (var tile in GetTiles())
             {
-                hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
+                if (tile.HasPiece) hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
             }
 
             hash ^= ZobristKey.ForActiveSide(ActiveSide);
@@ -561,10 +564,11 @@ namespace ChessBot
 
         internal Location? FindKing(Side side)
         {
-            foreach (var tile in GetPlayer(side).GetOccupiedTiles())
+            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
+            foreach (var tile in GetPlayer(side).Board.EnumerateTiles())
             {
                 // There should be at most one king
-                if (tile.Piece.Kind == PieceKind.King) return tile.Location;
+                if (tile.HasPiece && tile.Piece.Kind == PieceKind.King) return tile.Location;
             }
             return null;
         }
@@ -812,10 +816,11 @@ namespace ChessBot
         /// </summary>
         private bool IsAttackedBy(Side side, Location location)
         {
-            foreach (var tile in GetPlayer(side).GetOccupiedTiles())
+            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
+            foreach (var tile in GetPlayer(side).Board.EnumerateTiles())
             {
                 // allowCastling = false is a small optimization, as the rook / king cannot perform captures while castling.
-                if (IsMovePossible(tile.Location, location, allowCastling: false)) return true;
+                if (tile.HasPiece && IsMovePossible(tile.Location, location, allowCastling: false)) return true;
             }
             return false;
         }
