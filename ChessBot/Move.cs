@@ -112,7 +112,7 @@ namespace ChessBot
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 // todo: add a test for when we try to castle but there's no king / multiple kings
-                var source = state.GetKingsLocation(state.ActiveSide) ?? throw new InvalidMoveException("Attempt to castle without exactly 1 king");
+                var source = state.FindKing(state.ActiveSide) ?? throw new InvalidMoveException("Attempt to castle without exactly 1 king");
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new Move(
                     source,

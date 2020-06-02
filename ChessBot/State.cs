@@ -149,6 +149,8 @@ namespace ChessBot
         }
 
         private readonly Board _board;
+        private bool? _isCheck;
+        private bool? _isTerminal;
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
@@ -164,10 +166,10 @@ namespace ChessBot
         public Side OpposingSide => ActiveSide.Flip();
         public PlayerState OpposingPlayer => GetPlayer(OpposingSide);
 
-        public bool IsCheck => GetKingsLocation(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc);
+        public bool IsCheck => _isCheck ?? (bool)(_isCheck = (FindKing(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc)));
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
-        public bool IsTerminal => !GetMoves().Any();
+        public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
         public bool WhiteToMove => ActiveSide.IsWhite();
 
         public Tile this[Location location] => _board[location];
@@ -518,7 +520,7 @@ namespace ChessBot
         #region Helper methods and properties
 
         // this shoulndn't be true of any valid state
-        private bool CanAttackOpposingKing => GetKingsLocation(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
+        private bool CanAttackOpposingKing => FindKing(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
 
         private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
         private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
@@ -557,8 +559,7 @@ namespace ChessBot
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
-        // todo (perf): we should store this
-        internal Location? GetKingsLocation(Side side)
+        internal Location? FindKing(Side side)
         {
             foreach (var tile in GetPlayer(side).GetOccupiedTiles())
             {
