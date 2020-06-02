@@ -88,13 +88,6 @@ namespace ChessBot
             return $"{{{string.Join(", ", propValues)}}}";
         }
 
-        internal int GetPieceCount()
-        {
-            int count = 0;
-            foreach (var bb in Bitboards) count += bb.PopCount();
-            return count;
-        }
-
         private TileList InitTiles()
         {
             ulong value1 = 0, value2 = 0, value3 = 0, value4 = 0;
