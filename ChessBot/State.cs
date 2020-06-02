@@ -32,15 +32,17 @@ namespace ChessBot
             int fullMoveNumber,
             ulong? hash = null)
         {
+            _board = InitBoard(white, black);
             White = white;
             Black = black;
             ActiveSide = activeSide;
             EnPassantTarget = enPassantTarget;
             HalfMoveClock = halfMoveClock;
             FullMoveNumber = fullMoveNumber;
-            Hash = hash ?? ComputeZobristHash();
+            Hash = hash ?? InitZobristHash();
         }
 
+        // todo: remove this
         private State(State other) : this(
             other.White,
             other.Black,
@@ -49,8 +51,6 @@ namespace ChessBot
             other.HalfMoveClock,
             other.FullMoveNumber)
         {
-            _tiles = other._tiles;
-            _occupiedTiles = other._occupiedTiles;
         }
 
         /// <summary>
@@ -149,8 +149,7 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        private ImmutableArray<Tile> _tiles;
-        private ImmutableArray<Tile> _occupiedTiles;
+        private Board _board;
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
@@ -172,23 +171,11 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        public Tile this[Location location]
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                if (!_tiles.IsDefault) return _tiles[location.Value];
-                return SlowGetItem(location);
-            }
-        }
+        public Tile this[Location location] => _board[location];
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private Tile SlowGetItem(Location location) => GetTiles()[location.Value];
-
         public State Apply(string move) => Apply(Move.Parse(move, this));
-
         public State Apply(Move move) => TryApply(move, out var error) ?? throw error;
 
         public State? TryApply(string move, out InvalidMoveException error)
@@ -470,35 +457,13 @@ namespace ChessBot
             }
         }
 
-        public ImmutableArray<Tile> GetOccupiedTiles()
-        {
-            if (_occupiedTiles.IsDefault)
-            {
-                var builder = ImmutableArray.CreateBuilder<Tile>(GetPieceCount());
-                White.GetOccupiedTiles(builder);
-                Black.GetOccupiedTiles(builder);
-                _occupiedTiles = builder.MoveToImmutable();
-            }
-            return _occupiedTiles;
-        }
+        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(_board);
 
         public PlayerState GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
-        public ImmutableArray<Tile> GetTiles()
-        {
-            if (_tiles.IsDefault)
-            {
-                var mutableTiles = new Tile[64];
-                GetOccupiedTilesIndexedByLocation(mutableTiles, White);
-                GetOccupiedTilesIndexedByLocation(mutableTiles, Black);
-                FillInMissingTiles(mutableTiles);
-                // necessary for perf reasons, IA.Builder just isn't cutting it
-                _tiles = Unsafe.As<Tile[], ImmutableArray<Tile>>(ref mutableTiles);
-            }
-            return _tiles;
-        }
+        public TilesEnumerator GetTiles() => new TilesEnumerator(_board);
 
         // We don't reuse code from GetOccupiedTiles(), as we need to return the tiles in a specific order so that indexing works quickly.
         private void GetOccupiedTilesIndexedByLocation(Tile[] buffer, PlayerState player)
@@ -532,7 +497,12 @@ namespace ChessBot
             }
         }
 
-        public State SetActiveSide(Side value) => new State(this) { ActiveSide = value }; // todo: remove this from public api?
+        // todo: remove this from public api?
+        public State SetActiveSide(Side value) => new State(this)
+        {
+            ActiveSide = value,
+            Hash = Hash ^ ZobristKey.ForActiveSide(ActiveSide) ^ ZobristKey.ForActiveSide(value)
+        };
 
         public override string ToString()
         {
@@ -588,6 +558,43 @@ namespace ChessBot
 
         private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
         private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
+
+        private static Board InitBoard(PlayerState white, PlayerState black)
+        {
+            ulong value1 = 0, value2 = 0, value3 = 0, value4 = 0;
+            for (int i = 0; i < Piece.NumberOfValues; i++)
+            {
+                var piece = Piece.FromIndex(i);
+                int pieceValue = piece.Value + 1; // 0 represents an empty tile
+
+                var (side, kind) = (piece.Side, piece.Kind);
+                var bb = (side.IsWhite() ? white : black).Bitboards[(int)kind];
+
+                if ((pieceValue & 1) != 0) value1 |= bb;
+                if ((pieceValue & 2) != 0) value2 |= bb;
+                if ((pieceValue & 4) != 0) value3 |= bb;
+                if ((pieceValue & 8) != 0) value4 |= bb;
+            }
+            return new Board(value1, value2, value3, value4);
+        }
+
+        private ulong InitZobristHash()
+        {
+            ulong hash = 0;
+            foreach (var tile in GetOccupiedTiles())
+            {
+                hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
+            }
+
+            hash ^= ZobristKey.ForActiveSide(ActiveSide);
+            hash ^= ZobristKey.ForCastlingRights(
+                White.CanCastleKingside,
+                White.CanCastleQueenside,
+                Black.CanCastleKingside,
+                Black.CanCastleQueenside);
+            if (EnPassantTarget.HasValue) hash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
+            return hash;
+        }
 
         private bool CanCastleCore(bool kingside)
         {
@@ -911,24 +918,51 @@ namespace ChessBot
             }
         }
 
-        private ulong ComputeZobristHash()
+        #endregion
+
+        public struct TilesEnumerator
         {
-            ulong hash = 0;
-            foreach (var tile in GetOccupiedTiles())
+            private readonly Board _board;
+            private int _location;
+
+            internal TilesEnumerator(Board board)
             {
-                hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
+                _board = board;
+                _location = -1;
             }
 
-            hash ^= ZobristKey.ForActiveSide(ActiveSide);
-            hash ^= ZobristKey.ForCastlingRights(
-                White.CanCastleKingside,
-                White.CanCastleQueenside,
-                Black.CanCastleKingside,
-                Black.CanCastleQueenside);
-            if (EnPassantTarget.HasValue) hash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
-            return hash;
+            public Tile Current => _board[new Location((byte)_location)];
+
+            public TilesEnumerator GetEnumerator() => this;
+
+            public bool MoveNext() => ++_location < 64;
         }
 
-        #endregion
+        public struct OccupiedTilesEnumerator
+        {
+            private TilesEnumerator _inner;
+
+            internal OccupiedTilesEnumerator(Board board)
+            {
+                _inner = new TilesEnumerator(board);
+            }
+
+            public Tile Current => _inner.Current;
+
+            public OccupiedTilesEnumerator GetEnumerator() => this;
+
+            public bool MoveNext()
+            {
+                do
+                {
+                    if (!_inner.MoveNext())
+                    {
+                        return false;
+                    }
+                }
+                while (!Current.HasPiece);
+                return true;
+            }
+        }
     }
 }

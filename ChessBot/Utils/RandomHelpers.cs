@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ChessBot.Utils
 {
-    internal static class RandomExtensions
+    internal static class RandomHelpers
     {
         public static ulong NextULong(this Random rng)
         {

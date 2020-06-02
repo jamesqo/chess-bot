@@ -34,8 +34,7 @@ namespace ChessBot.Utils
         {
             Debug.Assert(piece.IsValid);
             Debug.Assert(location.IsValid);
-            int i = ((int)piece.Side * 6) + (int)piece.Kind;
-            int j = location.Value;
+            var (i, j) = (piece.ToIndex(), location.Value);
             return PieceSquareKeys[i, j];
         }
 

@@ -8,6 +8,8 @@ namespace ChessBot.Types
     {
         private readonly byte _value;
 
+        internal const int NumberOfBits = 6;
+
         private const byte FileMask = 0b0000_0111;
         private const byte RankMask = 0b0011_1000;
         private const int RankShift = 3;

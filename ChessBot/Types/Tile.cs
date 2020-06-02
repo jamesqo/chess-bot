@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
@@ -8,33 +9,37 @@ namespace ChessBot.Types
         private readonly ushort _value;
 
         private const ushort LocationMask = 0b0000_0000_0011_1111;
-        private const ushort HasPieceMask = 0b0000_0000_0100_0000;
-        private const int HasPieceShift = 6;
-        private const ushort PieceMask = 0b0000_0111_1000_0000;
-        private const int PieceShift = HasPieceShift + 1;
+        private const ushort PieceMask = 0b0000_0011_1100_0000;
+        private const int PieceShift = Location.NumberOfBits;
 
         public Tile(Location location, Piece? piece = null)
         {
-            bool hasPiece = (piece != null);
-            var pieceOrDefault = piece ?? default;
+            int pieceValue = (piece?.Value + 1) ?? 0;
+            _value = (ushort)(location.Value | (pieceValue << PieceShift));
+        }
 
-            _value = (ushort)(location.Value | (Convert.ToInt32(hasPiece) << HasPieceShift) | (pieceOrDefault.Value << PieceShift));
+        internal Tile(ushort value)
+        {
+            _value = value;
+            Debug.Assert(IsValid);
         }
 
         public Location Location => new Location((byte)(_value & LocationMask));
-        public bool HasPiece => (_value & HasPieceMask) != 0;
+        public bool HasPiece => (_value & PieceMask) != 0;
         public Piece Piece
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (!HasPiece) BadPieceCall();
-                return new Piece((byte)((_value & PieceMask) >> PieceShift));
+                int pieceValue = (_value & PieceMask) >> PieceShift;
+                if (pieceValue == 0) BadPieceCall();
+                return new Piece((byte)(pieceValue - 1));
             }
         }
 
         // warning: this being true doesn't mean we can't be a valid Tile value!
         internal bool IsDefault => _value == 0;
+        internal bool IsValid => Location.IsValid && (!HasPiece || Piece.IsValid);
 
         // We separate this out into a non-inlined method because we want to make it easy for the JIT to inline Piece
         [MethodImpl(MethodImplOptions.NoInlining)]
