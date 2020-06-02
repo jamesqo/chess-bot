@@ -32,7 +32,7 @@ namespace ChessBot
             int fullMoveNumber,
             ulong? hash = null)
         {
-            _tiles = white.Tiles.Add(black.Tiles);
+            _board = white.Board.Add(black.Board);
             White = white;
             Black = black;
             ActiveSide = activeSide;
@@ -149,7 +149,7 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        private readonly TileList _tiles;
+        private readonly Board _board;
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
@@ -171,7 +171,7 @@ namespace ChessBot
         public bool IsTerminal => !GetMoves().Any();
         public bool WhiteToMove => ActiveSide.IsWhite();
 
-        public Tile this[Location location] => _tiles[location];
+        public Tile this[Location location] => _board[location];
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
 
@@ -454,13 +454,13 @@ namespace ChessBot
             }
         }
 
-        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(_tiles);
+        public Board.OccupiedTilesEnumerator GetOccupiedTiles() => _board.EnumerateOccupiedTiles();
 
         public PlayerState GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
         public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
 
-        public TilesEnumerator GetTiles() => new TilesEnumerator(_tiles);
+        public Board.TilesEnumerator GetTiles() => _board.EnumerateTiles();
 
         // todo: remove this from public api?
         public State SetActiveSide(Side value) => new State(this)

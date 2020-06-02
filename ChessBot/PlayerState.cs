@@ -1,7 +1,6 @@
 ﻿using ChessBot.Types;
 using System;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -28,7 +27,7 @@ namespace ChessBot
             Bitboards = bitboards;
             CanCastleKingside = canCastleKingside;
             CanCastleQueenside = canCastleQueenside;
-            Tiles = InitTiles();
+            Board = InitBoard();
         }
 
         private PlayerState(PlayerState other) : this(
@@ -44,7 +43,7 @@ namespace ChessBot
         public bool CanCastleKingside { get; private set; }
         public bool CanCastleQueenside { get; private set; }
 
-        internal TileList Tiles { get; private set; }
+        internal Board Board { get; private set; }
 
         public bool Equals([AllowNull] PlayerState other)
         {
@@ -69,12 +68,12 @@ namespace ChessBot
         }
 
         // todo: this could also simply write to an array instead of creating a new one
-        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(Tiles);
+        public Board.OccupiedTilesEnumerator GetOccupiedTiles() => Board.EnumerateOccupiedTiles();
 
         internal PlayerState SetBitboards(ImmutableArray<Bitboard> value)
         {
             var result = new PlayerState(this) { Bitboards = value };
-            result.Tiles = result.InitTiles(); // this has to be recomputed
+            result.Board = result.InitBoard(); // this has to be recomputed
             return result;
         }
         internal PlayerState SetCanCastleKingside(bool value) => new PlayerState(this) { CanCastleKingside = value };
@@ -88,7 +87,7 @@ namespace ChessBot
             return $"{{{string.Join(", ", propValues)}}}";
         }
 
-        private TileList InitTiles()
+        private Board InitBoard()
         {
             ulong value1 = 0, value2 = 0, value3 = 0, value4 = 0;
             for (var kind = PieceKind.Pawn; kind <= PieceKind.King; kind++)
@@ -102,7 +101,7 @@ namespace ChessBot
                 if ((pieceValue & 4) != 0) value3 |= bb;
                 if ((pieceValue & 8) != 0) value4 |= bb;
             }
-            return new TileList(value1, value2, value3, value4);
+            return new Board(value1, value2, value3, value4);
         }
     }
 }

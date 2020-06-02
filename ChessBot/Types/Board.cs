@@ -3,16 +3,16 @@ using System.Runtime.CompilerServices;
 
 namespace ChessBot.Types
 {
-    internal class TileList
+    public class Board
     {
-        private const int MaxTiles = 64;
+        private const int NumberOfTiles = 64;
 
         private readonly Bitboard _value1;
         private readonly Bitboard _value2;
         private readonly Bitboard _value3;
         private readonly Bitboard _value4;
 
-        public TileList(Bitboard value1, Bitboard value2, Bitboard value3, Bitboard value4)
+        public Board(Bitboard value1, Bitboard value2, Bitboard value3, Bitboard value4)
         {
             _value1 = value1;
             _value2 = value2;
@@ -36,20 +36,24 @@ namespace ChessBot.Types
             }
         }
 
-        public TileList Add(TileList other)
+        public Board Add(Board other)
         {
             Debug.Assert(!OverlapsWith(other));
-            return new TileList(
+            return new Board(
                 _value1 | other._value1,
                 _value2 | other._value2,
                 _value3 | other._value3,
                 _value4 | other._value4);
         }
 
+        public TilesEnumerator EnumerateTiles() => new TilesEnumerator(this);
+
+        public OccupiedTilesEnumerator EnumerateOccupiedTiles() => new OccupiedTilesEnumerator(this);
+
         // perf can be improved greatly by using bitwise ANDs, but this is only being run in debug builds for now
-        private bool OverlapsWith(TileList other)
+        private bool OverlapsWith(Board other)
         {
-            for (int i = 0; i < MaxTiles; i++)
+            for (int i = 0; i < NumberOfTiles; i++)
             {
                 var location = new Location((byte)i);
                 bool hasPiece = this[location].HasPiece;
@@ -57,6 +61,52 @@ namespace ChessBot.Types
                 if (hasPiece && otherHasPiece) return true;
             }
             return false;
+        }
+
+        public struct TilesEnumerator
+        {
+            private readonly Board _board;
+            private int _location;
+
+            internal TilesEnumerator(Board board)
+            {
+                _board = board;
+                _location = -1;
+            }
+
+            public Tile Current => _board[new Location((byte)_location)];
+
+            public TilesEnumerator GetEnumerator() => this;
+
+            public bool MoveNext() => ++_location < 64;
+        }
+
+        public struct OccupiedTilesEnumerator
+        {
+            // don't mark this as readonly since it's a mutable struct
+            private TilesEnumerator _inner;
+
+            internal OccupiedTilesEnumerator(Board board)
+            {
+                _inner = new TilesEnumerator(board);
+            }
+
+            public Tile Current => _inner.Current;
+
+            public OccupiedTilesEnumerator GetEnumerator() => this;
+
+            public bool MoveNext()
+            {
+                do
+                {
+                    if (!_inner.MoveNext())
+                    {
+                        return false;
+                    }
+                }
+                while (!Current.HasPiece);
+                return true;
+            }
         }
     }
 }
