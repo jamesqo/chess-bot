@@ -639,6 +639,7 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
 
+        // todo: use a bitboard instead
         /// <summary>
         /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
         /// Does not account for whether the move would be invalid because its king is currently in check.
@@ -728,9 +729,8 @@ namespace ChessBot
         // note: May include squares occupied by friendly pieces
         private IEnumerable<Location> GetDiagonalExtension(Location source)
         {
-            var prev = source;
-
             // Northeast
+            var prev = source;
             while (prev.Rank < Rank8 && prev.File < FileH)
             {
                 var next = prev.Up(1).Right(1);
@@ -740,6 +740,7 @@ namespace ChessBot
             }
 
             // Southeast
+            prev = source;
             while (prev.Rank > Rank1 && prev.File < FileH)
             {
                 var next = prev.Down(1).Right(1);
@@ -749,6 +750,7 @@ namespace ChessBot
             }
 
             // Southwest
+            prev = source;
             while (prev.Rank > Rank1 && prev.File > FileA)
             {
                 var next = prev.Down(1).Left(1);
@@ -758,6 +760,7 @@ namespace ChessBot
             }
 
             // Northwest
+            prev = source;
             while (prev.Rank < Rank8 && prev.File > FileA)
             {
                 var next = prev.Up(1).Left(1);
@@ -770,9 +773,8 @@ namespace ChessBot
         // note: May include squares occupied by friendly pieces
         private IEnumerable<Location> GetOrthogonalExtension(Location source)
         {
-            var prev = source;
-
             // East
+            var prev = source;
             while (prev.File < FileH)
             {
                 var next = prev.Right(1);
@@ -782,6 +784,7 @@ namespace ChessBot
             }
 
             // West
+            prev = source;
             while (prev.File > FileA)
             {
                 var next = prev.Left(1);
@@ -791,6 +794,7 @@ namespace ChessBot
             }
 
             // North
+            prev = source;
             while (prev.Rank < Rank8)
             {
                 var next = prev.Up(1);
@@ -800,6 +804,7 @@ namespace ChessBot
             }
 
             // South
+            prev = source;
             while (prev.Rank > Rank1)
             {
                 var next = prev.Down(1);
