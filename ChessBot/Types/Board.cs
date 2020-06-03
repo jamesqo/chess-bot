@@ -8,7 +8,7 @@ namespace ChessBot.Types
     /// </summary>
     public class Board
     {
-        public const int NumberOfTiles = 64;
+        internal const int NumberOfTiles = 64;
 
         private readonly Bitboard _value1;
         private readonly Bitboard _value2;

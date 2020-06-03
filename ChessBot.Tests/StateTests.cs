@@ -1,7 +1,6 @@
 ﻿using ChessBot.Exceptions;
-using ChessBot.Tests.TestUtils;
+using ChessBot.Tests.TestHelpers;
 using ChessBot.Types;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;

@@ -3,7 +3,7 @@ using System;
 using System.Diagnostics;
 using static System.Convert;
 
-namespace ChessBot.Utils
+namespace ChessBot.Helpers
 {
     /// <summary>
     /// Stores keys for use with Zobrist hashing.

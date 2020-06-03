@@ -10,7 +10,7 @@ namespace ChessBot.Types
     /// </summary>
     public struct Piece : IEquatable<Piece>
     {
-        public const int NumberOfValues = 12;
+        internal const int NumberOfValues = 12;
 
         public static readonly Piece BlackPawn = new Piece(Black, Pawn);
         public static readonly Piece BlackKnight = new Piece(Black, Knight);

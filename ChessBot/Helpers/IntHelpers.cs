@@ -1,4 +1,4 @@
-﻿namespace ChessBot.Utils
+﻿namespace ChessBot.Helpers
 {
     internal static class IntHelpers
     {

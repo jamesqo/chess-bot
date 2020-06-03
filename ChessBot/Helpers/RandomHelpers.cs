@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace ChessBot.Utils
+namespace ChessBot.Helpers
 {
     internal static class RandomHelpers
     {

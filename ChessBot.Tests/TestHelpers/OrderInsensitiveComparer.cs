@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
 
-namespace ChessBot.Tests.TestUtils
+namespace ChessBot.Tests.TestHelpers
 {
     internal class OrderInsensitiveComparer<T> : IEqualityComparer<IEnumerable<T>>
     {

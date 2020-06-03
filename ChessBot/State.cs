@@ -1,6 +1,6 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Helpers;
 using ChessBot.Types;
-using ChessBot.Utils;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
