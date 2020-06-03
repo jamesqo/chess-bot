@@ -9,6 +9,9 @@ namespace ChessBot.Tests
 
         // todo: tests for moves that result in check/checkmate
 
+        // todo: there *really* need to be tests to ensure that GetDiagonal/OrthongalExtension are working properly,
+        // ie. rooks should be able to move in a direction besides east, bishops should be able to move in a direction besides northeast
+
         [Theory]
         [InlineData("O-O")]
         [InlineData("0-0")]
