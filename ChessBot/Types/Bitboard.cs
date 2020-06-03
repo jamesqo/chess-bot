@@ -7,7 +7,7 @@ namespace ChessBot.Types
     /// <summary>
     /// Stores a bit for each tile of a chess board.
     /// </summary>
-    public struct Bitboard : IEquatable<Bitboard>
+    public readonly struct Bitboard : IEquatable<Bitboard>
     {
         private static readonly int[] MultiplyDeBruijnBitPosition = new int[64]
         {
@@ -17,7 +17,8 @@ namespace ChessBot.Types
             51, 25, 36, 32, 60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12
         };
 
-        public static readonly Bitboard Zero = default;
+        public static readonly Bitboard Zero = 0UL;
+        public static readonly Bitboard AllOnes = ulong.MaxValue;
 
         public static implicit operator ulong(Bitboard bb) => bb._value;
         public static implicit operator Bitboard(ulong value) => new Bitboard(value);
@@ -28,6 +29,24 @@ namespace ChessBot.Types
         private readonly ulong _value;
 
         public Bitboard(ulong value) => _value = value;
+
+        public bool this[Location location]
+        {
+            get
+            {
+                Debug.Assert(location.IsValid);
+                return (_value & location.GetMask()) != 0;
+            }
+        }
+
+        public Bitboard Clear(Location location)
+        {
+            unchecked
+            {
+                Debug.Assert(location.IsValid);
+                return new Bitboard(_value & ~location.GetMask());
+            }
+        }
 
         public Bitboard ClearLsb()
         {
@@ -56,6 +75,30 @@ namespace ChessBot.Types
                 v = v - ((v >> 1) & 0x5555555555555555UL);
                 v = (v & 0x3333333333333333UL) + ((v >> 2) & 0x3333333333333333UL);
                 return (int)((((v + (v >> 4)) & 0xF0F0F0F0F0F0F0FUL) * 0x101010101010101UL) >> 56);
+            }
+        }
+
+        public Bitboard Reverse()
+        {
+            unchecked
+            {
+                ulong v = _value;
+                v = ((v >> 1) & 0x5555555555555555UL) | ((v & 0x5555555555555555UL) << 1);
+                v = ((v >> 2) & 0x3333333333333333UL) | ((v & 0x3333333333333333UL) << 2);
+                v = ((v >> 4) & 0x0F0F0F0F0F0F0F0FUL) | ((v & 0x0F0F0F0F0F0F0F0FUL) << 4);
+                v = ((v >> 8) & 0x00FF00FF00FF00FFUL) | ((v & 0x00FF00FF00FF00FFUL) << 8);
+                v = ((v >> 16) & 0x0000FFFF0000FFFFUL) | ((v & 0x0000FFFF0000FFFFUL) << 16);
+                v = ((v >> 32) & 0x00000000FFFFFFFFUL) | ((v & 0x00000000FFFFFFFFUL) << 32);
+                return v;
+            }
+        }
+
+        public Bitboard Set(Location location)
+        {
+            unchecked
+            {
+                Debug.Assert(location.IsValid);
+                return new Bitboard(_value | location.GetMask());
             }
         }
 
