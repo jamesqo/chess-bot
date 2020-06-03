@@ -7,7 +7,7 @@ namespace ChessBot.Types
     /// <summary>
     /// Holds data about the <see cref="Types.Piece"/> at a particular <see cref="Types.Location"/>, if any.
     /// </summary>
-    public struct Tile : IEquatable<Tile>
+    public readonly struct Tile : IEquatable<Tile>
     {
         private readonly ushort _value;
 

@@ -8,7 +8,7 @@ namespace ChessBot.Types
     /// <summary>
     /// Represents a (<see cref="Types.Side"/>, <see cref="PieceKind"/>) pair that uniquely identifies a chess piece.
     /// </summary>
-    public struct Piece : IEquatable<Piece>
+    public readonly struct Piece : IEquatable<Piece>
     {
         internal const int NumberOfValues = 12;
 

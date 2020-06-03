@@ -32,8 +32,8 @@ namespace ChessBot
             ulong? hash = null)
         {
             _board = white.Board.Add(black.Board);
-            White = white;
-            Black = black;
+            White = white.SetParent(this);
+            Black = black.SetParent(this);
             ActiveSide = activeSide;
             EnPassantTarget = enPassantTarget;
             HalfMoveClock = halfMoveClock;
@@ -122,8 +122,8 @@ namespace ChessBot
                 if ((int)file != 8) throw new InvalidFenException("Incorrect number of files");
             }
 
-            var white = new PlayerState(Side.White, bitboards: ImmutableArray.Create(bbs[0]), canCastleKingside: false, canCastleQueenside: false);
-            var black = new PlayerState(Side.Black, bitboards: ImmutableArray.Create(bbs[1]), canCastleKingside: false, canCastleQueenside: false);
+            var white = new PlayerState(parent: null, Side.White, bitboards: ImmutableArray.Create(bbs[0]), canCastleKingside: false, canCastleQueenside: false);
+            var black = new PlayerState(parent: null, Side.Black, bitboards: ImmutableArray.Create(bbs[1]), canCastleKingside: false, canCastleQueenside: false);
             if (castlingRights != "-")
             {
                 foreach (char ch in castlingRights)
@@ -393,9 +393,19 @@ namespace ChessBot
         {
             if (other == null) return false;
 
-            if (!White.Equals(other.White) ||
-                !Black.Equals(other.Black) ||
-                ActiveSide != other.ActiveSide ||
+            for (var file = FileA; file <= FileH; file++)
+            {
+                for (var rank = Rank1; rank <= Rank8; rank++)
+                {
+                    if (!this[file, rank].Equals(other[file, rank])) return false;
+                }
+            }
+
+            if (ActiveSide != other.ActiveSide ||
+                White.CanCastleKingside != other.White.CanCastleKingside ||
+                White.CanCastleQueenside != other.White.CanCastleQueenside ||
+                Black.CanCastleKingside != other.Black.CanCastleKingside ||
+                Black.CanCastleQueenside != other.Black.CanCastleQueenside ||
                 EnPassantTarget != other.EnPassantTarget ||
                 HalfMoveClock != other.HalfMoveClock ||
                 FullMoveNumber != other.FullMoveNumber)
@@ -409,9 +419,15 @@ namespace ChessBot
         public override int GetHashCode()
         {
             var hc = new HashCode();
-            hc.Add(White);
-            hc.Add(Black);
+            foreach (var tile in GetOccupiedTiles())
+            {
+                hc.Add(tile);
+            }
             hc.Add(ActiveSide);
+            hc.Add(White.CanCastleKingside);
+            hc.Add(White.CanCastleQueenside);
+            hc.Add(Black.CanCastleKingside);
+            hc.Add(Black.CanCastleQueenside);
             hc.Add(EnPassantTarget);
             hc.Add(HalfMoveClock);
             hc.Add(FullMoveNumber);
@@ -437,8 +453,9 @@ namespace ChessBot
                     }
                     else
                     {
-                        bool isKingsideCastle = (piece.Kind == PieceKind.King && destination == source.Right(2));
-                        bool isQueensideCastle = (piece.Kind == PieceKind.King && destination == source.Left(2));
+                        // todo: add regression tests for bounds checks
+                        bool isKingsideCastle = (piece.Kind == PieceKind.King && source.File < FileG && destination == source.Right(2));
+                        bool isQueensideCastle = (piece.Kind == PieceKind.King && source.File > FileB && destination == source.Left(2));
                         yield return new Move(source, destination, isKingsideCastle: isKingsideCastle, isQueensideCastle: isQueensideCastle);
                     }
                 }
@@ -814,21 +831,11 @@ namespace ChessBot
             }
         }
 
-        // todo (perf): we should store attack vectors so this is a simple AND operation
         /// <summary>
         /// Determines whether <paramref name="location"/> is attacked by an enemy piece.
         /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
         /// </summary>
-        private bool IsAttackedBy(Side side, Location location)
-        {
-            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
-            foreach (var tile in GetPlayer(side).Board.EnumerateTiles())
-            {
-                // allowCastling = false is a small optimization, as the rook / king cannot perform captures while castling.
-                if (tile.HasPiece && IsMovePossible(tile.Location, location, allowCastling: false)) return true;
-            }
-            return false;
-        }
+        private bool IsAttackedBy(Side side, Location location) => GetPlayer(side).Attacks[location];
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.

@@ -7,11 +7,12 @@ namespace ChessBot.Types
     /// <summary>
     /// Represents a location on the chess board, such as a1. Does not store info about the <see cref="Piece"/> at that location (if any).
     /// </summary>
-    public struct Location : IEquatable<Location>
+    public readonly struct Location : IEquatable<Location>
     {
         private readonly byte _value;
 
         internal const int NumberOfBits = 6;
+        internal const int NumberOfValues = Board.NumberOfTiles;
 
         private const byte FileMask = 0b0000_0111;
         private const byte RankMask = 0b0011_1000;
@@ -22,6 +23,12 @@ namespace ChessBot.Types
 
         public static bool operator ==(Location left, Location right) => left.Equals(right);
         public static bool operator !=(Location left, Location right) => !(left == right);
+
+        public static Location FromIndex(int value)
+        {
+            if (value < 0 || value >= NumberOfValues) throw new ArgumentOutOfRangeException(nameof(value));
+            return new Location((byte)value);
+        }
 
         public static Location Parse(string an) => TryParse(an) ?? throw new AnParseException($"Unable to parse location from '{an}'");
 
@@ -80,6 +87,8 @@ namespace ChessBot.Types
         public override int GetHashCode() => _value;
 
         public Bitboard GetMask() => (1UL << _value);
+
+        public int ToIndex() => _value;
 
         public override string ToString() => $"{File.ToChar()}{Rank.ToChar()}";
     }
