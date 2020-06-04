@@ -21,9 +21,6 @@ namespace ChessBot.Tests
 
             // todo: should we throw here if the castling flags are not set, or wait until Apply?
             var move = Move.Parse(moveString, state);
-            Assert.True(move.IsKingsideCastle);
-            Assert.False(move.IsQueensideCastle);
-            Assert.False(move.IsCapture);
             Assert.Equal(Location.Parse("e1"), move.Source);
             Assert.Equal(Location.Parse("g1"), move.Destination);
         }
@@ -36,9 +33,6 @@ namespace ChessBot.Tests
             var state = State.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
             var move = Move.Parse(moveString, state);
-            Assert.True(move.IsQueensideCastle);
-            Assert.False(move.IsKingsideCastle);
-            Assert.False(move.IsCapture);
             Assert.Equal(Location.Parse("e1"), move.Source);
             Assert.Equal(Location.Parse("c1"), move.Destination);
         }

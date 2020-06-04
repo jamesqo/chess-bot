@@ -237,11 +237,6 @@ namespace ChessBot
 
         public State? TryApply(Move move, out InvalidMoveException error)
         {
-            if (move == null)
-            {
-                throw new ArgumentNullException(nameof(move));
-            }
-
             var (source, destination) = (move.Source, move.Destination);
             if (!this[source].HasPiece)
             {
@@ -258,12 +253,6 @@ namespace ChessBot
                 error = new InvalidMoveException("Destination tile is already occupied by a piece of the same color"); return null;
             }
 
-            bool isCapture = this[destination].HasPiece || (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
-            if (move.IsCapture.HasValue && move.IsCapture.Value != isCapture)
-            {
-                error = new InvalidMoveException($"{nameof(move.IsCapture)} property is not set properly"); return null;
-            }
-
             bool promotes = (piece.Kind == PieceKind.Pawn && destination.Rank == EighthRank(ActiveSide));
             if (move.PromotionKind.HasValue != promotes)
             {
@@ -273,11 +262,6 @@ namespace ChessBot
             if (!IsMovePossible(source, destination))
             {
                 error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
-            }
-
-            if ((move.IsKingsideCastle || move.IsQueensideCastle) && !(move.IsKingsideCastle ? CanCastleKingside : CanCastleQueenside))
-            {
-                error = new InvalidMoveException("Requirements for castling not met"); return null;
             }
 
             var result = ApplyUnsafe(move);
@@ -292,16 +276,6 @@ namespace ChessBot
                 error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
             }
 
-            if (move.IsCheck.HasValue && move.IsCheck.Value != result.IsCheck)
-            {
-                error = new InvalidMoveException($"{nameof(move.IsCheck)} property is not set properly"); return null;
-            }
-
-            if (move.IsCheckmate.HasValue && move.IsCheckmate.Value != result.IsCheckmate)
-            {
-                error = new InvalidMoveException($"{nameof(move.IsCheckmate)} property is not set properly"); return null;
-            }
-
             error = null;
             return result;
         }
@@ -312,6 +286,8 @@ namespace ChessBot
             var piece = this[source].Piece;
             bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
             bool isCapture = this[destination].HasPiece || isEnPassantCapture;
+            bool isKingsideCastle = (piece.Kind == PieceKind.King && destination == source.Right(2));
+            bool isQueensideCastle = (piece.Kind == PieceKind.King && destination == source.Left(2));
 
             var (newBoard, newPieceMasks, newCastlingRights, newHash) = (Board, PieceMasks, CastlingRights, Hash);
 
@@ -321,10 +297,10 @@ namespace ChessBot
 
             // Handle castling specially because we have to move the rook too
 
-            if (move.IsKingsideCastle || move.IsQueensideCastle)
+            if (isKingsideCastle || isQueensideCastle)
             {
-                var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, move.IsKingsideCastle);
-                var rookDestination = move.IsKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
+                var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, isKingsideCastle);
+                var rookDestination = isKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
                 ApplyInternal(ref newBoard, ref newPieceMasks, ref newHash, rookSource, rookDestination);
             }
 
@@ -489,10 +465,7 @@ namespace ChessBot
                     }
                     else
                     {
-                        // todo: add regression tests for bounds checks
-                        bool isKingsideCastle = (piece.Kind == PieceKind.King && source.File < FileG && destination == source.Right(2));
-                        bool isQueensideCastle = (piece.Kind == PieceKind.King && source.File > FileB && destination == source.Left(2));
-                        yield return new Move(source, destination, isKingsideCastle: isKingsideCastle, isQueensideCastle: isQueensideCastle);
+                        yield return new Move(source, destination);
                     }
                 }
             }

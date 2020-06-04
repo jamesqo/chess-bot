@@ -206,7 +206,7 @@ namespace ChessBot.Console
         public Move GetNextMove(State state)
         {
             var moves = state.GetMoves().ToArray();
-            Debug.WriteLine(string.Join(Environment.NewLine, (object[])moves));
+            Debug.WriteLine(string.Join(Environment.NewLine, moves));
             return moves[_rand.Next(moves.Length)];
         }
     }
@@ -380,7 +380,7 @@ namespace ChessBot.Console
         {
             // todo: throw something if it's terminal
 
-            Move bestMove = null;
+            Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             foreach (var (move, succ) in state.GetMovesAndSuccessors())
             {
@@ -433,7 +433,7 @@ namespace ChessBot.Console
         {
             // todo: throw something if it's terminal
 
-            Move bestMove = null;
+            Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
 
             var (alpha, beta) = (int.MinValue, int.MaxValue);

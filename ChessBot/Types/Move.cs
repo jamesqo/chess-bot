@@ -6,6 +6,7 @@ using System.Linq;
 using ChessBot.Exceptions;
 using System.Diagnostics.CodeAnalysis;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
+using System.Text;
 
 namespace ChessBot.Types
 {
@@ -13,7 +14,7 @@ namespace ChessBot.Types
     /// <summary>
     /// Stores information about a chess move.
     /// </summary>
-    public class Move : IEquatable<Move>
+    public readonly struct Move : IEquatable<Move>
     {
         private static readonly Dictionary<string, PieceKind> s_pieceKindMap = new Dictionary<string, PieceKind>
         {
@@ -91,11 +92,9 @@ namespace ChessBot.Types
                 throw new AnParseException("Could not parse input", error);
             }
 
-            var statusNode = moveNode.status();
-            var checkNode = statusNode?.CHECK();
-            var checkmateNode = statusNode?.CHECKMATE();
-            bool isCheck = (checkNode != null);
-            bool isCheckmate = (checkmateNode != null);
+            //var statusNode = moveNode.status();
+            //var checkNode = statusNode?.CHECK();
+            //var checkmateNode = statusNode?.CHECKMATE();
 
             var moveDescNode = moveNode.moveDesc();
             var kingsideCastleNode = moveDescNode.KINGSIDE_CASTLE();
@@ -105,51 +104,27 @@ namespace ChessBot.Types
                 // todo: add a test for when we try to castle but there's no king / multiple kings
                 var source = state.FindKing(state.ActiveSide) ?? throw new InvalidMoveException("Attempt to castle without exactly 1 king");
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
-                return new Move(
-                    source,
-                    destination,
-                    isKingsideCastle: (kingsideCastleNode != null),
-                    isQueensideCastle: (queensideCastleNode != null),
-                    isCapture: false,
-                    isCheck: isCheck,
-                    isCheckmate: isCheckmate
-                    );
+                return new Move(source, destination);
             }
             else
             {
                 var ordinaryMoveDescNode = moveDescNode.ordinaryMoveDesc();
                 var pieceKindNode = ordinaryMoveDescNode.pieceKind();
                 var sourceNode = ordinaryMoveDescNode.source();
-                var captureNode = ordinaryMoveDescNode.CAPTURE();
+                //var captureNode = ordinaryMoveDescNode.CAPTURE();
                 var destinationNode = ordinaryMoveDescNode.destination();
                 var promotionKindNode = ordinaryMoveDescNode.promotionKind();
 
                 var pieceKind = (pieceKindNode != null) ? s_pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
-                bool isCapture = (captureNode != null);
                 var destination = Location.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? s_pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
                 var source = InferSource(sourceNode, state, pieceKind, destination);
 
-                return new Move(
-                    source,
-                    destination,
-                    promotionKind: promotionKind,
-                    isCapture: isCapture,
-                    isCheck: isCheck,
-                    isCheckmate: isCheckmate
-                    );
+                return new Move(source, destination, promotionKind: promotionKind);
             }
         }
 
-        public Move(
-            Location source,
-            Location destination,
-            bool isKingsideCastle = false,
-            bool isQueensideCastle = false,
-            PieceKind? promotionKind = null,
-            bool? isCapture = null,
-            bool? isCheck = null,
-            bool? isCheckmate = null)
+        public Move(Location source, Location destination, PieceKind? promotionKind = null)
         {
             if (source == destination)
             {
@@ -168,59 +143,56 @@ namespace ChessBot.Types
                     throw new InvalidMoveException($"Bad value for ${nameof(promotionKind)}");
             }
 
-            Source = source;
-            Destination = destination;
-            IsKingsideCastle = isKingsideCastle;
-            IsQueensideCastle = isQueensideCastle;
-            PromotionKind = promotionKind;
-
-            IsCapture = isCapture;
-            IsCheck = isCheck;
-            IsCheckmate = isCheckmate;
+            int kindValue = promotionKind.HasValue ? ((int)promotionKind.Value + 1) : 0;
+            _value = (ushort)(source.Value | (destination.Value << DestinationShift) | (kindValue << PromotionKindShift));
         }
 
-        public Location Source { get; }
-        public Location Destination { get; }
-        public bool IsKingsideCastle { get; }
-        public bool IsQueensideCastle { get; }
-        public PieceKind? PromotionKind { get; }
+        private readonly ushort _value;
 
-        public bool? IsCapture { get; }
-        public bool? IsCheck { get; }
-        public bool? IsCheckmate { get; }
+        private const ushort SourceMask        = 0b0000_0000_0001_1111;
+        private const ushort DestinationMask   = 0b0000_0011_1110_0000;
+        private const ushort PromotionKindMask = 0b0001_1100_0000_0000;
 
-        public override bool Equals(object obj) => Equals(obj as Move);
+        private const int DestinationShift = Location.NumberOfBits;
+        private const int PromotionKindShift = Location.NumberOfBits * 2;
 
-        public bool Equals([AllowNull] Move other)
+        public Location Source => new Location((byte)(_value & SourceMask));
+        public Location Destination => new Location((byte)((_value & DestinationMask) >> DestinationShift));
+        public PieceKind? PromotionKind
         {
-            if (other == null) return false;
-            return Source == other.Source
-                && Destination == other.Destination
-                && IsKingsideCastle == other.IsKingsideCastle
-                && IsQueensideCastle == other.IsQueensideCastle
-                && PromotionKind == other.PromotionKind
-                // The only cases in which these 3 fields will affect the result is when they're specified for both objects, but differ
-                && (!IsCapture.HasValue || !other.IsCapture.HasValue || IsCapture.Value == other.IsCapture.Value)
-                && (!IsCheck.HasValue || !other.IsCheck.HasValue || IsCheck.Value == other.IsCheck.Value)
-                && (!IsCheckmate.HasValue || !other.IsCheckmate.HasValue || IsCheckmate.Value == other.IsCheckmate.Value);
+            get
+            {
+                int kindValue = (_value & PromotionKindMask) >> PromotionKindShift;
+                return kindValue == 0 ? (PieceKind?)null : (PieceKind)(kindValue - 1);
+            }
         }
 
-        public override int GetHashCode()
-        {
-            var hc = new HashCode();
-            hc.Add(Source);
-            hc.Add(Destination);
-            hc.Add(IsKingsideCastle);
-            hc.Add(IsQueensideCastle);
-            hc.Add(PromotionKind);
-            // We exclude IsCapture / IsCheck / IsCheckmate intentionally
-            return hc.ToHashCode();
-        }
+        //public bool IsKingsideCastle { get; }
+        //public bool IsQueensideCastle { get; }
+        //public bool? IsCapture { get; }
+        //public bool? IsCheck { get; }
+        //public bool? IsCheckmate { get; }
+
+        public override bool Equals(object obj) => obj is Move other && Equals(other);
+
+        public bool Equals(Move other) => _value == other._value;
+
+        public override int GetHashCode() => _value;
 
         public override string ToString()
         {
-            // todo: add info about more fields
-            return $"{Source}{Destination}";
+            var sb = new StringBuilder();
+            sb.Append(Source);
+            sb.Append(Destination);
+            sb.Append(PromotionKind switch
+            {
+                PieceKind.Knight => "N",
+                PieceKind.Bishop => "B",
+                PieceKind.Rook => "R",
+                PieceKind.Queen => "Q",
+                null => ""
+            });
+            return sb.ToString();
         }
     }
 }
