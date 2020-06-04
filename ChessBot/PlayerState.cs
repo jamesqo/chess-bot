@@ -36,7 +36,7 @@ namespace ChessBot
         public Bitboard GetPieceMask(PieceKind kind)
         {
             if (!kind.IsValid()) throw new ArgumentOutOfRangeException(nameof(kind));
-            return _parent.PieceMasks.Get(Side)[(int)kind];
+            return _parent.PieceMasks.Get(Side)[kind];
         }
 
         // perf todo

@@ -11,14 +11,14 @@ namespace ChessBot
     {
         // For now, all of these properties are mandatory
         internal Secrets(
-            PlayerProperty<ImmutableArray<Bitboard>> pieceMasks,
+            PlayerProperty<PieceMasks> pieceMasks,
             ulong hash)
         {
             PieceMasks = pieceMasks;
             Hash = hash;
         }
 
-        internal PlayerProperty<ImmutableArray<Bitboard>> PieceMasks { get; }
+        internal PlayerProperty<PieceMasks> PieceMasks { get; }
         internal ulong Hash { get; }
     }
 }

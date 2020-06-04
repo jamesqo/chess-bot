@@ -484,7 +484,8 @@ namespace ChessBot.Console
 
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
 
-            foreach (var succ in state.GetSuccessors())
+            //foreach (var succ in state.GetSuccessors())
+            foreach (var (_, succ) in state.GetMovesAndSuccessors())
             {
                 int value = AlphaBeta(succ, d - 1, alpha, beta);
                 if (state.WhiteToMove)

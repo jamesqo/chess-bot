@@ -11,6 +11,7 @@ using System.Text;
 using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
+using Pms = ChessBot.PieceMasks;
 
 namespace ChessBot
 {
@@ -197,7 +198,7 @@ namespace ChessBot
         public PlayerState Black { get; }
 
         internal Board Board { get; }
-        internal PlayerProperty<ImmutableArray<Bitboard>> PieceMasks { get; }
+        internal PlayerProperty<PieceMasks> PieceMasks { get; }
         internal PlayerProperty<Bitboard> Occupies { get; }
         internal PlayerProperty<Bitboard> Attacks { get; }
 
@@ -365,7 +366,7 @@ namespace ChessBot
 
         private void ApplyInternal(
             ref Board board,
-            ref PlayerProperty<ImmutableArray<Bitboard>> pieceMasks,
+            ref PlayerProperty<PieceMasks> pieceMasks,
             ref ulong hash,
             Location source,
             Location destination,
@@ -384,10 +385,10 @@ namespace ChessBot
             newBoard.Set(source, null);
             newBoard.Set(destination, newPiece);
             // Update piece masks
-            var newBbs = pieceMasks.Get(ActiveSide).ToArray();
-            newBbs[(int)piece.Kind] &= ~source.GetMask();
-            newBbs[(int)newKind] |= destination.GetMask();
-            pieceMasks = pieceMasks.Set(ActiveSide, newBbs.UnsafeAsImmutable());
+            var newPms = Pms.CreateBuilder(pieceMasks.Get(ActiveSide));
+            newPms[piece.Kind] &= ~source.GetMask();
+            newPms[newKind] |= destination.GetMask();
+            pieceMasks = pieceMasks.Set(ActiveSide, newPms.Value);
             // Update hash
             hash ^= ZobristKey.ForPieceSquare(piece, source);
             hash ^= ZobristKey.ForPieceSquare(newPiece, destination);
@@ -402,9 +403,9 @@ namespace ChessBot
                 // Update board
                 if (isEnPassantCapture) newBoard.Set(toClear, null);
                 // Update piece masks
-                var newOpposingBbs = pieceMasks.Get(OpposingSide).ToArray();
-                newOpposingBbs[(int)capturedPiece.Kind] &= ~toClear.GetMask();
-                pieceMasks = pieceMasks.Set(OpposingSide, newOpposingBbs.UnsafeAsImmutable());
+                var newOpposingPms = Pms.CreateBuilder(pieceMasks.Get(OpposingSide));
+                newOpposingPms[capturedPiece.Kind] &= ~toClear.GetMask();
+                pieceMasks = pieceMasks.Set(OpposingSide, newOpposingPms.Value);
                 // Update hash
                 hash ^= ZobristKey.ForPieceSquare(capturedPiece, toClear);
             }
@@ -443,14 +444,21 @@ namespace ChessBot
             return hc.ToHashCode();
         }
 
-        public IEnumerable<Move> GetMoves() => GetMovesAndSuccessors().Select(t => t.move);
-
-        public IEnumerable<(Move move, State state)> GetMovesAndSuccessors()
+        public IEnumerable<Move> GetMoves()
         {
-            IEnumerable<Move> GetPossibleMoves(Tile sourceTile)
+            foreach (var (move, _) in GetMovesAndSuccessors())
             {
+                yield return move;
+            }
+        }
+
+        public PooledList<(Move move, State successor)> GetMovesAndSuccessors()
+        {
+            PooledList<Move> GetPossibleMoves(Tile sourceTile)
+            {
+                var list = PooledList<Move>.Get(64);
+
                 var (source, piece) = (sourceTile.Location, sourceTile.Piece);
-                
                 var destinations = GetPossibleDestinations(sourceTile);
                 for (var bb = destinations; bb != Bitboard.Zero; bb = bb.ClearLsb())
                 {
@@ -458,36 +466,50 @@ namespace ChessBot
                     // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
                     if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(ActiveSide))
                     {
-                        yield return new Move(source, destination, promotionKind: PieceKind.Knight);
-                        yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
-                        yield return new Move(source, destination, promotionKind: PieceKind.Rook);
-                        yield return new Move(source, destination, promotionKind: PieceKind.Queen);
+                        list.Add(new Move(source, destination, promotionKind: PieceKind.Knight));
+                        list.Add(new Move(source, destination, promotionKind: PieceKind.Bishop));
+                        list.Add(new Move(source, destination, promotionKind: PieceKind.Rook));
+                        list.Add(new Move(source, destination, promotionKind: PieceKind.Queen));
                     }
                     else
                     {
-                        yield return new Move(source, destination);
+                        list.Add(new Move(source, destination));
                     }
                 }
+
+                return list;
             }
 
+            var list = PooledList<(Move, State)>.Get(64);
             // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
             foreach (var tile in GetTiles())
             {
                 if (!tile.HasPiece || tile.Piece.Side != ActiveSide) continue;
-                var movesToTry = GetPossibleMoves(tile);
+
+                using var movesToTry = GetPossibleMoves(tile);
                 foreach (var move in movesToTry)
                 {
                     var succ = ApplyUnsafe(move);
-                    if (!succ.CanAttackOpposingKing) yield return (move, succ);
+                    if (!succ.CanAttackOpposingKing)
+                    {
+                        list.Add((move, succ));
+                    }
                 }
             }
+            return list;
         }
 
         public Board.OccupiedTilesEnumerator GetOccupiedTiles() => Board.GetOccupiedTiles();
 
         public PlayerState GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        public IEnumerable<State> GetSuccessors() => GetMovesAndSuccessors().Select(t => t.state);
+        public IEnumerable<State> GetSuccessors()
+        {
+            foreach (var (_, succ) in GetMovesAndSuccessors())
+            {
+                yield return succ;
+            }
+        }
 
         public Board.TilesEnumerator GetTiles() => Board.GetTiles();
 
@@ -570,25 +592,28 @@ namespace ChessBot
             return hash;
         }
 
-        private static PlayerProperty<ImmutableArray<Bitboard>> InitPieceMasks(Board board)
+        private static PlayerProperty<PieceMasks> InitPieceMasks(Board board)
         {
-            var (white, black) = (new Bitboard[6], new Bitboard[6]);
+            var (white, black) = (Pms.CreateBuilder(), Pms.CreateBuilder());
             // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
             foreach (var tile in board.GetTiles())
             {
                 if (!tile.HasPiece) continue;
                 var piece = tile.Piece;
-                var bbs = piece.IsWhite ? white : black;
-                bbs[(int)piece.Kind] |= tile.Location.GetMask();
+                var pms = piece.IsWhite ? white : black;
+                pms[piece.Kind] |= tile.Location.GetMask();
             }
-            return (ImmutableArray.Create(white), ImmutableArray.Create(black));
+            return (white.Value, black.Value);
         }
         
         private PlayerProperty<Bitboard> InitOccupies()
         {
             var (white, black) = (Bitboard.CreateBuilder(), Bitboard.CreateBuilder());
-            foreach (var mask in PieceMasks.White) white.SetRange(mask);
-            foreach (var mask in PieceMasks.Black) black.SetRange(mask);
+            for (var kind = PieceKind.Pawn; kind <= PieceKind.King; kind++)
+            {
+                white.SetRange(PieceMasks.White[kind]);
+                black.SetRange(PieceMasks.Black[kind]);
+            }
             return (white.Value, black.Value);
         }
 
