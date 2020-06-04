@@ -4,13 +4,11 @@ using System.Collections.Generic;
 using ChessBot.AlgebraicNotation;
 using System.Linq;
 using ChessBot.Exceptions;
-using System.Diagnostics.CodeAnalysis;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 using System.Text;
 
 namespace ChessBot.Types
 {
-    // todo: consider representing this with a struct
     /// <summary>
     /// Stores information about a chess move.
     /// </summary>
@@ -174,12 +172,6 @@ namespace ChessBot.Types
                 return kindValue == 0 ? (PieceKind?)null : (PieceKind)(kindValue - 1);
             }
         }
-
-        //public bool IsKingsideCastle { get; }
-        //public bool IsQueensideCastle { get; }
-        //public bool? IsCapture { get; }
-        //public bool? IsCheck { get; }
-        //public bool? IsCheckmate { get; }
 
         public override bool Equals(object obj) => obj is Move other && Equals(other);
 

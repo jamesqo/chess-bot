@@ -19,12 +19,6 @@ namespace ChessBot
             Side = side;
         }
 
-        private PlayerState(PlayerState other) : this(
-            other._parent,
-            other.Side)
-        {
-        }
-
         private readonly State _parent;
         public Side Side { get; }
 

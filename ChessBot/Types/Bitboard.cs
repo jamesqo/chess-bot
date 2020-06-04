@@ -67,6 +67,8 @@ namespace ChessBot.Types
             }
         }
 
+        public Location NextLocation() => new Location((byte)IndexOfLsb());
+
         public int PopCount()
         {
             unchecked

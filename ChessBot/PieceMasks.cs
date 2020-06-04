@@ -3,8 +3,7 @@ using System;
 
 namespace ChessBot
 {
-    // todo: figure out if this is actually helping vs. ImmutableArray
-    // todo: move to Types?
+    // todo: remove this
     internal class PieceMasks
     {
         private unsafe struct Buffer

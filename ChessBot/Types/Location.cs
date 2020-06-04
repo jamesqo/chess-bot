@@ -44,17 +44,6 @@ namespace ChessBot.Types
 
         public Location(File file, Rank rank)
         {
-            /*
-            if (!file.IsValid())
-            {
-                throw new ArgumentOutOfRangeException(nameof(file));
-            }
-            if (!rank.IsValid())
-            {
-                throw new ArgumentOutOfRangeException(nameof(rank));
-            }
-            */
-            // commented out for perf
             Debug.Assert(file.IsValid());
             Debug.Assert(rank.IsValid());
 
@@ -79,7 +68,7 @@ namespace ChessBot.Types
             rank = Rank;
         }
 
-        // used on perf-sensitive codepaths so we don't have to perform additional computation, ie. via Up().Right()
+        // used on perf-sensitive codepaths so we don't have to perform additional computation, ie. like Up().Right()
         public Location Add(int fileShift, int rankShift) => (File + fileShift, Rank + rankShift);
 
         public Location Up(int shift) => (File, Rank + shift);

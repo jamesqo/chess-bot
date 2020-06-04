@@ -1,8 +1,8 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace ChessBot.Types
 {
+    // todo: decide if this is really worth it
     internal readonly struct PieceOrNone
     {
         public static readonly PieceOrNone None = default;

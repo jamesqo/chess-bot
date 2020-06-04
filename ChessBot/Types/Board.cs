@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 
 namespace ChessBot.Types
 {
+    // todo: cleanup the code here
     /// <summary>
     /// Represents a list of tiles on a chess board.
     /// </summary>
@@ -14,7 +14,8 @@ namespace ChessBot.Types
     {
         private unsafe struct Buffer
         {
-            public fixed byte Bytes[32];
+            // todo: decide if 64 instead of 32 bytes is really warranted here
+            public fixed byte Bytes[64];
         }
 
         internal const int NumberOfTiles = 64;
@@ -40,9 +41,7 @@ namespace ChessBot.Types
                 Debug.Assert(location.IsValid);
 
                 int index = location.Value;
-                byte pieceValue = _buffer.Bytes[index / 2];
-                if (index % 2 != 0) pieceValue >>= 4;
-                pieceValue &= 0b00001111;
+                byte pieceValue = _buffer.Bytes[index];
                 return new PieceOrNone(pieceValue);
             }
         }
@@ -71,8 +70,8 @@ namespace ChessBot.Types
 
         public unsafe byte[] ToBytes()
         {
-            var bytes = new byte[32];
-            for (int i = 0; i < 32; i++)
+            var bytes = new byte[64];
+            for (int i = 0; i < 64; i++)
             {
                 bytes[i] = _buffer.Bytes[i];
             }
@@ -167,18 +166,7 @@ namespace ChessBot.Types
 
                     int index = location.Value;
                     byte pieceValue = value.Value; // 0 represents an empty tile
-                    ref byte target = ref _value._buffer.Bytes[index / 2];
-                    // todo: could use (index % 2) * 4 to avoid branching here?
-                    if (index % 2 != 0)
-                    {
-                        pieceValue <<= 4;
-                        target &= 0b00001111;
-                    }
-                    else
-                    {
-                        target &= 0b11110000;
-                    }
-                    target |= pieceValue;
+                    _value._buffer.Bytes[index] = pieceValue;
                 }
             }
 

@@ -44,8 +44,8 @@ namespace ChessBot.Types
 
         public Piece(Side side, PieceKind kind)
         {
-            if (!side.IsValid()) throw new ArgumentOutOfRangeException(nameof(side));
-            if (!kind.IsValid()) throw new ArgumentOutOfRangeException(nameof(kind));
+            Debug.Assert(side.IsValid());
+            Debug.Assert(kind.IsValid());
 
             _value = (byte)((int)side | ((int)kind << KindShift));
         }
