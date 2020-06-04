@@ -438,7 +438,8 @@ namespace ChessBot.Console
 
             var (alpha, beta) = (int.MinValue, int.MaxValue);
 
-            foreach (var (move, succ) in state.GetMovesAndSuccessors())
+            using var movesAndSuccs = state.GetMovesAndSuccessors();
+            foreach (var (move, succ) in movesAndSuccs)
             {
                 int value = AlphaBeta(succ, _depth - 1, alpha, beta);
                 if (state.WhiteToMove)
@@ -473,7 +474,8 @@ namespace ChessBot.Console
 
         private int AlphaBeta(State state, int d, int alpha, int beta)
         {
-            if (d == 0 || state.IsTerminal)
+            //if (d == 0 || state.IsTerminal)
+            if (d == 0)
             {
                 return Eval.Heuristic(state);
             }
@@ -481,11 +483,20 @@ namespace ChessBot.Console
             {
                 return cachedValue;
             }
+            using var movesAndSuccs = state.GetMovesAndSuccessors();
+            bool isTerminal = (movesAndSuccs.Count == 0);
+            if (isTerminal)
+            {
+                int result = Eval.Heuristic(state);
+                // Try uncommenting to see the impact this has on perf?
+                //_cache.TryAdd(state, result);
+                return result;
+            }
 
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
 
             //foreach (var succ in state.GetSuccessors())
-            foreach (var (_, succ) in state.GetMovesAndSuccessors())
+            foreach (var (_, succ) in movesAndSuccs)
             {
                 int value = AlphaBeta(succ, d - 1, alpha, beta);
                 if (state.WhiteToMove)

@@ -2,6 +2,7 @@
 using ChessBot.Types;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
 
@@ -41,29 +42,32 @@ namespace ChessBot
         /// <summary>
         /// Gets the attack bitboard for <paramref name="piece"/> at <paramref name="source"/> if it were unrestricted by other pieces on the board.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Bitboard GetAttackBitboard(Piece piece, Location source)
         {
-            if (!piece.IsValid) throw new ArgumentException("", nameof(piece));
-            if (!source.IsValid) throw new ArgumentException("", nameof(source));
+            //if (!piece.IsValid) throw new ArgumentException("", nameof(piece));
+            //if (!source.IsValid) throw new ArgumentException("", nameof(source));
+            Debug.Assert(piece.IsValid);
+            Debug.Assert(source.IsValid);
 
-            int sourceIndex = source.ToIndex();
-            if (piece == Piece.BlackPawn)
-            {
-                // The pawn attack bitboards are stored from the perspective of white.
-                // For black pawns, we take the pawn attack bitboard at the mirror location (eg. b2 -> g7) and flip it.
-                sourceIndex = (Location.NumberOfValues - 1) - sourceIndex;
-            }
-            var result = AttackBitboards[(int)piece.Kind, sourceIndex];
-            if (piece == Piece.BlackPawn)
-            {
-                result = result.Reverse();
-            }
-            return result;
+            return piece != Piece.BlackPawn
+                ? AttackBitboards[(int)piece.Kind, source.ToIndex()]
+                : GetAttackBitboardForBlackPawn(source);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static Bitboard GetAttackBitboardForBlackPawn(Location source)
+        {
+            // The pawn attack bitboards are stored from the perspective of white.
+            // For black pawns, we take the pawn attack bitboard at the mirror location (eg. b2 -> g7) and flip it.
+            int sourceIndex = (Location.NumberOfValues - 1) - source.ToIndex();
+            return AttackBitboards[(int)PieceKind.Pawn, sourceIndex].Reverse();
         }
 
         public static Bitboard GetStopMask(Location location, Direction direction)
         {
-            // todo: arg validation
+            Debug.Assert(location.IsValid);
+            Debug.Assert(direction.IsValid());
             return StopMasks[(int)direction, location.ToIndex()];
         }
 

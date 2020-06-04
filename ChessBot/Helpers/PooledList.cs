@@ -24,6 +24,8 @@ namespace ChessBot.Helpers
             _capacity = capacity;
         }
 
+        public int Count => _count;
+
         public void Add(T item)
         {
             Debug.Assert(_array != null, "Don't use the default constructor!");

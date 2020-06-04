@@ -623,11 +623,12 @@ namespace ChessBot
 
             var (white, black) = (Bitboard.CreateBuilder(), Bitboard.CreateBuilder());
             // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
-            foreach (var tile in GetTiles())
+            for (var bb = Occupied; bb != Bitboard.Zero; bb = bb.ClearLsb())
             {
-                if (!tile.HasPiece) continue;
-                var attacks = GetModifiedAttackBitboard(tile);
-                if (tile.Piece.IsWhite)
+                var source = new Location((byte)bb.IndexOfLsb());
+                var attacks = GetModifiedAttackBitboard(this[source]);
+
+                if (Occupies.White[source])
                 {
                     white.SetRange(attacks);
                 }
@@ -859,7 +860,7 @@ namespace ChessBot
 
             for (var prev = source; prev.Rank < Rank8 && prev.File < FileH; prev = next)
             {
-                next = prev.Up(1).Right(1);
+                next = prev.Add(1, 1);
                 if (occupies[next])
                 {
                     attacks &= GetStopMask(next, Direction.Northeast);
@@ -869,7 +870,7 @@ namespace ChessBot
 
             for (var prev = source; prev.Rank > Rank1 && prev.File < FileH; prev = next)
             {
-                next = prev.Down(1).Right(1);
+                next = prev.Add(1, -1);
                 if (occupies[next])
                 {
                     attacks &= GetStopMask(next, Direction.Southeast);
@@ -879,7 +880,7 @@ namespace ChessBot
 
             for (var prev = source; prev.Rank > Rank1 && prev.File > FileA; prev = next)
             {
-                next = prev.Down(1).Left(1);
+                next = prev.Add(-1, -1);
                 if (occupies[next])
                 {
                     attacks &= GetStopMask(next, Direction.Southwest);
@@ -889,7 +890,7 @@ namespace ChessBot
 
             for (var prev = source; prev.Rank < Rank8 && prev.File > FileA; prev = next)
             {
-                next = prev.Up(1).Left(1);
+                next = prev.Add(-1, 1);
                 if (occupies[next])
                 {
                     attacks &= GetStopMask(next, Direction.Northwest);

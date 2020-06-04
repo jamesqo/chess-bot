@@ -44,6 +44,7 @@ namespace ChessBot.Types
 
         public Location(File file, Rank rank)
         {
+            /*
             if (!file.IsValid())
             {
                 throw new ArgumentOutOfRangeException(nameof(file));
@@ -52,6 +53,10 @@ namespace ChessBot.Types
             {
                 throw new ArgumentOutOfRangeException(nameof(rank));
             }
+            */
+            // commented out for perf
+            Debug.Assert(file.IsValid());
+            Debug.Assert(rank.IsValid());
 
             _value = (byte)((int)file | ((int)rank << RankShift));
         }
@@ -74,10 +79,13 @@ namespace ChessBot.Types
             rank = Rank;
         }
 
-        public Location Up(int count) => (File, Rank + count);
-        public Location Down(int count) => Up(-count);
-        public Location Left(int count) => Right(-count);
-        public Location Right(int count) => (File + count, Rank);
+        // used on perf-sensitive codepaths so we don't have to perform additional computation, ie. via Up().Right()
+        public Location Add(int fileShift, int rankShift) => (File + fileShift, Rank + rankShift);
+
+        public Location Up(int shift) => (File, Rank + shift);
+        public Location Down(int shift) => Up(-shift);
+        public Location Left(int shift) => Right(-shift);
+        public Location Right(int shift) => (File + shift, Rank);
 
         public override bool Equals(object obj)
             => obj is Location other && Equals(other);

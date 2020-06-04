@@ -35,7 +35,8 @@ namespace ChessBot.Types
             get
             {
                 int pieceValue = (_value & PieceMask) >> PieceShift;
-                if (pieceValue == 0) BadPieceCall();
+                //if (pieceValue == 0) BadPieceCall();
+                Debug.Assert(pieceValue != 0);
                 return new Piece((byte)(pieceValue - 1));
             }
         }
@@ -44,9 +45,11 @@ namespace ChessBot.Types
         internal bool IsDefault => _value == 0;
         internal bool IsValid => Location.IsValid && (!HasPiece || Piece.IsValid);
 
+        /*
         // We separate this out into a non-inlined method because we want to make it easy for the JIT to inline Piece
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Piece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
+        */
 
         public override bool Equals(object obj) => obj is Tile other && Equals(other);
 

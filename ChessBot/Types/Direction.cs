@@ -17,4 +17,10 @@
         Start = North,
         End = Northwest
     }
+
+    internal static class DirectionHelpers
+    {
+        public static bool IsValid(this Direction direction)
+            => direction >= Direction.Start && direction <= Direction.End;
+    }
 }
