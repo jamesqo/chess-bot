@@ -5,13 +5,11 @@ using ChessBot.AlgebraicNotation;
 using System.Linq;
 using ChessBot.Exceptions;
 using System.Diagnostics.CodeAnalysis;
-using ChessBot.Types;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 
-namespace ChessBot
+namespace ChessBot.Types
 {
     // todo: consider representing this with a struct
-    // todo: move this under Types/
     /// <summary>
     /// Stores information about a chess move.
     /// </summary>
