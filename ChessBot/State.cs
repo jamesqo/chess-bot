@@ -214,7 +214,6 @@ namespace ChessBot
 
         public Bitboard Occupied => Occupies.White | Occupies.Black;
 
-        // todo: consider if Piece? should be returned here
         public Tile this[Location location] => new Tile(location, Board[location]);
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
@@ -383,7 +382,7 @@ namespace ChessBot
             var newPiece = new Piece(piece.Side, newKind);
             // Update board
             var newBoard = Board.CreateBuilder(board);
-            newBoard[source] = null;
+            newBoard[source] = default;
             newBoard[destination] = newPiece;
             // Update piece masks
             var newPms = Pms.CreateBuilder(pieceMasks.Get(ActiveSide));
@@ -402,7 +401,7 @@ namespace ChessBot
                     : destination;
                 var capturedPiece = this[toClear].Piece;
                 // Update board
-                if (isEnPassantCapture) newBoard[toClear] = null;
+                if (isEnPassantCapture) newBoard[toClear] = default;
                 // Update piece masks
                 var newOpposingPms = Pms.CreateBuilder(pieceMasks.Get(OpposingSide));
                 newOpposingPms[capturedPiece.Kind] &= ~toClear.GetMask();

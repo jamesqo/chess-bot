@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 namespace ChessBot.Types
 {
     /// <summary>
-    /// Holds data about the <see cref="Types.Piece"/> at a particular <see cref="Types.Location"/>, if any.
+    /// Holds data about the <see cref="Types.PieceOrNone"/> at a particular <see cref="Types.Location"/>.
     /// </summary>
     public readonly struct Tile : IEquatable<Tile>
     {
@@ -15,10 +15,9 @@ namespace ChessBot.Types
         private const ushort PieceMask = 0b0000_0011_1100_0000;
         private const int PieceShift = Location.NumberOfBits;
 
-        public Tile(Location location, Piece? piece = null)
+        internal Tile(Location location, PieceOrNone piece)
         {
-            int pieceValue = (piece?.Value + 1) ?? 0;
-            _value = (ushort)(location.Value | (pieceValue << PieceShift));
+            _value = (ushort)(location.Value | (piece.Value << PieceShift));
         }
 
         internal Tile(ushort value)
@@ -35,21 +34,21 @@ namespace ChessBot.Types
             get
             {
                 int pieceValue = (_value & PieceMask) >> PieceShift;
-                //if (pieceValue == 0) BadPieceCall();
+                if (pieceValue == 0) BadPieceCall();
                 Debug.Assert(pieceValue != 0);
                 return new Piece((byte)(pieceValue - 1));
             }
         }
 
+        internal PieceOrNone PieceOrNone => new PieceOrNone((byte)((_value & PieceMask) >> PieceShift));
+
         // warning: this being true doesn't mean we can't be a valid Tile value!
         internal bool IsDefault => _value == 0;
         internal bool IsValid => Location.IsValid && (!HasPiece || Piece.IsValid);
 
-        /*
         // We separate this out into a non-inlined method because we want to make it easy for the JIT to inline Piece
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Piece BadPieceCall() => throw new InvalidOperationException($".{nameof(Piece)} called on an empty tile");
-        */
 
         public override bool Equals(object obj) => obj is Tile other && Equals(other);
 
@@ -57,7 +56,7 @@ namespace ChessBot.Types
 
         public override int GetHashCode() => _value;
 
-        public Tile SetPiece(Piece? piece) => new Tile(Location, piece);
+        internal Tile SetPiece(PieceOrNone piece) => new Tile(Location, piece);
 
         public override string ToString()
         {

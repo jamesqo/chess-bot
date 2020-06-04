@@ -32,7 +32,7 @@ namespace ChessBot.Types
             _buffer = buffer;
         }
 
-        public unsafe Piece? this[Location location]
+        internal unsafe PieceOrNone this[Location location]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
@@ -43,7 +43,7 @@ namespace ChessBot.Types
                 byte pieceValue = _buffer.Bytes[index / 2];
                 if (index % 2 != 0) pieceValue >>= 4;
                 pieceValue &= 0b00001111;
-                return pieceValue == 0 ? (Piece?)null : new Piece((byte)(pieceValue - 1));
+                return new PieceOrNone(pieceValue);
             }
         }
 
@@ -156,17 +156,17 @@ namespace ChessBot.Types
 
             public Board Value => _value;
 
-            public unsafe Piece? this[Location location]
+            public unsafe PieceOrNone this[Location location]
             {
                 get => _value[location];
                 set
                 {
                     Debug.Assert(_value != null);
                     Debug.Assert(location.IsValid);
-                    Debug.Assert(value?.IsValid ?? true);
+                    Debug.Assert(value.IsValid);
 
                     int index = location.Value;
-                    byte pieceValue = (byte)((value?.Value + 1) ?? 0); // 0 represents an empty tile
+                    byte pieceValue = value.Value; // 0 represents an empty tile
                     ref byte target = ref _value._buffer.Bytes[index / 2];
                     // todo: could use (index % 2) * 4 to avoid branching here?
                     if (index % 2 != 0)
