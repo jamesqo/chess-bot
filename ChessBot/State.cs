@@ -37,11 +37,11 @@ namespace ChessBot
             EnPassantTarget = enPassantTarget;
             HalfMoveClock = halfMoveClock;
             FullMoveNumber = fullMoveNumber;
+            Hash = secrets?.Hash ?? InitZobristHash();
 
             PieceMasks = secrets?.PieceMasks ?? InitPieceMasks(board);
             Occupies = InitOccupies();
             Attacks = InitAttacks();
-            Hash = secrets?.Hash ?? InitZobristHash();
 
             White = new PlayerState(this, Side.White);
             Black = new PlayerState(this, Side.Black);
@@ -210,6 +210,8 @@ namespace ChessBot
         public bool IsStalemate => !IsCheck && IsTerminal;
         public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
         public bool WhiteToMove => ActiveSide.IsWhite();
+
+        public Bitboard Occupied => Occupies.White | Occupies.Black;
 
         public Tile this[Location location] => Board[location];
         public Tile this[File file, Rank rank] => this[(file, rank)];
@@ -469,11 +471,14 @@ namespace ChessBot
 
         public IEnumerable<(Move move, State state)> GetMovesAndSuccessors()
         {
-            IEnumerable<Move> GetPossibleMoves(Location source)
+            IEnumerable<Move> GetPossibleMoves(Tile sourceTile)
             {
-                var piece = this[source].Piece;
-                foreach (var destination in GetPossibleDestinations(source))
+                var (source, piece) = (sourceTile.Location, sourceTile.Piece);
+                
+                var destinations = GetPossibleDestinations(sourceTile);
+                for (var bb = destinations; bb != Bitboard.Zero; bb = bb.ClearLsb())
                 {
+                    var destination = new Location((byte)bb.IndexOfLsb());
                     // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
                     if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(ActiveSide))
                     {
@@ -496,7 +501,7 @@ namespace ChessBot
             foreach (var tile in GetTiles())
             {
                 if (!tile.HasPiece || tile.Piece.Side != ActiveSide) continue;
-                var movesToTry = GetPossibleMoves(tile.Location);
+                var movesToTry = GetPossibleMoves(tile);
                 foreach (var move in movesToTry)
                 {
                     var succ = ApplyUnsafe(move);
@@ -575,6 +580,23 @@ namespace ChessBot
         private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
         private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
 
+        private ulong InitZobristHash()
+        {
+            Debug.Assert(Board != null);
+
+            ulong hash = 0;
+            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
+            foreach (var tile in GetTiles())
+            {
+                if (tile.HasPiece) hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
+            }
+
+            hash ^= ZobristKey.ForActiveSide(ActiveSide);
+            hash ^= ZobristKey.ForCastlingRights(CastlingRights);
+            if (EnPassantTarget.HasValue) hash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
+            return hash;
+        }
+
         private static PlayerProperty<ImmutableArray<Bitboard>> InitPieceMasks(Board board)
         {
             var (white, black) = (new Bitboard[6], new Bitboard[6]);
@@ -601,46 +623,23 @@ namespace ChessBot
         {
             Debug.Assert(Board != null);
 
-            var totalOccupies = Occupies.White | Occupies.Black; // queens/rooks/bishops can be blocked by pieces of either side
-
             var (white, black) = (Bitboard.CreateBuilder(), Bitboard.CreateBuilder());
             // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
             foreach (var tile in GetTiles())
             {
                 if (!tile.HasPiece) continue;
-                var (piece, source) = (tile.Piece, tile.Location);
-                var (side, kind) = (piece.Side, piece.Kind);
-                var attacks = GetAttackBitboard(piece, source);
-                if (kind == PieceKind.Bishop || kind == PieceKind.Queen)
+                var attacks = GetModifiedAttackBitboard(tile);
+                if (tile.Piece.IsWhite)
                 {
-                    attacks = RestrictDiagonally(attacks, totalOccupies, source);
+                    white.SetRange(attacks);
                 }
-                if (kind == PieceKind.Rook || kind == PieceKind.Queen)
+                else
                 {
-                    attacks = RestrictOrthogonally(attacks, totalOccupies, source);
+                    black.SetRange(attacks);
                 }
-                attacks &= ~Occupies.Get(side); // we can't attack squares occupied by our own pieces
-
-                if (side.IsWhite()) white.SetRange(attacks);
-                else black.SetRange(attacks);
             }
 
             return (white.Value, black.Value);
-        }
-
-        private ulong InitZobristHash()
-        {
-            ulong hash = 0;
-            // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
-            foreach (var tile in GetTiles())
-            {
-                if (tile.HasPiece) hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
-            }
-
-            hash ^= ZobristKey.ForActiveSide(ActiveSide);
-            hash ^= ZobristKey.ForCastlingRights(CastlingRights);
-            if (EnPassantTarget.HasValue) hash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
-            return hash;
         }
 
         private bool CanCastleCore(bool kingside)
@@ -736,179 +735,74 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
         }
 
-        // todo: use a bitboard instead
         /// <summary>
-        /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
+        /// Returns a list of locations that are attacked by the piece at <paramref name="sourceTile"/>.
+        /// </summary>
+        private Bitboard GetModifiedAttackBitboard(Tile sourceTile)
+        {
+            Debug.Assert(sourceTile.HasPiece);
+
+            var (source, piece) = (sourceTile.Location, sourceTile.Piece);
+            var (side, kind) = (piece.Side, piece.Kind);
+            var attacks = GetAttackBitboard(piece, source);
+
+            var totalOccupied = Occupied; // queens/rooks/bishops can be blocked by pieces of either side
+            if (kind == PieceKind.Bishop || kind == PieceKind.Queen)
+            {
+                attacks = RestrictDiagonally(attacks, totalOccupied, source);
+            }
+            if (kind == PieceKind.Rook || kind == PieceKind.Queen)
+            {
+                attacks = RestrictOrthogonally(attacks, totalOccupied, source);
+            }
+            attacks &= ~Occupies.Get(side); // we can't attack squares occupied by our own pieces
+
+            return attacks;
+        }
+
+        /// <summary>
+        /// Returns a list of locations that the piece at <paramref name="sourceTile"/> may move to.
         /// Does not account for whether the move would be invalid because its king is currently in check.
         /// </summary>
-        private IEnumerable<Location> GetPossibleDestinations(Location source)
+        private Bitboard GetPossibleDestinations(Tile sourceTile)
         {
-            var sourceTile = this[source];
-            var piece = sourceTile.Piece;
-            var destinations = new List<Location>();
+            Debug.Assert(sourceTile.HasPiece);
+
+            var result = GetModifiedAttackBitboard(sourceTile);
+
+            var (source, piece) = (sourceTile.Location, sourceTile.Piece);
+            var side = piece.Side;
+            Debug.Assert(side == ActiveSide); // this assumption is only used when we check for castling availability
 
             switch (piece.Kind)
             {
-                case PieceKind.Bishop:
-                    destinations.AddRange(GetDiagonalExtension(source));
+                case PieceKind.Pawn:
+                    // a pawn can only move to the left/right if it captures an opposing piece
+                    var captureMask = Occupies.Get(side.Flip());
+                    if (EnPassantTarget.HasValue) captureMask |= EnPassantTarget.Value.GetMask();
+                    result &= captureMask;
+
+                    // the attack vectors also don't include moving forward by 1/2, so OR those in
+                    Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank
+                    var forward = ForwardStep(side);
+                    var up1 = source.Up(forward);
+                    if (!Occupied[up1])
+                    {
+                        result |= up1.GetMask();
+                        if (source.Rank == SecondRank(side))
+                        {
+                            var up2 = source.Up(forward * 2);
+                            if (!Occupied[up2]) result |= up2.GetMask();
+                        }
+                    }
                     break;
                 case PieceKind.King:
-                    if (source.Rank > Rank1)
-                    {
-                        if (source.File > FileA) destinations.Add(source.Down(1).Left(1));
-                        destinations.Add(source.Down(1));
-                        if (source.File < FileH) destinations.Add(source.Down(1).Right(1));
-                    }
-                    if (source.File > FileA) destinations.Add(source.Left(1));
-                    if (source.File < FileH) destinations.Add(source.Right(1));
-                    if (source.Rank < Rank8)
-                    {
-                        if (source.File > FileA) destinations.Add(source.Up(1).Left(1));
-                        destinations.Add(source.Up(1));
-                        if (source.File < FileH) destinations.Add(source.Up(1).Right(1));
-                    }
-                    if (CanCastleKingside) destinations.Add(source.Right(2));
-                    if (CanCastleQueenside) destinations.Add(source.Left(2));
-                    break;
-                case PieceKind.Knight:
-                    if (source.Rank > Rank1 && source.File > FileB) destinations.Add(source.Down(1).Left(2));
-                    if (source.Rank < Rank8 && source.File > FileB) destinations.Add(source.Up(1).Left(2));
-                    if (source.Rank > Rank1 && source.File < FileG) destinations.Add(source.Down(1).Right(2));
-                    if (source.Rank < Rank8 && source.File < FileG) destinations.Add(source.Up(1).Right(2));
-                    if (source.Rank > Rank2 && source.File > FileA) destinations.Add(source.Down(2).Left(1));
-                    if (source.Rank < Rank7 && source.File > FileA) destinations.Add(source.Up(2).Left(1));
-                    if (source.Rank > Rank2 && source.File < FileH) destinations.Add(source.Down(2).Right(1));
-                    if (source.Rank < Rank7 && source.File < FileH) destinations.Add(source.Up(2).Right(1));
-                    break;
-                case PieceKind.Pawn:
-                    var (forward, secondRank, eighthRank) = (ForwardStep(piece.Side), SecondRank(piece.Side), EighthRank(piece.Side));
-
-                    // Because pawns are automatically promoted at the back bank, we shouldn't have to do a bounds check here
-                    Debug.Assert(source.Rank != eighthRank);
-                    var n1 = source.Up(forward);
-                    if (!this[n1].HasPiece) destinations.Add(n1);
-                    if (source.Rank == secondRank)
-                    {
-                        var n2 = source.Up(forward * 2);
-                        if (!this[n1].HasPiece && !this[n2].HasPiece) destinations.Add(n2);
-                    }
-
-                    if (source.File > FileA)
-                    {
-                        var nw = n1.Left(1);
-                        if ((this[nw].HasPiece && this[nw].Piece.Side != piece.Side) || nw == EnPassantTarget)
-                        {
-                            destinations.Add(nw);
-                        }
-                    }
-
-                    if (source.File < FileH)
-                    {
-                        var ne = n1.Right(1);
-                        if ((this[ne].HasPiece && this[ne].Piece.Side != piece.Side) || ne == EnPassantTarget)
-                        {
-                            destinations.Add(ne);
-                        }
-                    }
-                    break;
-                case PieceKind.Queen:
-                    destinations.AddRange(GetDiagonalExtension(source));
-                    destinations.AddRange(GetOrthogonalExtension(source));
-                    break;
-                case PieceKind.Rook:
-                    destinations.AddRange(GetOrthogonalExtension(source));
+                    if (CanCastleKingside) result |= source.Right(2).GetMask();
+                    if (CanCastleQueenside) result |= source.Left(2).GetMask();
                     break;
             }
 
-            return destinations.Where(d => !this[d].HasPiece || this[d].Piece.Side != piece.Side);
-        }
-
-        // note: May include squares occupied by friendly pieces
-        private IEnumerable<Location> GetDiagonalExtension(Location source)
-        {
-            // Northeast
-            var prev = source;
-            while (prev.Rank < Rank8 && prev.File < FileH)
-            {
-                var next = prev.Up(1).Right(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-
-            // Southeast
-            prev = source;
-            while (prev.Rank > Rank1 && prev.File < FileH)
-            {
-                var next = prev.Down(1).Right(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-
-            // Southwest
-            prev = source;
-            while (prev.Rank > Rank1 && prev.File > FileA)
-            {
-                var next = prev.Down(1).Left(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-
-            // Northwest
-            prev = source;
-            while (prev.Rank < Rank8 && prev.File > FileA)
-            {
-                var next = prev.Up(1).Left(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-        }
-
-        // note: May include squares occupied by friendly pieces
-        private IEnumerable<Location> GetOrthogonalExtension(Location source)
-        {
-            // East
-            var prev = source;
-            while (prev.File < FileH)
-            {
-                var next = prev.Right(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-
-            // West
-            prev = source;
-            while (prev.File > FileA)
-            {
-                var next = prev.Left(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-
-            // North
-            prev = source;
-            while (prev.Rank < Rank8)
-            {
-                var next = prev.Up(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
-
-            // South
-            prev = source;
-            while (prev.Rank > Rank1)
-            {
-                var next = prev.Down(1);
-                yield return next;
-                if (this[next].HasPiece) break;
-                prev = next;
-            }
+            return result;
         }
 
         /// <summary>
@@ -1027,7 +921,7 @@ namespace ChessBot
                 next = prev.Right(1);
                 if (occupies[next])
                 {
-                    attacks &= GetStopMask(next, Direction.North);
+                    attacks &= GetStopMask(next, Direction.East);
                     break;
                 }
             }
@@ -1037,7 +931,7 @@ namespace ChessBot
                 next = prev.Down(1);
                 if (occupies[next])
                 {
-                    attacks &= GetStopMask(next, Direction.North);
+                    attacks &= GetStopMask(next, Direction.South);
                     break;
                 }
             }
@@ -1047,7 +941,7 @@ namespace ChessBot
                 next = prev.Left(1);
                 if (occupies[next])
                 {
-                    attacks &= GetStopMask(next, Direction.North);
+                    attacks &= GetStopMask(next, Direction.West);
                     break;
                 }
             }
