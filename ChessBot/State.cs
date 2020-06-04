@@ -83,7 +83,7 @@ namespace ChessBot
             if (!int.TryParse(parts[5], out var fullMoveNumber) || fullMoveNumber <= 0) throw new InvalidFenException($"Invalid fullmove number: {parts[5]}");
 
             // Parse the board
-            var board = Board.Empty;
+            var board = Board.CreateBuilder();
 
             var rankDescs = piecePlacement.Split('/');
             if (rankDescs.Length != 8) throw new InvalidFenException("Incorrect number of ranks");
@@ -121,7 +121,7 @@ namespace ChessBot
                             _ => throw new InvalidFenException($"Invalid piece kind: {ch}")
                         };
                         var piece = new Piece(side, kind);
-                        board = board.Set(location, piece);
+                        board.Set(location, piece);
                         file++;
                         allowDigit = true;
                     }
@@ -147,7 +147,7 @@ namespace ChessBot
             }
 
             return new State(
-                board: board,
+                board: board.Value,
                 activeSide: activeSide,
                 castlingRights: castlingRights,
                 enPassantTarget: enPassantTarget,
@@ -402,7 +402,9 @@ namespace ChessBot
             var newKind = promotionKind ?? piece.Kind;
             var newPiece = new Piece(piece.Side, newKind);
             // Update board
-            board = board.Set(source, null).Set(destination, newPiece);
+            var newBoard = Board.CreateBuilder(board);
+            newBoard.Set(source, null);
+            newBoard.Set(destination, newPiece);
             // Update piece masks
             var newBbs = pieceMasks.Get(ActiveSide).ToBuilder();
             newBbs[(int)piece.Kind] &= ~source.GetMask();
@@ -420,7 +422,7 @@ namespace ChessBot
                     : destination;
                 var capturedPiece = this[toClear].Piece;
                 // Update board
-                if (isEnPassantCapture) board = board.Set(toClear, null);
+                if (isEnPassantCapture) newBoard.Set(toClear, null);
                 // Update piece masks
                 var newOpposingBbs = pieceMasks.Get(OpposingSide).ToBuilder();
                 newOpposingBbs[(int)capturedPiece.Kind] &= ~toClear.GetMask();
@@ -428,6 +430,8 @@ namespace ChessBot
                 // Update hash
                 hash ^= ZobristKey.ForPieceSquare(capturedPiece, toClear);
             }
+
+            board = newBoard.Value;
         }
 
         public override bool Equals(object obj) => Equals(obj as State);
@@ -589,10 +593,10 @@ namespace ChessBot
         {
             Debug.Assert(PieceMasks != null);
 
-            var (white, black) = (new BitboardBuilder(), new BitboardBuilder());
+            var (white, black) = (Bitboard.CreateBuilder(), Bitboard.CreateBuilder());
             foreach (var mask in PieceMasks.White) white.SetRange(mask);
             foreach (var mask in PieceMasks.Black) black.SetRange(mask);
-            return (white.Bitboard, black.Bitboard);
+            return (white.Value, black.Value);
         }
 
         private PlayerProperty<Bitboard> InitAttacks()
@@ -602,7 +606,7 @@ namespace ChessBot
 
             var totalOccupies = Occupies.White | Occupies.Black; // queens/rooks/bishops can be blocked by pieces of either side
 
-            var (white, black) = (new BitboardBuilder(), new BitboardBuilder());
+            var (white, black) = (Bitboard.CreateBuilder(), Bitboard.CreateBuilder());
             // GetOccupiedTiles() doesn't perform great atm, it's faster to check whether the tiles are occupied manually
             foreach (var tile in GetTiles())
             {
@@ -624,7 +628,7 @@ namespace ChessBot
                 else black.SetRange(attacks);
             }
 
-            return (white.Bitboard, black.Bitboard);
+            return (white.Value, black.Value);
         }
 
         private ulong InitZobristHash()

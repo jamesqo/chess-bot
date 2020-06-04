@@ -14,10 +14,11 @@ namespace ChessBot.Types
 
         public static readonly Board Empty = new Board(0UL, 0UL, 0UL, 0UL);
 
-        private readonly Bitboard _value1;
-        private readonly Bitboard _value2;
-        private readonly Bitboard _value3;
-        private readonly Bitboard _value4;
+        // these aren't readonly because they're modded by the Builder class
+        private Bitboard _value1;
+        private Bitboard _value2;
+        private Bitboard _value3;
+        private Bitboard _value4;
 
         public Board(Bitboard value1, Bitboard value2, Bitboard value3, Bitboard value4)
         {
@@ -61,44 +62,7 @@ namespace ChessBot.Types
 
         public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(this);
 
-        public Board Set(Location location, Piece? piece)
-        {
-            Debug.Assert(location.IsValid);
-
-            var pieceValue = (piece?.Value + 1) ?? 0; // 0 represents an empty tile
-            var mask = location.GetMask();
-            var (value1, value2, value3, value4) = (_value1, _value2, _value3, _value4);
-
-            if ((pieceValue & 1) != 0) value1 |= mask; else value1 &= ~mask;
-            if ((pieceValue & 2) != 0) value2 |= mask; else value2 &= ~mask;
-            if ((pieceValue & 4) != 0) value3 |= mask; else value3 &= ~mask;
-            if ((pieceValue & 8) != 0) value4 |= mask; else value4 &= ~mask;
-
-            return new Board(value1, value2, value3, value4);
-        }
-
-        public Board SetRange(Board other)
-        {
-            Debug.Assert(!OverlapsWith(other));
-            return new Board(
-                _value1 | other._value1,
-                _value2 | other._value2,
-                _value3 | other._value3,
-                _value4 | other._value4);
-        }
-
-        // perf can be improved greatly by using bitwise ANDs, but this is only being run in debug builds for now
-        private bool OverlapsWith(Board other)
-        {
-            for (int i = 0; i < NumberOfTiles; i++)
-            {
-                var location = new Location((byte)i);
-                bool hasPiece = this[location].HasPiece;
-                bool otherHasPiece = other[location].HasPiece;
-                if (hasPiece && otherHasPiece) return true;
-            }
-            return false;
-        }
+        internal static Builder CreateBuilder(Board value = null) => new Builder(value ?? Empty);
 
         public struct TilesEnumerator
         {
@@ -145,6 +109,52 @@ namespace ChessBot.Types
                     _current = _board[new Location((byte)_location)];
                     if (_current.HasPiece) return true;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Mutable struct that helps with generating <see cref="Types.Board"/> values.
+        /// </summary>
+        /// <remarks>
+        /// Since this is a mutable struct, try not to copy it or you may get unintuitive behavior.
+        /// Also, DO NOT use any of the mutating methods after getting <see cref="Value"/>! It may violate
+        /// <see cref="Types.Board"/>'s immutability contract. Unfortunately, we have no way of enforcing this
+        /// since this type is a struct for performance reasons.
+        /// </remarks>
+        internal struct Builder
+        {
+            private readonly Board _value;
+
+            // We make a copy since the inner Board object is modified directly
+            public Builder(Board value) => _value = Copy(value);
+
+            public Board Value => _value;
+
+            public void Set(Location location, Piece? piece)
+            {
+                Debug.Assert(_value != null);
+                Debug.Assert(location.IsValid);
+
+                var pieceValue = (piece?.Value + 1) ?? 0; // 0 represents an empty tile
+                var mask = location.GetMask();
+                ref Bitboard value1 = ref _value._value1,
+                             value2 = ref _value._value2,
+                             value3 = ref _value._value3,
+                             value4 = ref _value._value4;
+
+                if ((pieceValue & 1) != 0) value1 |= mask; else value1 &= ~mask;
+                if ((pieceValue & 2) != 0) value2 |= mask; else value2 &= ~mask;
+                if ((pieceValue & 4) != 0) value3 |= mask; else value3 &= ~mask;
+                if ((pieceValue & 8) != 0) value4 |= mask; else value4 &= ~mask;
+            }
+
+            private static Board Copy(Board value)
+            {
+                return new Board(
+                    value._value1,
+                    value._value2,
+                    value._value3,
+                    value._value4);
             }
         }
     }

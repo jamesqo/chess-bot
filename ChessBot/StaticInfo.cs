@@ -99,7 +99,7 @@ namespace ChessBot
 
         private static Bitboard ComputeAttackBitboard(PieceKind kind, Location source)
         {
-            var result = new BitboardBuilder();
+            var result = Bitboard.CreateBuilder();
 
             switch (kind)
             {
@@ -150,7 +150,7 @@ namespace ChessBot
                     break;
             }
 
-            return result.Bitboard;
+            return result.Value;
         }
 
         private static Bitboard GetDiagonalExtension(Location source)
@@ -241,7 +241,7 @@ namespace ChessBot
 
         private static Bitboard ComputeStopMask(Location location, Direction direction)
         {
-            var result = new BitboardBuilder(Bitboard.AllOnes);
+            var result = Bitboard.CreateBuilder(Bitboard.AllOnes);
             Location next;
             switch (direction)
             {
@@ -302,7 +302,7 @@ namespace ChessBot
                     }
                     break;
             }
-            return result.Bitboard;
+            return result.Value;
         }
     }
 }

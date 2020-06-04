@@ -109,5 +109,27 @@ namespace ChessBot.Types
         public override int GetHashCode() => _value.GetHashCode();
 
         public override string ToString() => Convert.ToString(unchecked((long)_value), 2).PadLeft(64, '0');
+
+        internal static Builder CreateBuilder(Bitboard value = default) => new Builder(value);
+
+        /// <summary>
+        /// Mutable struct that helps with generating <see cref="Types.Bitboard"/> values.
+        /// </summary>
+        /// <remarks>
+        /// Since this is a mutable struct, try not to copy it or you may get unintuitive behavior.
+        /// </remarks>
+        internal struct Builder
+        {
+            private Bitboard _value;
+
+            public Builder(Bitboard value) => _value = value;
+
+            public Bitboard Value => _value;
+
+            public void Clear(Location location) => _value = _value.Clear(location);
+            public void ClearRange(Bitboard bb) => _value &= ~bb;
+            public void Set(Location location) => _value = _value.Set(location);
+            public void SetRange(Bitboard bb) => _value |= bb;
+        }
     }
 }
