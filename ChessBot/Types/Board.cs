@@ -82,6 +82,7 @@ namespace ChessBot.Types
             public bool MoveNext() => ++_location < 64;
         }
 
+        // todo: this can be made faster. simply OR all of the values together, then keep using IndexOfLsb().
         public struct OccupiedTilesEnumerator
         {
             private Board _board;

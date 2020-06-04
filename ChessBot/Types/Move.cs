@@ -37,9 +37,16 @@ namespace ChessBot.Types
         private static Location InferSource(
             SourceContext sourceNode,
             State state,
-            PieceKind pieceKind,
-            Location destination)
+            Location destination,
+            PieceKind sourceKind,
+            bool isCapture)
         {
+            bool realIsCapture = state[destination].HasPiece || (sourceKind == PieceKind.Pawn && destination == state.EnPassantTarget);
+            if (isCapture != realIsCapture)
+            {
+                throw new InvalidMoveException($"Incorrect value for {nameof(isCapture)} provided");
+            }
+
             var possibleSources = state.ActivePlayer.GetOccupiedTiles();
             var sourceSquareNode = sourceNode?.square();
             var sourceFileNode = sourceNode?.FILE();
@@ -63,7 +70,7 @@ namespace ChessBot.Types
 
             try
             {
-                var sourceTile = possibleSources.Single(t => t.Piece.Kind == pieceKind
+                var sourceTile = possibleSources.Single(t => t.Piece.Kind == sourceKind
                     // Castling should be denoted with the special notation O-O / O-O-O, we don't want to accept Kg1 / Kc1
                     && state.IsMovePossible(t.Location, destination, allowCastling: false));
                 return sourceTile.Location;
@@ -111,14 +118,15 @@ namespace ChessBot.Types
                 var ordinaryMoveDescNode = moveDescNode.ordinaryMoveDesc();
                 var pieceKindNode = ordinaryMoveDescNode.pieceKind();
                 var sourceNode = ordinaryMoveDescNode.source();
-                //var captureNode = ordinaryMoveDescNode.CAPTURE();
+                var captureNode = ordinaryMoveDescNode.CAPTURE();
                 var destinationNode = ordinaryMoveDescNode.destination();
                 var promotionKindNode = ordinaryMoveDescNode.promotionKind();
 
                 var pieceKind = (pieceKindNode != null) ? s_pieceKindMap[pieceKindNode.GetText()] : PieceKind.Pawn;
+                bool isCapture = (captureNode != null);
                 var destination = Location.Parse(destinationNode.GetText());
                 var promotionKind = (promotionKindNode != null) ? s_pieceKindMap[promotionKindNode.GetText()] : (PieceKind?)null;
-                var source = InferSource(sourceNode, state, pieceKind, destination);
+                var source = InferSource(sourceNode, state, destination, pieceKind, isCapture);
 
                 return new Move(source, destination, promotionKind: promotionKind);
             }
@@ -149,9 +157,9 @@ namespace ChessBot.Types
 
         private readonly ushort _value;
 
-        private const ushort SourceMask        = 0b0000_0000_0001_1111;
-        private const ushort DestinationMask   = 0b0000_0011_1110_0000;
-        private const ushort PromotionKindMask = 0b0001_1100_0000_0000;
+        private const ushort SourceMask        = 0b0000_0000_0011_1111;
+        private const ushort DestinationMask   = 0b0000_1111_1100_0000;
+        private const ushort PromotionKindMask = 0b0111_0000_0000_0000;
 
         private const int DestinationShift = Location.NumberOfBits;
         private const int PromotionKindShift = Location.NumberOfBits * 2;
