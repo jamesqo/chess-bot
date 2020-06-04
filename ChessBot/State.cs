@@ -739,7 +739,7 @@ namespace ChessBot
             var (side, kind) = (piece.Side, piece.Kind);
             var attacks = GetAttackBitboard(piece, source);
 
-            var totalOccupied = Occupied; // queens/rooks/bishops can be blocked by pieces of either side
+            var totalOccupied = Occupied; // queens, rooks, and bishops can be blocked by pieces of either side
             if (kind == PieceKind.Bishop || kind == PieceKind.Queen)
             {
                 attacks = RestrictDiagonally(attacks, totalOccupied, source);
@@ -748,7 +748,8 @@ namespace ChessBot
             {
                 attacks = RestrictOrthogonally(attacks, totalOccupied, source);
             }
-            attacks &= ~Occupies.Get(side); // we can't attack squares occupied by our own pieces
+            // It's possible we may have left in squares that are occupied by our own camp. This doesn't affect
+            // any of the use cases for this bitboard, though.
 
             return attacks;
         }
@@ -766,6 +767,8 @@ namespace ChessBot
 
             var side = piece.Side;
             Debug.Assert(side == ActiveSide); // this assumption is only used when we check for castling availability
+
+            result &= ~Occupies.Get(side); // we can't move to squares occupied by our own pieces
 
             switch (piece.Kind)
             {
