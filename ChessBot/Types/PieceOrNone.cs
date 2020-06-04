@@ -17,10 +17,17 @@ namespace ChessBot.Types
             Debug.Assert(IsValid);
         }
 
-        public bool IsNone => _value == 0;
-        public Piece Piece => IsNone ? throw new InvalidOperationException("todo") : new Piece((byte)(_value - 1));
+        public bool HasPiece => _value != 0;
+        public Piece Piece
+        {
+            get
+            {
+                Debug.Assert(HasPiece);
+                return new Piece((byte)(_value - 1));
+            }
+        }
 
         internal byte Value => _value;
-        internal bool IsValid => (IsNone || Piece.IsValid);
+        internal bool IsValid => (!HasPiece || Piece.IsValid);
     }
 }

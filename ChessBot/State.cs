@@ -214,6 +214,7 @@ namespace ChessBot
 
         public Bitboard Occupied => Occupies.White | Occupies.Black;
 
+        // don't use these apis on hot codepaths! they're not intended to be performant.
         public Tile this[Location location] => new Tile(location, Board[location]);
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
@@ -239,17 +240,17 @@ namespace ChessBot
         public State? TryApply(Move move, out InvalidMoveException error)
         {
             var (source, destination) = (move.Source, move.Destination);
-            if (!this[source].HasPiece)
+            if (!Board[source].HasPiece)
             {
                 error = new InvalidMoveException("Source tile is empty"); return null;
             }
 
-            var piece = this[source].Piece;
+            var piece = Board[source].Piece;
             if (piece.Side != ActiveSide)
             {
                 error = new InvalidMoveException("Piece's color does not match active player's color"); return null;
             }
-            if (this[destination].HasPiece && this[destination].Piece.Side == piece.Side)
+            if (Board[destination].HasPiece && Board[destination].Piece.Side == piece.Side)
             {
                 error = new InvalidMoveException("Destination tile is already occupied by a piece of the same color"); return null;
             }
@@ -284,9 +285,9 @@ namespace ChessBot
         private State ApplyUnsafe(Move move)
         {
             var (source, destination) = (move.Source, move.Destination);
-            var piece = this[source].Piece;
+            var piece = Board[source].Piece;
             bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
-            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
             bool isKingsideCastle = (piece.Kind == PieceKind.King && destination == source.Right(2));
             bool isQueensideCastle = (piece.Kind == PieceKind.King && destination == source.Left(2));
 
@@ -374,10 +375,10 @@ namespace ChessBot
             bool isEnPassantCapture = false)
         {
             Debug.Assert(source != destination);
-            Debug.Assert(this[source].HasPiece);
-            Debug.Assert(!this[destination].HasPiece || this[destination].Piece.Side != this[source].Piece.Side);
+            Debug.Assert(Board[source].HasPiece);
+            Debug.Assert(!Board[destination].HasPiece || Board[destination].Piece.Side != Board[source].Piece.Side);
 
-            var piece = this[source].Piece;
+            var piece = Board[source].Piece;
             var newKind = promotionKind ?? piece.Kind;
             var newPiece = new Piece(piece.Side, newKind);
             // Update board
@@ -393,13 +394,13 @@ namespace ChessBot
             hash ^= ZobristKey.ForPieceSquare(piece, source);
             hash ^= ZobristKey.ForPieceSquare(newPiece, destination);
 
-            bool isCapture = this[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
             if (isCapture)
             {
                 var toClear = isEnPassantCapture
                     ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
                     : destination;
-                var capturedPiece = this[toClear].Piece;
+                var capturedPiece = Board[toClear].Piece;
                 // Update board
                 if (isEnPassantCapture) newBoard[toClear] = default;
                 // Update piece masks
@@ -626,7 +627,8 @@ namespace ChessBot
             for (var bb = Occupied; bb != Bitboard.Zero; bb = bb.ClearLsb())
             {
                 var source = new Location((byte)bb.IndexOfLsb());
-                var attacks = GetModifiedAttackBitboard(this[source]);
+                var sourceTile = new Tile(source, Board[source]);
+                var attacks = GetModifiedAttackBitboard(sourceTile);
 
                 if (Occupies.White[source])
                 {
@@ -652,7 +654,7 @@ namespace ChessBot
             var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, kingside);
             var kingDestination = kingside ? kingSource.Right(2) : kingSource.Left(2);
 
-            bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => this[loc].HasPiece);
+            bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => Board[loc].HasPiece);
             bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
@@ -676,15 +678,15 @@ namespace ChessBot
         /// </summary>
         internal bool IsMovePossible(Location source, Location destination, bool allowCastling = true)
         {
-            Debug.Assert(this[source].HasPiece);
+            Debug.Assert(Board[source].HasPiece);
 
             if (source == destination)
             {
                 return false;
             }
 
-            var sourceTile = this[source];
-            var destinationTile = this[destination];
+            var sourceTile = Board[source];
+            var destinationTile = Board[destination];
             var piece = sourceTile.Piece;
 
             if (destinationTile.HasPiece && destinationTile.Piece.Side == piece.Side)
@@ -731,7 +733,7 @@ namespace ChessBot
                     throw new ArgumentOutOfRangeException();
             }
 
-            return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !this[loc].HasPiece));
+            return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !Board[loc].HasPiece));
         }
 
         /// <summary>
