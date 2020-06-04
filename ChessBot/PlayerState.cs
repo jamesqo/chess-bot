@@ -7,10 +7,11 @@ using static ChessBot.StaticInfo;
 
 namespace ChessBot
 {
+    // todo: make this a class again but lazily initialize it
     /// <summary>
     /// Describes the state of a player in a chess game.
     /// </summary>
-    public class PlayerState
+    public readonly struct PlayerState
     {
         internal PlayerState(State parent, Side side)
         {
@@ -52,9 +53,10 @@ namespace ChessBot
 
         public override string ToString()
         {
+            var self = this; // CS1673
             var propValues = GetType()
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                .Select(prop => $"{prop.Name}: {prop.GetValue(this)}");
+                .Select(prop => $"{prop.Name}: {prop.GetValue(self)}");
             return $"{{{string.Join(", ", propValues)}}}";
         }
     }

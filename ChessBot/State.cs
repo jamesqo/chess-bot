@@ -406,10 +406,10 @@ namespace ChessBot
             newBoard.Set(source, null);
             newBoard.Set(destination, newPiece);
             // Update piece masks
-            var newBbs = pieceMasks.Get(ActiveSide).ToBuilder();
+            var newBbs = pieceMasks.Get(ActiveSide).ToArray();
             newBbs[(int)piece.Kind] &= ~source.GetMask();
             newBbs[(int)newKind] |= destination.GetMask();
-            pieceMasks = pieceMasks.Set(ActiveSide, newBbs.MoveToImmutable());
+            pieceMasks = pieceMasks.Set(ActiveSide, newBbs.UnsafeAsImmutable());
             // Update hash
             hash ^= ZobristKey.ForPieceSquare(piece, source);
             hash ^= ZobristKey.ForPieceSquare(newPiece, destination);
@@ -424,9 +424,9 @@ namespace ChessBot
                 // Update board
                 if (isEnPassantCapture) newBoard.Set(toClear, null);
                 // Update piece masks
-                var newOpposingBbs = pieceMasks.Get(OpposingSide).ToBuilder();
+                var newOpposingBbs = pieceMasks.Get(OpposingSide).ToArray();
                 newOpposingBbs[(int)capturedPiece.Kind] &= ~toClear.GetMask();
-                pieceMasks = pieceMasks.Set(OpposingSide, newOpposingBbs.MoveToImmutable());
+                pieceMasks = pieceMasks.Set(OpposingSide, newOpposingBbs.UnsafeAsImmutable());
                 // Update hash
                 hash ^= ZobristKey.ForPieceSquare(capturedPiece, toClear);
             }
@@ -591,8 +591,6 @@ namespace ChessBot
         
         private PlayerProperty<Bitboard> InitOccupies()
         {
-            Debug.Assert(PieceMasks != null);
-
             var (white, black) = (Bitboard.CreateBuilder(), Bitboard.CreateBuilder());
             foreach (var mask in PieceMasks.White) white.SetRange(mask);
             foreach (var mask in PieceMasks.Black) black.SetRange(mask);
@@ -602,7 +600,6 @@ namespace ChessBot
         private PlayerProperty<Bitboard> InitAttacks()
         {
             Debug.Assert(Board != null);
-            Debug.Assert(Occupies != null);
 
             var totalOccupies = Occupies.White | Occupies.Black; // queens/rooks/bishops can be blocked by pieces of either side
 

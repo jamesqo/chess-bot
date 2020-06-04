@@ -14,8 +14,6 @@ namespace ChessBot
             PlayerProperty<ImmutableArray<Bitboard>> pieceMasks,
             ulong hash)
         {
-            Debug.Assert(pieceMasks != null);
-
             PieceMasks = pieceMasks;
             Hash = hash;
         }

@@ -6,7 +6,7 @@ namespace ChessBot
     /// Represents a property that may be different for white and black players.
     /// </summary>
     /// <typeparam name="T">The type of the property.</typeparam>
-    internal class PlayerProperty<T>
+    internal readonly struct PlayerProperty<T>
     {
         // Avoids the caller having to specify the type parameter
         public static implicit operator PlayerProperty<T>((T, T) tuple)
