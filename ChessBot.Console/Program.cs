@@ -316,13 +316,6 @@ namespace ChessBot.Console
         // Heuristic is calculated from white's viewpoint (positive = good for white)
         public static int Heuristic(State state)
         {
-            if (state.IsTerminal)
-            {
-                // todo: give preference to checkmates that occur in fewer moves
-                if (state.IsStalemate) return 0;
-                return state.WhiteToMove ? int.MinValue : int.MaxValue;
-            }
-
             // temporarily disabling this for perf reasons
             /*
             bool CheckForEndgame(PlayerInfo player)
@@ -366,6 +359,13 @@ namespace ChessBot.Console
                 }
             }
             return result;
+        }
+
+        public static int Terminal(State state)
+        {
+            // todo: give preference to checkmates that occur in fewer moves
+            if (state.IsStalemate) return 0;
+            return state.WhiteToMove ? int.MinValue : int.MaxValue;
         }
     }
 
@@ -474,6 +474,7 @@ namespace ChessBot.Console
 
         private int AlphaBeta(State state, int d, int alpha, int beta)
         {
+            // Uncomment when we can check whether the state is terminal cheaply
             //if (d == 0 || state.IsTerminal)
             if (d == 0)
             {
@@ -483,14 +484,12 @@ namespace ChessBot.Console
             {
                 return cachedValue;
             }
+
             using var movesAndSuccs = state.GetMovesAndSuccessors();
             bool isTerminal = (movesAndSuccs.Count == 0);
             if (isTerminal)
             {
-                int result = Eval.Heuristic(state);
-                // Try uncommenting to see the impact this has on perf?
-                //_cache.TryAdd(state, result);
-                return result;
+                return Eval.Terminal(state);
             }
 
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;

@@ -3,7 +3,6 @@ using ChessBot.Helpers;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -210,7 +209,8 @@ namespace ChessBot
         public bool IsCheck => _isCheck ?? (bool)(_isCheck = (FindKing(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc)));
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
-        // todo: may want to go back to the old ienumerable approach for now
+        // todo: may want to go back to the old ienumerable approach for getmoves for now.
+        // the way this is initialized is *extremely* expensive.
         public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
         public bool WhiteToMove => ActiveSide.IsWhite();
 
@@ -498,6 +498,7 @@ namespace ChessBot
                     if (succ != null) list.Add((move, succ));
                 }
             }
+            _isTerminal = (list.Count == 0);
             return list;
         }
 
