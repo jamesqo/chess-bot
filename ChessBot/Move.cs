@@ -41,14 +41,7 @@ namespace ChessBot
             PieceKind pieceKind,
             Location destination)
         {
-            IEnumerable<Tile> Wrap(Board.OccupiedTilesEnumerator e)
-            {
-                var result = new List<Tile>();
-                foreach (var item in e) result.Add(item);
-                return result;
-            }
-
-            var possibleSources = Wrap(state.ActivePlayer.GetOccupiedTiles());
+            var possibleSources = state.ActivePlayer.GetOccupiedTiles();
             var sourceSquareNode = sourceNode?.square();
             var sourceFileNode = sourceNode?.FILE();
             var sourceRankNode = sourceNode?.RANK();

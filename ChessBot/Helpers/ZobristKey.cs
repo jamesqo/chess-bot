@@ -1,7 +1,6 @@
 ﻿using ChessBot.Types;
 using System;
 using System.Diagnostics;
-using static System.Convert;
 
 namespace ChessBot.Helpers
 {
@@ -47,11 +46,10 @@ namespace ChessBot.Helpers
             return ActiveSideKeys[(int)side];
         }
 
-        // todo: use an enum here and get rid of PlayerState in the future
-        public static ulong ForCastlingRights(bool K, bool Q, bool k, bool q)
+        public static ulong ForCastlingRights(CastlingRights castlingRights)
         {
-            int flags = ToInt32(K) | (ToInt32(Q) << 1) | (ToInt32(k) << 2) | (ToInt32(q) << 3);
-            return CastlingRightsKeys[flags];
+            Debug.Assert(castlingRights.IsValid());
+            return CastlingRightsKeys[(int)castlingRights];
         }
 
         public static ulong ForEnPassantFile(File file)

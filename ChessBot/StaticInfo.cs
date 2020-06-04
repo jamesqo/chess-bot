@@ -86,6 +86,10 @@ namespace ChessBot
             };
         }
 
+        public static CastlingRights GetCastleFlags(Side side) => GetKingsideCastleFlag(side) | GetQueensideCastleFlag(side);
+        public static CastlingRights GetKingsideCastleFlag(Side side) => side.IsWhite() ? CastlingRights.K : CastlingRights.k;
+        public static CastlingRights GetQueensideCastleFlag(Side side) => side.IsWhite() ? CastlingRights.Q : CastlingRights.q;
+
         public static Rank BackRank(Side side) => side.IsWhite() ? Rank1 : Rank8;
         public static Rank SecondRank(Side side) => side.IsWhite() ? Rank2 : Rank7;
         public static Rank SeventhRank(Side side) => side.IsWhite() ? Rank7 : Rank2;
