@@ -122,7 +122,7 @@ namespace ChessBot
                             _ => throw new InvalidFenException($"Invalid piece kind: {ch}")
                         };
                         var piece = new Piece(side, kind);
-                        board.Set(location, piece);
+                        board[location] = piece;
                         file++;
                         allowDigit = true;
                     }
@@ -214,7 +214,8 @@ namespace ChessBot
 
         public Bitboard Occupied => Occupies.White | Occupies.Black;
 
-        public Tile this[Location location] => Board[location];
+        // todo: consider if Piece? should be returned here
+        public Tile this[Location location] => new Tile(location, Board[location]);
         public Tile this[File file, Rank rank] => this[(file, rank)];
         public Tile this[string location] => this[Location.Parse(location)];
 
@@ -382,8 +383,8 @@ namespace ChessBot
             var newPiece = new Piece(piece.Side, newKind);
             // Update board
             var newBoard = Board.CreateBuilder(board);
-            newBoard.Set(source, null);
-            newBoard.Set(destination, newPiece);
+            newBoard[source] = null;
+            newBoard[destination] = newPiece;
             // Update piece masks
             var newPms = Pms.CreateBuilder(pieceMasks.Get(ActiveSide));
             newPms[piece.Kind] &= ~source.GetMask();
@@ -401,7 +402,7 @@ namespace ChessBot
                     : destination;
                 var capturedPiece = this[toClear].Piece;
                 // Update board
-                if (isEnPassantCapture) newBoard.Set(toClear, null);
+                if (isEnPassantCapture) newBoard[toClear] = null;
                 // Update piece masks
                 var newOpposingPms = Pms.CreateBuilder(pieceMasks.Get(OpposingSide));
                 newOpposingPms[capturedPiece.Kind] &= ~toClear.GetMask();

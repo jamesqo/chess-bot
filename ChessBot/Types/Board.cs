@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 
 namespace ChessBot.Types
 {
@@ -10,38 +12,38 @@ namespace ChessBot.Types
     /// </summary>
     public class Board : IEquatable<Board>
     {
-        internal const int NumberOfTiles = 64;
-
-        public static readonly Board Empty = new Board(0UL, 0UL, 0UL, 0UL);
-
-        // these aren't readonly because they're modded by the Builder class
-        private Bitboard _value1;
-        private Bitboard _value2;
-        private Bitboard _value3;
-        private Bitboard _value4;
-
-        public Board(Bitboard value1, Bitboard value2, Bitboard value3, Bitboard value4)
+        private unsafe struct Buffer
         {
-            _value1 = value1;
-            _value2 = value2;
-            _value3 = value3;
-            _value4 = value4;
+            public fixed byte Bytes[32];
         }
 
-        // todo: should this be returning a Piece? instead?
-        public Tile this[Location location]
+        internal const int NumberOfTiles = 64;
+
+        public static readonly Board Empty = new Board();
+
+        private Buffer _buffer;
+
+        private Board()
+        {
+        }
+
+        private Board(ref Buffer buffer)
+        {
+            _buffer = buffer;
+        }
+
+        public unsafe Piece? this[Location location]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 Debug.Assert(location.IsValid);
 
-                var bit1 = ((uint)(_value1 >> location.Value) & 1U);
-                var bit2 = ((uint)(_value2 >> location.Value) & 1U);
-                var bit3 = ((uint)(_value3 >> location.Value) & 1U);
-                var bit4 = ((uint)(_value4 >> location.Value) & 1U);
-                byte pieceValue = (byte)(bit1 | (bit2 << 1) | (bit3 << 2) | (bit4 << 3));
-                return new Tile((ushort)(location.Value | (pieceValue << Location.NumberOfBits)));
+                int index = location.Value;
+                byte pieceValue = _buffer.Bytes[index / 2];
+                if (index % 2 != 0) pieceValue >>= 4;
+                pieceValue &= 0b00001111;
+                return pieceValue == 0 ? (Piece?)null : new Piece((byte)(pieceValue - 1));
             }
         }
 
@@ -50,17 +52,32 @@ namespace ChessBot.Types
         public bool Equals([AllowNull] Board other)
         {
             if (other == null) return false;
-            return _value1 == other._value1
-                && _value2 == other._value2
-                && _value3 == other._value3
-                && _value4 == other._value4;
+            return ToBytes().SequenceEqual(other.ToBytes());
         }
 
-        public override int GetHashCode() => HashCode.Combine(_value1, _value2, _value3, _value4);
+        public override int GetHashCode()
+        {
+            var hc = new HashCode();
+            foreach (byte b in ToBytes())
+            {
+                hc.Add(b);
+            }
+            return hc.ToHashCode();
+        }
 
         public TilesEnumerator GetTiles() => new TilesEnumerator(this);
 
         public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(this);
+
+        public unsafe byte[] ToBytes()
+        {
+            var bytes = new byte[32];
+            for (int i = 0; i < 32; i++)
+            {
+                bytes[i] = _buffer.Bytes[i];
+            }
+            return bytes;
+        }
 
         internal static Builder CreateBuilder(Board value = null) => new Builder(value ?? Empty);
 
@@ -75,7 +92,14 @@ namespace ChessBot.Types
                 _location = -1;
             }
 
-            public Tile Current => _board[new Location((byte)_location)];
+            public Tile Current
+            {
+                get
+                {
+                    var loc = new Location((byte)_location);
+                    return new Tile(loc, _board[loc]);
+                }
+            }
 
             public TilesEnumerator GetEnumerator() => this;
 
@@ -107,7 +131,8 @@ namespace ChessBot.Types
                 while (true)
                 {
                     if (++_location >= 64) return false;
-                    _current = _board[new Location((byte)_location)];
+                    var loc = new Location((byte)_location);
+                    _current = new Tile(loc, _board[loc]);
                     if (_current.HasPiece) return true;
                 }
             }
@@ -131,31 +156,35 @@ namespace ChessBot.Types
 
             public Board Value => _value;
 
-            public void Set(Location location, Piece? piece)
+            public unsafe Piece? this[Location location]
             {
-                Debug.Assert(_value != null);
-                Debug.Assert(location.IsValid);
+                get => _value[location];
+                set
+                {
+                    Debug.Assert(_value != null);
+                    Debug.Assert(location.IsValid);
+                    Debug.Assert(value?.IsValid ?? true);
 
-                var pieceValue = (piece?.Value + 1) ?? 0; // 0 represents an empty tile
-                var mask = location.GetMask();
-                ref Bitboard value1 = ref _value._value1,
-                             value2 = ref _value._value2,
-                             value3 = ref _value._value3,
-                             value4 = ref _value._value4;
-
-                if ((pieceValue & 1) != 0) value1 |= mask; else value1 &= ~mask;
-                if ((pieceValue & 2) != 0) value2 |= mask; else value2 &= ~mask;
-                if ((pieceValue & 4) != 0) value3 |= mask; else value3 &= ~mask;
-                if ((pieceValue & 8) != 0) value4 |= mask; else value4 &= ~mask;
+                    int index = location.Value;
+                    byte pieceValue = (byte)((value?.Value + 1) ?? 0); // 0 represents an empty tile
+                    ref byte target = ref _value._buffer.Bytes[index / 2];
+                    // todo: could use (index % 2) * 4 to avoid branching here?
+                    if (index % 2 != 0)
+                    {
+                        pieceValue <<= 4;
+                        target &= 0b00001111;
+                    }
+                    else
+                    {
+                        target &= 0b11110000;
+                    }
+                    target |= pieceValue;
+                }
             }
 
             private static Board Copy(Board value)
             {
-                return new Board(
-                    value._value1,
-                    value._value2,
-                    value._value3,
-                    value._value4);
+                return new Board(ref value._buffer);
             }
         }
     }
