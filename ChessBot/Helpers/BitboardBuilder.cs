@@ -2,7 +2,12 @@
 
 namespace ChessBot.Helpers
 {
-    // WARNING: this is a mutable struct. don't copy or its behavior may be unintuitive.
+    /// <summary>
+    /// Mutable struct that helps with generating <see cref="Bitboard"/> values.
+    /// </summary>
+    /// <remarks>
+    /// Since this is a mutable struct, try not to copy it or you may get unintuitive behavior.
+    /// </remarks>
     internal struct BitboardBuilder
     {
         private Bitboard _value;

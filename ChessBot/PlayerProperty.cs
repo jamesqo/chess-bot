@@ -1,8 +1,11 @@
 ﻿using ChessBot.Types;
-using System.ComponentModel;
 
 namespace ChessBot
 {
+    /// <summary>
+    /// Represents a property that may be different for white and black players.
+    /// </summary>
+    /// <typeparam name="T">The type of the property.</typeparam>
     internal class PlayerProperty<T>
     {
         // Avoids the caller having to specify the type parameter

@@ -4,7 +4,7 @@ namespace ChessBot.Types
 {
     /// <summary>
     /// Represents the castling availability of both players.
-    /// Unaffected by situations that temporarily prevent castling, i.e. if there is a piece between the king and the rook.
+    /// Not affected by situations that temporarily prevent castling, i.e. when there is a piece between the king and the rook.
     /// </summary>
     [Flags]
     public enum CastlingRights

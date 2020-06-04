@@ -24,7 +24,7 @@ namespace ChessBot
         {
         }
 
-        private State _parent;
+        private readonly State _parent;
         public Side Side { get; }
 
         public Bitboard Attacks => _parent.Attacks.Get(Side);

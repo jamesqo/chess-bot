@@ -161,15 +161,40 @@ namespace ChessBot
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
+        /// <summary>
+        /// The next side to move.
+        /// </summary>
         public Side ActiveSide { get; private set; }
-        public CastlingRights CastlingRights { get; private set; }
-        public Location? EnPassantTarget { get; private set; }
-        public int HalfMoveClock { get; private set; }
-        public int FullMoveNumber { get; private set; }
+
+        /// <summary>
+        /// The castling rights for both players.
+        /// </summary>
+        public CastlingRights CastlingRights { get; }
+
+        /// <summary>
+        /// The destination square of an en passant capture if a pawn made a two-square move during the last turn, otherwise <see langword="null"/>.
+        /// </summary>
+        public Location? EnPassantTarget { get; }
+
+        // todo: take this into account for draws
+        /// <summary>
+        /// The number of halfmoves since the last capture or pawn advance.
+        /// Used to determine if a draw can be claimed under the 50-move rule.
+        /// </summary>
+        public int HalfMoveClock { get; }
+
+        /// <summary>
+        /// The number of fullmoves since the start of the game.
+        /// </summary>
+        public int FullMoveNumber { get; }
+
+        /// <summary>
+        /// The Zobrist hash value for this state.
+        /// </summary>
         public ulong Hash { get; private set; }
 
-        public PlayerState White { get; private set; }
-        public PlayerState Black { get; private set; }
+        public PlayerState White { get; }
+        public PlayerState Black { get; }
 
         internal Board Board { get; }
         internal PlayerProperty<ImmutableArray<Bitboard>> PieceMasks { get; }
