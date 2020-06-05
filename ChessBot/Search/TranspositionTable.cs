@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection.Emit;
 
 namespace ChessBot.Search
 {
@@ -28,7 +29,7 @@ namespace ChessBot.Search
             _numAdds = 0;
         }
 
-        public bool TryAdd(State state, T value)
+        public bool Add(State state, T value)
         {
             _numAdds++;
             if (_dict.Count == _capacity)
@@ -48,18 +49,21 @@ namespace ChessBot.Search
 
         public bool TryGetValue(State state, out T value)
         {
-            if (_dict.TryGetValue(state.Hash, out var node))
+            bool result = TryGetNode(state, out var node);
+            value = result ? node.Value : default;
+            return result;
+        }
+
+        public bool TryGetNode(State state, out TtNode<T> node)
+        {
+            bool result = _dict.TryGetValue(state.Hash, out node);
+            if (result)
             {
                 // Since we accessed the node, move it to the top
                 _nodes.Remove(node);
                 _nodes.AddToTop(node);
-
-                value = node.Value;
-                return true;
             }
-
-            value = default;
-            return false;
+            return result;
         }
 
         // For now, we're using an LRU cache scheme to decide who gets evicted.

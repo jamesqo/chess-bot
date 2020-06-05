@@ -1,5 +1,6 @@
 ﻿using ChessBot.Types;
 using System;
+using System.Diagnostics;
 
 namespace ChessBot.Search
 {
@@ -38,8 +39,8 @@ namespace ChessBot.Search
                     {
                         bestValue = value;
                         bestMove = move;
+                        alpha = Math.Max(alpha, bestValue);
                     }
-                    alpha = Math.Max(alpha, bestValue);
                 }
                 else
                 {
@@ -48,8 +49,8 @@ namespace ChessBot.Search
                     {
                         bestValue = value;
                         bestMove = move;
+                        beta = Math.Min(beta, bestValue);
                     }
-                    beta = Math.Min(beta, bestValue);
                 }
 
                 if (alpha >= beta)
@@ -58,13 +59,18 @@ namespace ChessBot.Search
                 }
             }
 
-            return isTerminal
-                ? throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(state))
-                : bestMove;
+            if (isTerminal)
+            {
+                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(state));
+            }
+
+            return bestMove;
         }
 
         private int AlphaBeta(State state, int d, int alpha, int beta)
         {
+            Debug.Assert(alpha < beta);
+
             if (d == 0)
             {
                 return Evaluation.Heuristic(state);
@@ -104,7 +110,7 @@ namespace ChessBot.Search
                 return Evaluation.Terminal(state);
             }
 
-            _tt.TryAdd(state, bestValue);
+            _tt.Add(state, bestValue);
             return bestValue;
         }
     }

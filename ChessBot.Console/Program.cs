@@ -29,11 +29,12 @@ namespace ChessBot.Console
         {
             while (true)
             {
-                Write("Pick ai strategy [alphabeta (default)]: ");
+                Write("Pick ai strategy [alphabeta (default), mtdf]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
                     case "": case "alphabeta": return new AlphaBetaPicker(depth: 5);
+                    case "mtdf": return new MtdfPicker(depth: 5);
                 }
             }
         }
