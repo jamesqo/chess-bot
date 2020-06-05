@@ -61,25 +61,24 @@ namespace ChessBot.Console
             WriteLine();
 
             var userSide = GetUserSide();
-            var aiStrategy = GetAIPicker();
+            var ai = GetAIPicker();
             var fen = GetStartFen();
             WriteLine();
 
-            var whitePlayer = userSide.IsWhite() ? new HumanPicker() : GetAIPicker();
-            var blackPlayer = userSide.IsWhite() ? GetAIPicker() : new HumanPicker();
+            var whitePlayer = userSide.IsWhite() ? new HumanPicker() : ai;
+            var blackPlayer = userSide.IsWhite() ? ai : new HumanPicker();
 
             WriteLine($"Playing as: {userSide}");
             WriteLine();
 
             var state = State.ParseFen(fen);
-            int turn = 0; // todo
+            bool justStarted = true;
 
             while (true)
             {
-                if (state.WhiteToMove)
+                if (justStarted || state.WhiteToMove)
                 {
-                    turn++;
-                    WriteLine($"[Turn {turn}]");
+                    WriteLine($"[Turn {state.FullMoveNumber}]");
                     WriteLine();
                 }
 
@@ -93,6 +92,8 @@ namespace ChessBot.Console
                 state = state.Apply(nextMove);
                 WriteLine();
                 CheckForEnd(state);
+
+                justStarted = false;
             }
         }
 
@@ -114,7 +115,7 @@ namespace ChessBot.Console
                 Environment.Exit(0);
             }
 
-            // todo: Check for 3-fold repetition
+            // todo: Check for 3-fold repetition, 50-move rule, etc.
         }
 
         static string GetDisplayString(State state)
