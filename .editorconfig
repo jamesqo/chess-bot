@@ -2,3 +2,9 @@
 
 # CS8509: The switch expression does not handle all possible values of its input type (it is not exhaustive).
 dotnet_diagnostic.CS8509.severity = suggestion
+
+# IDE0032: Use auto property
+dotnet_style_prefer_auto_properties = true:none
+
+# CS3021: Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
+dotnet_diagnostic.CS3021.severity = silent
