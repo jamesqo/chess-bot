@@ -111,7 +111,7 @@ namespace ChessBot.Search
         // note: Heuristic is always calculated from White's viewpoint (positive = good for White)
         public static int Heuristic(State state)
         {
-            Debug.Assert(state.GetMoves().Any());
+            //Debug.Assert(state.GetMoves().Any());
 
             // temporarily disabling this for perf reasons
             /*

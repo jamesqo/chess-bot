@@ -18,6 +18,8 @@ namespace ChessBot.Search
 
             public int LowerBound { get; }
             public int UpperBound { get; }
+
+            public override string ToString() => $"[{LowerBound}, {UpperBound}]";
         }
 
         private readonly int _depth;
@@ -33,7 +35,6 @@ namespace ChessBot.Search
             _tt = new TranspositionTable<TtEntry>();
         }
 
-        // todo: we should be pruning at the top-level too
         public Move PickMove(State state)
         {
             Move bestMove = default;
@@ -44,7 +45,7 @@ namespace ChessBot.Search
             {
                 isTerminal = false;
 
-                int value = Mtdf(succ, _firstGuess, _depth - 1);
+                int value = Mtdf(succ, _firstGuess, _depth - 1, bestValue);
                 bool better = (state.WhiteToMove ? value > bestValue : value < bestValue);
                 if (better)
                 {
@@ -61,12 +62,22 @@ namespace ChessBot.Search
             return bestMove;
         }
 
-        private int Mtdf(State root, int f, int d)
+        private int Mtdf(State root, int f, int d, int bestSiblingValue)
         {
             int guess = f;
-            var (lowerBound, upperBound) = (int.MinValue, int.MaxValue);
+            int lowerBound, upperBound;
 
-            while (lowerBound < upperBound)
+            bool whiteToMoveInParent = !root.WhiteToMove;
+            if (whiteToMoveInParent)
+            {
+                (lowerBound, upperBound) = (bestSiblingValue, int.MaxValue);
+            }
+            else
+            {
+                (lowerBound, upperBound) = (int.MinValue, bestSiblingValue);
+            }
+
+            do
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 guess = AlphaBetaWithMemory(root, beta - 1, beta, d);
@@ -79,6 +90,7 @@ namespace ChessBot.Search
                     lowerBound = guess;
                 }
             }
+            while (lowerBound < upperBound);
 
             return guess;
         }
@@ -98,7 +110,7 @@ namespace ChessBot.Search
                 tte = ttNode.Value;
                 if (tte.LowerBound >= beta) return tte.LowerBound; // beta-cutoff
                 if (tte.UpperBound <= alpha) return tte.UpperBound; // alpha-cutoff
-                if (tte.LowerBound == tte.UpperBound) return tte.LowerBound; // we know the exact value
+                //if (tte.LowerBound == tte.UpperBound) return tte.LowerBound; // we know the exact value
 
                 // use the information to refine our bounds
                 alpha = Math.Max(alpha, tte.LowerBound);
@@ -147,21 +159,26 @@ namespace ChessBot.Search
             {
                 tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess);
             }
-            else if (guess >= beta) // fail-high result => lower bound
+            else // fail-high result => lower bound
             {
+                // for now, we're only calling this with null-window searches where alpha == beta - 1
+                Debug.Assert(guess >= beta);
                 tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue);
             }
+            /*
             else // neither => this is the exact minimax value
             {
                 Debug.Assert(guess > alpha && guess < beta);
                 tte = new TtEntry(lowerBound: guess, upperBound: guess);
             }
+            */
 
             if (ttNode != null)
             {
-                // we should be improving on what we already know
-                Debug.Assert(tte.LowerBound >= ttNode.Value.LowerBound);
-                Debug.Assert(tte.UpperBound <= ttNode.Value.UpperBound);
+                // improve on what we already know
+                tte = new TtEntry(
+                    Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
+                    Math.Min(tte.UpperBound, ttNode.Value.UpperBound));
                 ttNode.Value = tte;
             }
             else

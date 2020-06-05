@@ -1,4 +1,6 @@
-﻿namespace ChessBot.Search
+﻿using System.Diagnostics;
+
+namespace ChessBot.Search
 {
     /// <summary>
     /// An entry in the transposition table.
@@ -21,5 +23,7 @@
             Key = key;
             Value = value;
         }
+
+        public override string ToString() => $"{nameof(Key)} = {Key}, {nameof(Value)} = {Value}";
     }
 }
