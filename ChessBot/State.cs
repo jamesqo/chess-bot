@@ -158,7 +158,6 @@ namespace ChessBot
 
         // cached properties
         private bool? _isCheck;
-        private bool? _isTerminal;
         private bool? _canCastleKingside;
         private bool? _canCastleQueenside;
 
@@ -207,9 +206,10 @@ namespace ChessBot
         public PlayerState OpposingPlayer => GetPlayer(OpposingSide);
 
         public bool IsCheck => _isCheck ?? (bool)(_isCheck = (FindKing(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc)));
-        public bool IsCheckmate => IsCheck && IsTerminal;
-        public bool IsStalemate => !IsCheck && IsTerminal;
-        public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
+        // these properties are very expensive to compute, so we're omitting them for now
+        //public bool IsCheckmate => IsCheck && IsTerminal;
+        //public bool IsStalemate => !IsCheck && IsTerminal;
+        //public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
         public bool WhiteToMove => ActiveSide.IsWhite();
 
         public Bitboard Occupied
@@ -496,7 +496,6 @@ namespace ChessBot
                     if (succ != null) list.Add((move, succ));
                 }
             }
-            _isTerminal = (list.Count == 0);
             return list;
         }
 
