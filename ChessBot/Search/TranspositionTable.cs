@@ -1,30 +1,34 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace ChessBot.Console
+namespace ChessBot.Search
 {
-    // todo: it's theoretically possible for 2 states to hash to the same value. we should take care of that
-    public class TranspositionCache
+    // todo: it's theoretically possible for 2 states to hash to the same value. should we take care of that?
+    /// <summary>
+    /// Maps <see cref="State"/> objects to values of type <typeparamref name="T"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the value.</typeparam>
+    public class TranspositionTable<T>
     {
         private const int DefaultCapacity = 4096;
         private const int EvictionPeriod = 8;
 
-        private readonly Dictionary<ulong, CacheNode> _dict;
-        private readonly LruLinkedList _nodes;
+        private readonly Dictionary<ulong, TtNode<T>> _dict;
+        private readonly TtLinkedList<T> _nodes;
         private readonly int _capacity;
         private int _numAdds;
 
-        public TranspositionCache() : this(DefaultCapacity) { }
+        public TranspositionTable() : this(DefaultCapacity) { }
 
-        public TranspositionCache(int capacity)
+        public TranspositionTable(int capacity)
         {
-            _dict = new Dictionary<ulong, CacheNode>(capacity);
-            _nodes = new LruLinkedList();
+            _dict = new Dictionary<ulong, TtNode<T>>(capacity);
+            _nodes = new TtLinkedList<T>();
             _capacity = capacity;
             _numAdds = 0;
         }
 
-        public bool TryAdd(State state, int value)
+        public bool TryAdd(State state, T value)
         {
             _numAdds++;
             if (_dict.Count == _capacity)
@@ -36,18 +40,17 @@ namespace ChessBot.Console
                 Evict();
             }
 
-            var node = new CacheNode(state.Hash, value);
+            var node = new TtNode<T>(state.Hash, value);
             _dict.Add(state.Hash, node);
             _nodes.AddToTop(node);
             return true;
         }
 
-        public bool TryGetValue(State state, out int value)
+        public bool TryGetValue(State state, out T value)
         {
             if (_dict.TryGetValue(state.Hash, out var node))
             {
                 // Since we accessed the node, move it to the top
-                //node.Hits++;
                 _nodes.Remove(node);
                 _nodes.AddToTop(node);
 
@@ -59,11 +62,8 @@ namespace ChessBot.Console
             return false;
         }
 
-        // for now, we're using an lru cache scheme to decide who gets evicted.
-        // (todo) we should take other factors into account such as:
-        // - how many hits does the entry have
-        // - depth relative to GetBestMove() (deeper nodes receive higher prio?)
-        // - etc.
+        // For now, we're using an LRU cache scheme to decide who gets evicted.
+        // In the future, we could take other factors into account such as number of hits, relative depth, etc.
         private void Evict()
         {
             var node = _nodes.RemoveLru();

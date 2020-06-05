@@ -209,8 +209,6 @@ namespace ChessBot
         public bool IsCheck => _isCheck ?? (bool)(_isCheck = (FindKing(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc)));
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
-        // todo: may want to go back to the old ienumerable approach for getmoves for now.
-        // the way this is initialized is *extremely* expensive.
         public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
         public bool WhiteToMove => ActiveSide.IsWhite();
 
