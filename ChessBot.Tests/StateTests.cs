@@ -291,11 +291,10 @@ namespace ChessBot.Tests
         {
             var moves = expected.Select(an => Move.Parse(an, state));
             var succs = moves.Select(m => state.Apply(m));
-            var movesAndSuccs = moves.Zip(succs);
+            var succPairs = moves.Zip(succs, (move, succ) => new SuccessorPair(move, succ));
 
             Assert.Equal(moves, state.GetMoves(), OrderInsensitiveComparer<Move>.Instance);
-            Assert.Equal(succs, state.GetSuccessors(), OrderInsensitiveComparer<State>.Instance);
-            Assert.Equal(movesAndSuccs, state.GetMovesAndSuccessors(), OrderInsensitiveComparer<(Move, State)>.Instance);
+            Assert.Equal(succPairs, state.GetSuccessors(), OrderInsensitiveComparer<SuccessorPair>.Instance);
         }
 
         [Fact]

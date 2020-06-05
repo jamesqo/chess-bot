@@ -7,7 +7,7 @@ using System.Diagnostics;
 namespace ChessBot.Helpers
 {
     // todo: does this have to be public? maybe just delete altogether?
-    public struct PooledList<T> : IEnumerable<T>, IDisposable
+    internal struct PooledList<T> : IEnumerable<T>, IDisposable
     {
         public static PooledList<T> Get(int maxLength) => new PooledList<T>(maxLength);
 
@@ -53,7 +53,7 @@ namespace ChessBot.Helpers
         {
             int newCapacity = _capacity;
             while (newCapacity <= _array.Length) newCapacity *= 2;
-            Debug.WriteLine($"[PooledList] Capacity of {_capacity} was hit, increasing to {newCapacity}");
+            Debug.WriteLine($"[{nameof(PooledList<T>)}] Capacity of {_capacity} was hit, increasing to {newCapacity}");
 
             ArrayPool<T>.Shared.Return(_array);
             _array = ArrayPool<T>.Shared.Rent(newCapacity);

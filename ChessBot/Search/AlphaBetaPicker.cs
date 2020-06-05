@@ -26,8 +26,7 @@ namespace ChessBot.Search
             var (alpha, beta) = (int.MinValue, int.MaxValue);
             bool isTerminal = true;
 
-            using var movesAndSuccs = state.GetMovesAndSuccessors();
-            foreach (var (move, succ) in movesAndSuccs)
+            foreach (var (move, succ) in state.GetSuccessors())
             {
                 isTerminal = false;
 
@@ -78,8 +77,7 @@ namespace ChessBot.Search
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             bool isTerminal = true;
 
-            using var movesAndSuccs = state.GetMovesAndSuccessors();
-            foreach (var (_, succ) in movesAndSuccs)
+            foreach (var (_, succ) in state.GetSuccessors())
             {
                 isTerminal = false;
 

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 using static ChessBot.StaticInfo;
@@ -449,20 +450,15 @@ namespace ChessBot
             return hc.ToHashCode();
         }
 
-        // todo: improve perf
-        public IEnumerable<Move> GetMoves()
-        {
-            foreach (var (move, _) in GetMovesAndSuccessors())
-            {
-                yield return move;
-            }
-        }
+        public IEnumerable<Move> GetMoves() => GetSuccessors().Select(p => p.Move);
 
-        public PooledList<(Move move, State successor)> GetMovesAndSuccessors()
+        public IEnumerable<SuccessorPair> GetSuccessors()
         {
+            // todo: should this be lazy too?
             PooledList<Move> GetPossibleMoves(Location source)
             {
-                var list = PooledList<Move>.Get(64);
+                // todo: enforce this should never reach capacity?
+                var list = PooledList<Move>.Get(28);
 
                 var destinations = GetPossibleDestinations(source);
                 var piece = Board[source].Piece;
@@ -486,33 +482,22 @@ namespace ChessBot
                 return list;
             }
 
-            var list = PooledList<(Move, State)>.Get(64);
             foreach (var tile in ActivePlayer.GetOccupiedTiles())
             {
                 using var movesToTry = GetPossibleMoves(tile.Location);
                 foreach (var move in movesToTry)
                 {
                     var succ = TryApply(move, out _);
-                    if (succ != null) list.Add((move, succ));
+                    if (succ != null) yield return (move, succ);
                 }
             }
-            return list;
         }
 
-        public Board.OccupiedTilesEnumerator GetOccupiedTiles() => Board.GetOccupiedTiles();
+        public Board.OccupiedTileEnumerator GetOccupiedTiles() => Board.GetOccupiedTiles();
 
         public PlayerState GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        // todo: improve perf
-        public IEnumerable<State> GetSuccessors()
-        {
-            foreach (var (_, succ) in GetMovesAndSuccessors())
-            {
-                yield return succ;
-            }
-        }
-
-        public Board.TilesEnumerator GetTiles() => Board.GetTiles();
+        public Board.TileEnumerator GetTiles() => Board.GetTiles();
 
         // todo: remove this from public api?
         public State SetActiveSide(Side value) => new State(this)
@@ -725,15 +710,16 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !Board[loc].HasPiece));
         }
 
+        // todo: calculating this is a perf bottleneck, so pass it along in Secrets instead
         /// <summary>
         /// Returns a list of locations that are attacked by the piece at <paramref name="source"/>.
         /// </summary>
-        private Bitboard GetModifiedAttackBitboard(Location source)
+        internal Bitboard GetModifiedAttackBitboard(Location source)
         {
             Debug.Assert(Board[source].HasPiece);
 
             var piece = Board[source].Piece;
-            var (side, kind) = (piece.Side, piece.Kind);
+            var kind = piece.Kind;
             var attacks = GetAttackBitboard(piece, source);
 
             var totalOccupied = Occupied; // queens, rooks, and bishops can be blocked by pieces of either side

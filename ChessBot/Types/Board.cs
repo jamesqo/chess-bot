@@ -64,9 +64,9 @@ namespace ChessBot.Types
             return hc.ToHashCode();
         }
 
-        public TilesEnumerator GetTiles() => new TilesEnumerator(this);
+        public TileEnumerator GetTiles() => new TileEnumerator(this);
 
-        public OccupiedTilesEnumerator GetOccupiedTiles() => new OccupiedTilesEnumerator(this);
+        public OccupiedTileEnumerator GetOccupiedTiles() => new OccupiedTileEnumerator(this);
 
         public unsafe byte[] ToBytes()
         {
@@ -80,12 +80,12 @@ namespace ChessBot.Types
 
         internal static Builder CreateBuilder(Board value = null) => new Builder(value ?? Empty);
 
-        public struct TilesEnumerator
+        public struct TileEnumerator
         {
             private readonly Board _board;
             private int _location;
 
-            internal TilesEnumerator(Board board)
+            internal TileEnumerator(Board board)
             {
                 _board = board;
                 _location = -1;
@@ -100,19 +100,19 @@ namespace ChessBot.Types
                 }
             }
 
-            public TilesEnumerator GetEnumerator() => this;
+            public TileEnumerator GetEnumerator() => this;
 
             public bool MoveNext() => ++_location < 64;
         }
 
         // todo: this can be made faster. simply OR all of the values together, then keep using IndexOfLsb().
-        public struct OccupiedTilesEnumerator
+        public struct OccupiedTileEnumerator
         {
             private Board _board;
             private int _location;
             private Tile _current;
 
-            internal OccupiedTilesEnumerator(Board board)
+            internal OccupiedTileEnumerator(Board board)
             {
                 _board = board;
                 _location = -1;
@@ -121,7 +121,7 @@ namespace ChessBot.Types
 
             public Tile Current => _current;
 
-            public OccupiedTilesEnumerator GetEnumerator() => this;
+            public OccupiedTileEnumerator GetEnumerator() => this;
 
             public bool MoveNext()
             {
