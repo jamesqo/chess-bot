@@ -7,20 +7,28 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses alpha-beta search to pick the best move.
     /// </summary>
-    public class AlphaBetaPicker : IMovePicker
+    public class AlphaBetaPicker : IMovePicker<AlphaBetaPicker.Info>
     {
-        private readonly int _depth;
+        public class Info
+        {
+            internal Info(int utility) => Utility = utility;
+
+            public int Utility { get; }
+        }
+
         private readonly TranspositionTable<int> _tt;
 
         public AlphaBetaPicker(int depth)
         {
-            if (depth <= 0) throw new ArgumentOutOfRangeException(nameof(depth));
-
-            _depth = depth;
+            Depth = depth;
             _tt = new TranspositionTable<int>();
         }
 
-        public Move PickMove(State state)
+        public int Depth { get; set; }
+
+        public Move PickMove(State state) => PickMove(state, out _);
+
+        public Move PickMove(State state, out Info info)
         {
             Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
@@ -31,7 +39,7 @@ namespace ChessBot.Search
             {
                 isTerminal = false;
 
-                int value = AlphaBeta(succ, _depth - 1, alpha, beta);
+                int value = AlphaBeta(succ, Depth - 1, alpha, beta);
                 if (state.WhiteToMove)
                 {
                     bool better = (value > bestValue);
@@ -64,6 +72,7 @@ namespace ChessBot.Search
                 throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(state));
             }
 
+            info = new Info(utility: bestValue);
             return bestMove;
         }
 
