@@ -173,6 +173,7 @@ namespace ChessBot.Types
             }
         }
 
+        internal bool IsDefault => _value == 0;
         internal bool IsValid => (Source.IsValid && Destination.IsValid && (PromotionKind?.IsValid() ?? true));
 
         public override bool Equals(object obj) => obj is Move other && Equals(other);

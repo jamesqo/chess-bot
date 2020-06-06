@@ -19,19 +19,22 @@ namespace ChessBot.Search
 
         private readonly struct TtEntry
         {
-            public TtEntry(int lowerBound, int upperBound, int depth)
+            public TtEntry(int lowerBound, int upperBound, int depth, Move firstMove)
             {
                 Debug.Assert(lowerBound <= upperBound);
                 Debug.Assert(depth > 0);
+                Debug.Assert(firstMove.IsValid);
 
                 LowerBound = lowerBound;
                 UpperBound = upperBound;
                 Depth = depth;
+                FirstMove = firstMove;
             }
 
             public int LowerBound { get; }
             public int UpperBound { get; }
             public int Depth { get; }
+            public Move FirstMove { get; }
 
             public override string ToString() => $"[{LowerBound}, {UpperBound}], {nameof(Depth)} = {Depth}";
         }
@@ -130,6 +133,7 @@ namespace ChessBot.Search
             }
 
             TtEntry tte;
+            Move firstMove = default;
             if (tt.TryGetNode(state, out var ttNode))
             {
                 tte = ttNode.Value;
@@ -155,58 +159,91 @@ namespace ChessBot.Search
                     }
 
                     // use the information to refine our bounds
+                    // todo: this may not actually work (see note below)
                     alpha = Math.Max(alpha, tte.LowerBound);
                     beta = Math.Min(beta, tte.UpperBound);
                 }
+                firstMove = ttNode.Value.FirstMove;
+                Debug.Assert(!firstMove.IsDefault);
             }
 
-            var succs = state.GetSuccessors();
-            bool isTerminal = true;
-
-            int guess;
-            if (state.WhiteToMove)
+            int guess = state.WhiteToMove ? int.MinValue : int.MaxValue;
+            var (a, b) = (alpha, beta);
+            bool firstMakesCut = false;
+            if (!firstMove.IsDefault)
             {
-                guess = int.MinValue;
-                int a = alpha;
-                foreach (var (_, succ) in succs)
+                var succ = state.Apply(firstMove);
+                guess = AlphaBetaWithMemory(succ, alpha, beta, depth - 1, tt);
+                if (state.WhiteToMove)
                 {
-                    isTerminal = false;
-
-                    if (guess >= beta) break;
-
-                    guess = Math.Max(guess, AlphaBetaWithMemory(succ, a, beta, depth - 1, tt));
+                    firstMakesCut = (guess >= beta);
                     a = Math.Max(a, guess);
                 }
-            }
-            else
-            {
-                guess = int.MaxValue;
-                int b = beta;
-                foreach (var (_, succ) in succs)
+                else
                 {
-                    isTerminal = false;
-
-                    if (guess <= alpha) break;
-
-                    guess = Math.Min(guess, AlphaBetaWithMemory(succ, alpha, b, depth - 1, tt));
+                    firstMakesCut = (guess <= alpha);
                     b = Math.Min(b, guess);
                 }
             }
 
-            if (isTerminal)
+            if (!firstMakesCut)
             {
-                return Evaluation.Terminal(state);
+                var succs = state.GetSuccessors();
+                bool isTerminal = true;
+
+                if (state.WhiteToMove)
+                {
+                    foreach (var (move, succ) in succs)
+                    {
+                        isTerminal = false;
+
+                        int value = AlphaBetaWithMemory(succ, a, beta, depth - 1, tt);
+                        bool better = value > guess;
+                        if (better)
+                        {
+                            guess = value;
+                            firstMove = move;
+                            a = Math.Max(a, guess);
+
+                            if (guess >= beta) break;
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var (move, succ) in succs)
+                    {
+                        isTerminal = false;
+
+                        int value = AlphaBetaWithMemory(succ, alpha, b, depth - 1, tt);
+                        bool better = value < guess;
+                        if (better)
+                        {
+                            guess = value;
+                            firstMove = move;
+                            b = Math.Min(b, guess);
+
+                            if (guess <= alpha) break;
+                        }
+                    }
+                }
+
+                if (isTerminal)
+                {
+                    return Evaluation.Terminal(state);
+                }
             }
 
+            Debug.Assert(!firstMove.IsDefault);
             if (guess <= alpha) // fail-low result => upper bound
             {
-                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth: depth);
+                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth: depth, firstMove: firstMove);
             }
             else // fail-high result => lower bound
             {
                 // for now, we're only calling this with null-window searches where alpha == beta - 1
                 Debug.Assert(guess >= beta);
-                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth);
+                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth, firstMove: firstMove);
             }
             /*
             else // neither => this is the exact minimax value
