@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection.Emit;
 
 namespace ChessBot.Search
@@ -16,7 +17,7 @@ namespace ChessBot.Search
 
         private readonly Dictionary<ulong, TtNode<T>> _dict;
         private readonly int _capacity;
-        private TtLinkedList<T> _nodes;
+        private readonly TtLinkedList<T> _nodes;
         private int _numAdds;
 
         public TranspositionTable() : this(DefaultCapacity) { }
@@ -47,30 +48,17 @@ namespace ChessBot.Search
             return true;
         }
 
-        public void Clear()
+        public void Touch(TtNode<T> node)
         {
-            _dict.Clear();
-            _nodes = new TtLinkedList<T>();
-        }
+            Debug.Assert(_dict.ContainsKey(node.Key));
+            Debug.Assert(_dict[node.Key] == node);
 
-        public bool TryGetValue(State state, out T value)
-        {
-            bool result = TryGetNode(state, out var node);
-            value = result ? node.Value : default;
-            return result;
+            _nodes.Remove(node);
+            _nodes.AddToTop(node);
         }
 
         public bool TryGetNode(State state, out TtNode<T> node)
-        {
-            bool result = _dict.TryGetValue(state.Hash, out node);
-            if (result)
-            {
-                // Since we accessed the node, move it to the top
-                _nodes.Remove(node);
-                _nodes.AddToTop(node);
-            }
-            return result;
-        }
+            => _dict.TryGetValue(state.Hash, out node);
 
         // For now, we're using an LRU cache scheme to decide who gets evicted.
         // In the future, we could take other factors into account such as number of hits, relative depth, etc.

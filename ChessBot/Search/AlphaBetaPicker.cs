@@ -16,12 +16,26 @@ namespace ChessBot.Search
             public int Utility { get; }
         }
 
-        private readonly TranspositionTable<int> _tt;
+        private readonly struct TtEntry
+        {
+            public TtEntry(int utility, int depth)
+            {
+                Debug.Assert(depth > 0);
+
+                Utility = utility;
+                Depth = depth;
+            }
+
+            public int Utility { get; }
+            public int Depth { get; }
+        }
+
+        private readonly TranspositionTable<TtEntry> _tt;
 
         public AlphaBetaPicker(int depth)
         {
             Depth = depth;
-            _tt = new TranspositionTable<int>();
+            _tt = new TranspositionTable<TtEntry>();
         }
 
         public int Depth { get; set; }
@@ -30,8 +44,6 @@ namespace ChessBot.Search
 
         public Move PickMove(State state, out Info info)
         {
-            _tt.Clear(); // in case Depth changed
-
             Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             var (alpha, beta) = (int.MinValue, int.MaxValue);
@@ -86,9 +98,15 @@ namespace ChessBot.Search
             {
                 return Evaluation.Heuristic(state);
             }
-            if (_tt.TryGetValue(state, out int cachedValue))
+            TtEntry tte;
+            if (_tt.TryGetNode(state, out var ttNode))
             {
-                return cachedValue;
+                tte = ttNode.Value;
+                if (tte.Depth >= d)
+                {
+                    _tt.Touch(ttNode);
+                    return tte.Utility;
+                }
             }
 
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
@@ -121,7 +139,18 @@ namespace ChessBot.Search
                 return Evaluation.Terminal(state);
             }
 
-            _tt.Add(state, bestValue);
+            tte = new TtEntry(utility: bestValue, depth: d);
+            if (ttNode != null && !ttNode.WasEvicted) // the node could have been evicted during a recursive call
+            {
+                // update the existing node
+                ttNode.Value = tte;
+                _tt.Touch(ttNode);
+            }
+            else
+            {
+                _tt.Add(state, tte);
+            }
+
             return bestValue;
         }
     }

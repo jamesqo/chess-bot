@@ -18,18 +18,21 @@ namespace ChessBot.Search
 
         private readonly struct TtEntry
         {
-            public TtEntry(int lowerBound, int upperBound)
+            public TtEntry(int lowerBound, int upperBound, int depth)
             {
                 Debug.Assert(lowerBound <= upperBound);
+                Debug.Assert(depth > 0);
 
                 LowerBound = lowerBound;
                 UpperBound = upperBound;
+                Depth = depth;
             }
 
             public int LowerBound { get; }
             public int UpperBound { get; }
+            public int Depth { get; }
 
-            public override string ToString() => $"[{LowerBound}, {UpperBound}]";
+            public override string ToString() => $"[{LowerBound}, {UpperBound}], {nameof(Depth)} = {Depth}";
         }
 
         private readonly TranspositionTable<TtEntry> _tt;
@@ -47,8 +50,6 @@ namespace ChessBot.Search
 
         public Move PickMove(State state, out Info info)
         {
-            _tt.Clear(); // in case Depth changed
-
             Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             bool isTerminal = true;
@@ -131,13 +132,31 @@ namespace ChessBot.Search
             if (tt.TryGetNode(state, out var ttNode))
             {
                 tte = ttNode.Value;
-                if (tte.LowerBound >= beta) return tte.LowerBound; // beta-cutoff
-                if (tte.UpperBound <= alpha) return tte.UpperBound; // alpha-cutoff
-                //if (tte.LowerBound == tte.UpperBound) return tte.LowerBound; // we know the exact value
+                if (tte.Depth >= depth)
+                {
+                    // beta-cutoff
+                    if (tte.LowerBound >= beta)
+                    {
+                        tt.Touch(ttNode);
+                        return tte.LowerBound;
+                    }
+                    // alpha-cutoff
+                    if (tte.UpperBound <= alpha)
+                    {
+                        tt.Touch(ttNode);
+                        return tte.UpperBound;
+                    }
+                    // we know the exact value
+                    if (tte.LowerBound == tte.UpperBound)
+                    {
+                        tt.Touch(ttNode);
+                        return tte.LowerBound;
+                    }
 
-                // use the information to refine our bounds
-                alpha = Math.Max(alpha, tte.LowerBound);
-                beta = Math.Min(beta, tte.UpperBound);
+                    // use the information to refine our bounds
+                    alpha = Math.Max(alpha, tte.LowerBound);
+                    beta = Math.Min(beta, tte.UpperBound);
+                }
             }
 
             var succs = state.GetSuccessors();
@@ -180,13 +199,13 @@ namespace ChessBot.Search
 
             if (guess <= alpha) // fail-low result => upper bound
             {
-                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess);
+                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth: depth);
             }
             else // fail-high result => lower bound
             {
                 // for now, we're only calling this with null-window searches where alpha == beta - 1
                 Debug.Assert(guess >= beta);
-                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue);
+                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth);
             }
             /*
             else // neither => this is the exact minimax value
@@ -196,13 +215,22 @@ namespace ChessBot.Search
             }
             */
 
-            if (ttNode != null)
+            if (ttNode != null && !ttNode.WasEvicted) // the node could have been evicted during a recursive call
             {
-                // improve on what we already know
-                tte = new TtEntry(
-                    Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
-                    Math.Min(tte.UpperBound, ttNode.Value.UpperBound));
-                ttNode.Value = tte;
+                int ttDepth = ttNode.Value.Depth;
+                if (depth >= ttDepth) // information about higher depths is more valuable
+                {
+                    if (depth == ttDepth)
+                    {
+                        // improve on what we already know
+                        tte = new TtEntry(
+                            Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
+                            Math.Min(tte.UpperBound, ttNode.Value.UpperBound),
+                            depth: depth);
+                    }
+                    ttNode.Value = tte;
+                    tt.Touch(ttNode);
+                }
             }
             else
             {

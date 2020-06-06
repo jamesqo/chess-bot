@@ -8,11 +8,6 @@ namespace ChessBot.Search
     /// <typeparam name="T">The type of the value.</typeparam>
     public class TtNode<T>
     {
-        public ulong Key { get; }
-        public T Value { get; set; }
-        public TtNode<T> Previous { get; internal set; }
-        public TtNode<T> Next { get; internal set; }
-
         // dummy initializer for head and tail
         internal TtNode()
         {
@@ -23,6 +18,13 @@ namespace ChessBot.Search
             Key = key;
             Value = value;
         }
+
+        public ulong Key { get; }
+        public T Value { get; set; }
+        public TtNode<T> Previous { get; internal set; }
+        public TtNode<T> Next { get; internal set; }
+
+        internal bool WasEvicted => Previous == null && Next == null;
 
         public override string ToString() => $"{nameof(Key)} = {Key}, {nameof(Value)} = {Value}";
     }
