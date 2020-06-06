@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 using static ChessBot.StaticInfo;
@@ -44,6 +43,8 @@ namespace ChessBot
             PieceMasks = secrets?.PieceMasks ?? InitPieceMasks(board);
             Occupies = InitOccupies();
             Attacks = InitAttacks();
+            CanCastleKingside = InitCanCastle(kingside: true);
+            CanCastleQueenside = InitCanCastle(kingside: false);
 
             White = new PlayerState(this, Side.White);
             Black = new PlayerState(this, Side.Black);
@@ -157,11 +158,6 @@ namespace ChessBot
                 fullMoveNumber: fullMoveNumber);
         }
 
-        // cached properties
-        private bool? _isCheck;
-        private bool? _canCastleKingside;
-        private bool? _canCastleQueenside;
-
         /// <summary>
         /// The next side to move.
         /// </summary>
@@ -206,7 +202,7 @@ namespace ChessBot
         public Side OpposingSide => ActiveSide.Flip();
         public PlayerState OpposingPlayer => GetPlayer(OpposingSide);
 
-        public bool IsCheck => _isCheck ?? (bool)(_isCheck = (FindKing(ActiveSide) is Location loc && IsAttackedBy(OpposingSide, loc)));
+        public bool IsCheck => FindKing(ActiveSide) is Location loc && Attacks.Get(OpposingSide)[loc];
         // these properties are very expensive to compute, so we're omitting them for now
         //public bool IsCheckmate => IsCheck && IsTerminal;
         //public bool IsStalemate => !IsCheck && IsTerminal;
@@ -557,10 +553,10 @@ namespace ChessBot
         #region Helper methods and properties
 
         // this shoulndn't be true of any valid state
-        private bool CanAttackOpposingKing => FindKing(OpposingSide) is Location loc && IsAttackedBy(ActiveSide, loc);
+        private bool CanAttackOpposingKing => FindKing(OpposingSide) is Location loc && Attacks.Get(ActiveSide)[loc];
 
-        private bool CanCastleKingside => _canCastleKingside ?? (bool)(_canCastleKingside = CanCastleCore(kingside: true));
-        private bool CanCastleQueenside => _canCastleQueenside ?? (bool)(_canCastleQueenside = CanCastleCore(kingside: false));
+        private bool CanCastleKingside { get; }
+        private bool CanCastleQueenside { get; }
 
         private ulong InitZobristHash()
         {
@@ -624,7 +620,7 @@ namespace ChessBot
             return (white, black);
         }
 
-        private bool CanCastleCore(bool kingside)
+        private bool InitCanCastle(bool kingside)
         {
             bool flag = kingside ? ActivePlayer.CanCastleKingside : ActivePlayer.CanCastleQueenside;
             if (!flag) return false;
@@ -785,12 +781,6 @@ namespace ChessBot
 
             return result;
         }
-
-        /// <summary>
-        /// Determines whether <paramref name="location"/> is attacked by an enemy piece.
-        /// Ignores whether it's possible for the enemy piece to move (ie. because it is pinned to the enemy king).
-        /// </summary>
-        private bool IsAttackedBy(Side side, Location location) => GetPlayer(side).Attacks[location];
 
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.
