@@ -11,7 +11,6 @@ using System.Text;
 using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
-using Pms = ChessBot.PieceMasks;
 
 namespace ChessBot
 {
@@ -40,7 +39,7 @@ namespace ChessBot
             FullMoveNumber = fullMoveNumber;
             Hash = secrets?.Hash ?? InitZobristHash();
 
-            PieceMasks = secrets?.PieceMasks ?? InitPieceMasks(board);
+            PiecePlacement = secrets?.PiecePlacement ?? InitPiecePlacement(board);
             Occupies = InitOccupies();
             Attacks = InitAttacks();
             CanCastleKingside = InitCanCastle(kingside: true);
@@ -198,7 +197,7 @@ namespace ChessBot
         public PlayerState Black => new PlayerState(this, Side.Black);
 
         internal Board Board { get; }
-        internal PlayerProperty<PieceMasks> PieceMasks { get; }
+        internal PlayerProperty<PieceBitboards> PiecePlacement { get; }
         internal PlayerProperty<Bitboard> Occupies { get; }
         internal PlayerProperty<Bitboard> Attacks { get; }
 
@@ -299,11 +298,11 @@ namespace ChessBot
             bool isKingsideCastle = (piece.Kind == PieceKind.King && destination == source.Right(2));
             bool isQueensideCastle = (piece.Kind == PieceKind.King && destination == source.Left(2));
 
-            var (newBoard, newPieceMasks, newCastlingRights, newHash) = (Board, PieceMasks, CastlingRights, Hash);
+            var (newBoard, newPiecePlacement, newCastlingRights, newHash) = (Board, PiecePlacement, CastlingRights, Hash);
 
             // Update the board
 
-            ApplyInternal(ref newBoard, ref newPieceMasks, ref newHash, source, destination, move.PromotionKind, isEnPassantCapture);
+            ApplyInternal(ref newBoard, ref newPiecePlacement, ref newHash, source, destination, move.PromotionKind, isEnPassantCapture);
 
             // Handle castling specially because we have to move the rook too
 
@@ -311,7 +310,7 @@ namespace ChessBot
             {
                 var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, isKingsideCastle);
                 var rookDestination = isKingsideCastle ? rookSource.Left(2) : rookSource.Right(3);
-                ApplyInternal(ref newBoard, ref newPieceMasks, ref newHash, rookSource, rookDestination);
+                ApplyInternal(ref newBoard, ref newPiecePlacement, ref newHash, rookSource, rookDestination);
             }
 
             // Update castling rights
@@ -360,7 +359,7 @@ namespace ChessBot
             if (newEnPassantTarget.HasValue) newHash ^= ZobristKey.ForEnPassantFile(newEnPassantTarget.Value.File);
 
             var secrets = new Secrets(
-                pieceMasks: newPieceMasks,
+                piecePlacement: newPiecePlacement,
                 hash: newHash);
 
             return new State(
@@ -375,7 +374,7 @@ namespace ChessBot
 
         private void ApplyInternal(
             ref Board board,
-            ref PlayerProperty<PieceMasks> pieceMasks,
+            ref PlayerProperty<PieceBitboards> piecePlacement,
             ref ulong hash,
             Location source,
             Location destination,
@@ -393,11 +392,11 @@ namespace ChessBot
             var newBoard = Board.CreateBuilder(board);
             newBoard[source] = default;
             newBoard[destination] = newPiece;
-            // Update piece masks
-            var newPms = Pms.CreateBuilder(pieceMasks.Get(ActiveSide));
-            newPms[piece.Kind] &= ~source.GetMask();
-            newPms[newKind] |= destination.GetMask();
-            pieceMasks = pieceMasks.Set(ActiveSide, newPms.Value);
+            // Update piece placement
+            var newPp = PieceBitboards.CreateBuilder(piecePlacement.Get(ActiveSide));
+            newPp[piece.Kind] &= ~source.GetMask();
+            newPp[newKind] |= destination.GetMask();
+            piecePlacement = piecePlacement.Set(ActiveSide, newPp.Value);
             // Update hash
             hash ^= ZobristKey.ForPieceSquare(piece, source);
             hash ^= ZobristKey.ForPieceSquare(newPiece, destination);
@@ -411,10 +410,10 @@ namespace ChessBot
                 var capturedPiece = Board[toClear].Piece;
                 // Update board
                 if (isEnPassantCapture) newBoard[toClear] = default;
-                // Update piece masks
-                var newOpposingPms = Pms.CreateBuilder(pieceMasks.Get(OpposingSide));
-                newOpposingPms[capturedPiece.Kind] &= ~toClear.GetMask();
-                pieceMasks = pieceMasks.Set(OpposingSide, newOpposingPms.Value);
+                // Update piece placement
+                var newOpposingPp = PieceBitboards.CreateBuilder(piecePlacement.Get(OpposingSide));
+                newOpposingPp[capturedPiece.Kind] &= ~toClear.GetMask();
+                piecePlacement = piecePlacement.Set(OpposingSide, newOpposingPp.Value);
                 // Update hash
                 hash ^= ZobristKey.ForPieceSquare(capturedPiece, toClear);
             }
@@ -581,14 +580,14 @@ namespace ChessBot
             return hash;
         }
 
-        private static PlayerProperty<PieceMasks> InitPieceMasks(Board board)
+        private static PlayerProperty<PieceBitboards> InitPiecePlacement(Board board)
         {
-            var (white, black) = (Pms.CreateBuilder(), Pms.CreateBuilder());
+            var (white, black) = (PieceBitboards.CreateBuilder(), PieceBitboards.CreateBuilder());
             foreach (var tile in board.GetOccupiedTiles())
             {
                 var piece = tile.Piece;
-                var pms = piece.IsWhite ? white : black;
-                pms[piece.Kind] |= tile.Location.GetMask();
+                var pp = piece.IsWhite ? white : black;
+                pp[piece.Kind] |= tile.Location.GetMask();
             }
             return (white.Value, black.Value);
         }
@@ -598,8 +597,8 @@ namespace ChessBot
             var (white, black) = (Bitboard.Zero, Bitboard.Zero);
             for (var kind = PieceKind.Pawn; kind <= PieceKind.King; kind++)
             {
-                white |= PieceMasks.White[kind];
-                black |= PieceMasks.Black[kind];
+                white |= PiecePlacement.White[kind];
+                black |= PiecePlacement.Black[kind];
             }
             return (white, black);
         }
@@ -645,7 +644,7 @@ namespace ChessBot
 
         internal Location? FindKing(Side side)
         {
-            var bb = GetPlayer(side).GetPieceMask(PieceKind.King);
+            var bb = GetPlayer(side).GetPiecePlacement(PieceKind.King);
             Debug.Assert(bb.PopCount() <= 1, $"{side} has more than one king");
             return bb != Bitboard.Zero ? bb.NextLocation() : (Location?)null;
         }

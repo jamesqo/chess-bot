@@ -36,13 +36,13 @@ namespace ChessBot
         public bool CanCastleQueenside => (_parent.CastlingRights & GetQueensideCastleFlag(Side)) != 0;
 
         /// <summary>
-        /// Gets a list of locations occupied by pieces of a certain kind on this player's side.
+        /// Gets a list of locations occupied by a certain kind of piece on this player's side.
         /// </summary>
         /// <param name="kind">The kind of the piece.</param>
-        public Bitboard GetPieceMask(PieceKind kind)
+        public Bitboard GetPiecePlacement(PieceKind kind)
         {
             if (!kind.IsValid()) throw new ArgumentOutOfRangeException(nameof(kind));
-            return _parent.PieceMasks.Get(Side)[kind];
+            return _parent.PiecePlacement.Get(Side)[kind];
         }
 
         // don't use this on hot codepaths
