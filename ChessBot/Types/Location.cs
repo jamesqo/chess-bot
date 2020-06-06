@@ -68,7 +68,7 @@ namespace ChessBot.Types
             rank = Rank;
         }
 
-        // used on perf-sensitive codepaths so we don't have to perform additional computation, ie. like Up().Right()
+        // used on perf-sensitive codepaths so we don't have to perform additional computation, ie. like Right().Up()
         public Location Add(int fileShift, int rankShift) => (File + fileShift, Rank + rankShift);
 
         public Location Up(int shift) => (File, Rank + shift);

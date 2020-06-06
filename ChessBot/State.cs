@@ -225,9 +225,9 @@ namespace ChessBot
         public Tile this[string location] => this[Location.Parse(location)];
 
         public State Apply(string move) => Apply(Move.Parse(move, this));
-        public State Apply(Move move) => TryApply(move, out var error) ?? throw error;
+        public State Apply(Move move) => TryApply(move, out var error) ?? throw new InvalidMoveException(error);
 
-        public State? TryApply(string move, out InvalidMoveException error)
+        public State? TryApply(string move, out InvalidMoveReason error)
         {
             Move moveObj;
             try
@@ -236,39 +236,39 @@ namespace ChessBot
             }
             catch (InvalidMoveException e)
             {
-                error = e;
+                error = e.Reason;
                 return null;
             }
             return TryApply(moveObj, out error);
         }
 
-        public State? TryApply(Move move, out InvalidMoveException error)
+        public State? TryApply(Move move, out InvalidMoveReason error)
         {
             var (source, destination) = (move.Source, move.Destination);
             if (!Board[source].HasPiece)
             {
-                error = new InvalidMoveException("Source tile is empty"); return null;
+                error = InvalidMoveReason.EmptySource; return null;
             }
 
             var piece = Board[source].Piece;
             if (piece.Side != ActiveSide)
             {
-                error = new InvalidMoveException("Piece's color does not match active player's color"); return null;
+                error = InvalidMoveReason.MismatchedSourcePiece; return null;
             }
             if (Board[destination].HasPiece && Board[destination].Piece.Side == piece.Side)
             {
-                error = new InvalidMoveException("Destination tile is already occupied by a piece of the same color"); return null;
+                error = InvalidMoveReason.DestinationOccupiedByFriendlyPiece; return null;
             }
 
             bool promotes = (piece.Kind == PieceKind.Pawn && destination.Rank == EighthRank(ActiveSide));
             if (move.PromotionKind.HasValue != promotes)
             {
-                error = new InvalidMoveException("A promotion happens iff a pawn moves to the back rank"); return null;
+                error = InvalidMoveReason.BadPromotionKind; return null;
             }
 
             if (!IsMovePossible(source, destination))
             {
-                error = new InvalidMoveException($"Movement rules do not allow {piece} to be brought from {source} to {destination}"); return null;
+                error = InvalidMoveReason.ViolatesMovementRules; return null;
             }
 
             var result = ApplyUnsafe(move);
@@ -280,10 +280,10 @@ namespace ChessBot
 
             if (result.CanAttackOpposingKing) // this corresponds to the king that was active in the previous state
             {
-                error = new InvalidMoveException($"Move is invalid since it lets {ActiveSide}'s king be attacked"); return null;
+                error = InvalidMoveReason.AllowsKingToBeAttacked; return null;
             }
 
-            error = null;
+            error = InvalidMoveReason.None;
             return result;
         }
 
@@ -482,9 +482,10 @@ namespace ChessBot
                 return list;
             }
 
-            foreach (var tile in ActivePlayer.GetOccupiedTiles())
+            for (var bb = Occupies.Get(ActiveSide); bb != Bitboard.Zero; bb = bb.ClearLsb())
             {
-                using var movesToTry = GetPossibleMoves(tile.Location);
+                var source = bb.NextLocation();
+                using var movesToTry = GetPossibleMoves(source);
                 foreach (var move in movesToTry)
                 {
                     var succ = TryApply(move, out _);
@@ -634,15 +635,16 @@ namespace ChessBot
             var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, kingside);
             var kingDestination = kingside ? kingSource.Right(2) : kingSource.Left(2);
 
-            bool piecesBetweenKingAndRook = GetLocationsBetween(kingSource, rookSource).Any(loc => Board[loc].HasPiece);
-            bool kingPassesThroughAttackedLocation = GetLocationsBetween(kingSource, kingDestination).Any(loc => IsAttackedBy(OpposingSide, loc));
+            bool piecesBetweenKingAndRook = (GetLocationsBetween(kingSource, rookSource) & Occupied) != Bitboard.Zero;
+            bool kingPassesThroughAttackedLocation = (GetLocationsBetween(kingSource, kingDestination) & Attacks.Get(OpposingSide)) != Bitboard.Zero;
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
         internal Location? FindKing(Side side)
         {
-            var pm = GetPlayer(side).GetPieceMask(PieceKind.King);
-            return pm != Bitboard.Zero ? pm.NextLocation() : (Location?)null;
+            var bb = GetPlayer(side).GetPieceMask(PieceKind.King);
+            Debug.Assert(bb.PopCount() <= 1, $"{side} has more than one king");
+            return bb != Bitboard.Zero ? bb.NextLocation() : (Location?)null;
         }
 
         /// <summary>
@@ -707,7 +709,7 @@ namespace ChessBot
                     throw new ArgumentOutOfRangeException();
             }
 
-            return canMoveIfUnblocked && (!canPieceBeBlocked || GetLocationsBetween(source, destination).All(loc => !Board[loc].HasPiece));
+            return canMoveIfUnblocked && (!canPieceBeBlocked || (GetLocationsBetween(source, destination) & Occupied) == Bitboard.Zero);
         }
 
         // todo: calculating this is a perf bottleneck, so pass it along in Secrets instead
@@ -790,14 +792,15 @@ namespace ChessBot
         /// </summary>
         private bool IsAttackedBy(Side side, Location location) => GetPlayer(side).Attacks[location];
 
-        // todo: use bitboards here
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.
         /// </summary>
-        private static IEnumerable<Location> GetLocationsBetween(Location source, Location destination)
+        private static Bitboard GetLocationsBetween(Location source, Location destination)
         {
             Debug.Assert(source != destination);
+
             var (deltaX, deltaY) = (destination.File - source.File, destination.Rank - source.Rank);
+            var result = Bitboard.Zero;
 
             if (deltaX == 0)
             {
@@ -806,7 +809,7 @@ namespace ChessBot
                 int shift = deltaY.Abs();
                 for (int dy = 1; dy < shift; dy++)
                 {
-                    yield return start.Up(dy);
+                    result |= start.Up(dy).GetMask();
                 }
             }
             else if (deltaY == 0)
@@ -816,7 +819,7 @@ namespace ChessBot
                 int shift = deltaX.Abs();
                 for (int dx = 1; dx < shift; dx++)
                 {
-                    yield return start.Right(dx);
+                    result |= start.Right(dx).GetMask();
                 }
             }
             else
@@ -830,9 +833,11 @@ namespace ChessBot
                 for (int dx = 1; dx < shift; dx++)
                 {
                     int dy = dx * slope;
-                    yield return start.Right(dx).Up(dy);
+                    result |= start.Add(dx, dy).GetMask();
                 }
             }
+
+            return result;
         }
 
         private static Bitboard RestrictDiagonally(Bitboard attacks, Bitboard occupied, Location source)

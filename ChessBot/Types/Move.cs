@@ -42,7 +42,7 @@ namespace ChessBot.Types
             bool realIsCapture = state[destination].HasPiece || (sourceKind == PieceKind.Pawn && destination == state.EnPassantTarget);
             if (isCapture != realIsCapture)
             {
-                throw new InvalidMoveException($"Incorrect value for {nameof(isCapture)} provided");
+                throw new InvalidMoveException(InvalidMoveReason.BadCaptureNotation);
             }
 
             var possibleSources = state.ActivePlayer.GetOccupiedTiles();
@@ -73,9 +73,9 @@ namespace ChessBot.Types
                     && state.IsMovePossible(t.Location, destination, allowCastling: false));
                 return sourceTile.Location;
             }
-            catch (InvalidOperationException e)
+            catch (InvalidOperationException)
             {
-                throw new InvalidMoveException("Could not infer source location", e);
+                throw new InvalidMoveException(InvalidMoveReason.CouldNotInferSource);
             }
         }
 
@@ -107,7 +107,7 @@ namespace ChessBot.Types
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 // todo: add a test for when we try to castle but there's no king / multiple kings
-                var source = state.FindKing(state.ActiveSide) ?? throw new InvalidMoveException("Attempt to castle without exactly 1 king");
+                var source = state.FindKing(state.ActiveSide) ?? throw new InvalidMoveException(InvalidMoveReason.CouldNotFindKing);
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new Move(source, destination);
             }
@@ -134,7 +134,7 @@ namespace ChessBot.Types
         {
             if (source == destination)
             {
-                throw new InvalidMoveException("Source cannot be the same as the destination");
+                throw new InvalidMoveException(InvalidMoveReason.SameSourceAndDestination);
             }
 
             switch (promotionKind)
@@ -146,7 +146,7 @@ namespace ChessBot.Types
                 case PieceKind.Rook:
                     break;
                 default:
-                    throw new InvalidMoveException($"Bad value for ${nameof(promotionKind)}");
+                    throw new InvalidMoveException(InvalidMoveReason.BadPromotionKind);
             }
 
             int kindValue = promotionKind.HasValue ? ((int)promotionKind.Value + 1) : 0;
