@@ -18,15 +18,15 @@ namespace ChessBot.Search
 
         private readonly struct TtEntry
         {
-            public TtEntry(int utility, int depth)
+            public TtEntry(int utilityEstimate, int depth)
             {
                 Debug.Assert(depth > 0);
 
-                Utility = utility;
+                UtilityEstimate = utilityEstimate;
                 Depth = depth;
             }
 
-            public int Utility { get; }
+            public int UtilityEstimate { get; }
             public int Depth { get; }
         }
 
@@ -105,7 +105,7 @@ namespace ChessBot.Search
                 if (tte.Depth >= d)
                 {
                     _tt.Touch(ttNode);
-                    return tte.Utility;
+                    return tte.UtilityEstimate;
                 }
             }
 
@@ -139,7 +139,7 @@ namespace ChessBot.Search
                 return Evaluation.Terminal(state);
             }
 
-            tte = new TtEntry(utility: bestValue, depth: d);
+            tte = new TtEntry(utilityEstimate: bestValue, depth: d);
             if (ttNode != null && !ttNode.WasEvicted) // the node could have been evicted during a recursive call
             {
                 // update the existing node

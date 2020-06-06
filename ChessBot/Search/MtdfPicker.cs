@@ -1,6 +1,7 @@
 ﻿using ChessBot.Types;
 using System;
 using System.Diagnostics;
+using System.Linq;
 
 namespace ChessBot.Search
 {
@@ -220,6 +221,7 @@ namespace ChessBot.Search
                 int ttDepth = ttNode.Value.Depth;
                 if (depth >= ttDepth) // information about higher depths is more valuable
                 {
+                    /*
                     if (depth == ttDepth)
                     {
                         // improve on what we already know
@@ -228,6 +230,11 @@ namespace ChessBot.Search
                             Math.Min(tte.UpperBound, ttNode.Value.UpperBound),
                             depth: depth);
                     }
+                    */
+                    // ^ this looks reasonable but it doesn't work.
+                    // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
+                    // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
+                    // make the earlier bounds obsolete) even though we're passing the same depth both times.
                     ttNode.Value = tte;
                     tt.Touch(ttNode);
                 }
