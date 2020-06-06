@@ -45,9 +45,6 @@ namespace ChessBot
             Attacks = InitAttacks();
             CanCastleKingside = InitCanCastle(kingside: true);
             CanCastleQueenside = InitCanCastle(kingside: false);
-
-            White = new PlayerState(this, Side.White);
-            Black = new PlayerState(this, Side.Black);
         }
 
         // todo: remove this
@@ -190,8 +187,15 @@ namespace ChessBot
         /// </summary>
         public ulong Hash { get; private set; }
 
-        public PlayerState White { get; }
-        public PlayerState Black { get; }
+        /// <summary>
+        /// Contains information about the white player.
+        /// </summary>
+        public PlayerState White => new PlayerState(this, Side.White);
+
+        /// <summary>
+        /// Contains information about the black player.
+        /// </summary>
+        public PlayerState Black => new PlayerState(this, Side.Black);
 
         internal Board Board { get; }
         internal PlayerProperty<PieceMasks> PieceMasks { get; }
@@ -209,6 +213,9 @@ namespace ChessBot
         //public bool IsTerminal => _isTerminal ?? (bool)(_isTerminal = !GetMoves().Any());
         public bool WhiteToMove => ActiveSide.IsWhite();
 
+        /// <summary>
+        /// List of non-empty locations on the board.
+        /// </summary>
         public Bitboard Occupied
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)] // this wasn't being inlined for whatever reason

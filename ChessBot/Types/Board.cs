@@ -27,7 +27,7 @@ namespace ChessBot.Types
         {
         }
 
-        private Board(ref Buffer buffer)
+        private Board(in Buffer buffer)
         {
             _buffer = buffer;
         }
@@ -183,7 +183,7 @@ namespace ChessBot.Types
 
             private static Board Copy(Board value)
             {
-                return new Board(ref value._buffer);
+                return new Board(in value._buffer);
             }
         }
     }

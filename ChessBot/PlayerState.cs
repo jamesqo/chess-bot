@@ -22,18 +22,30 @@ namespace ChessBot
         private readonly State _parent;
         public Side Side { get; }
 
+        /// <summary>
+        /// List of locations attacked by this player.
+        /// </summary>
         public Bitboard Attacks => _parent.Attacks.Get(Side);
+
+        /// <summary>
+        /// List of locations occupied by this player.
+        /// </summary>
         public Bitboard Occupies => _parent.Occupies.Get(Side);
+
         public bool CanCastleKingside => (_parent.CastlingRights & GetKingsideCastleFlag(Side)) != 0;
         public bool CanCastleQueenside => (_parent.CastlingRights & GetQueensideCastleFlag(Side)) != 0;
 
+        /// <summary>
+        /// Gets a list of locations occupied by pieces of a certain kind on this player's side.
+        /// </summary>
+        /// <param name="kind">The kind of the piece.</param>
         public Bitboard GetPieceMask(PieceKind kind)
         {
             if (!kind.IsValid()) throw new ArgumentOutOfRangeException(nameof(kind));
             return _parent.PieceMasks.Get(Side)[kind];
         }
 
-        // perf todo
+        // don't use this on hot codepaths
         public IEnumerable<Tile> GetOccupiedTiles()
         {
             foreach (var tile in _parent.GetTiles())

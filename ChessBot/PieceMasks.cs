@@ -3,7 +3,8 @@ using System;
 
 namespace ChessBot
 {
-    // todo: remove this
+    // todo: remove this?
+    // todo: move to Types
     internal class PieceMasks
     {
         private unsafe struct Buffer
@@ -29,7 +30,7 @@ namespace ChessBot
             _buffer.Masks[5] = king;
         }
 
-        private PieceMasks(ref Buffer buffer)
+        private PieceMasks(in Buffer buffer)
         {
             _buffer = buffer;
         }
@@ -74,7 +75,7 @@ namespace ChessBot
 
             private static PieceMasks Copy(PieceMasks value)
             {
-                return new PieceMasks(ref value._buffer);
+                return new PieceMasks(in value._buffer);
             }
         }
     }
