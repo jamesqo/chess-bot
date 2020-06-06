@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 namespace ChessBot.Types
 {
     // todo: cleanup the code here
+    // todo: make this api usable since it's public (ie. add a parse method or something)
     /// <summary>
     /// Represents a list of tiles on a chess board.
     /// </summary>
@@ -139,12 +140,12 @@ namespace ChessBot.Types
         }
 
         /// <summary>
-        /// Mutable struct that helps with generating <see cref="Types.Board"/> values.
+        /// Mutable struct that helps with generating <see cref="Board"/> values.
         /// </summary>
         /// <remarks>
         /// Since this is a mutable struct, try not to copy it or you may get unintuitive behavior.
         /// Also, DO NOT use any of the mutating methods after getting <see cref="Value"/>! It may violate
-        /// <see cref="Types.Board"/>'s immutability contract. Unfortunately, we have no way of enforcing this
+        /// <see cref="Board"/>'s immutability contract. Unfortunately, we have no way of enforcing this
         /// since this type is a struct for performance reasons.
         /// </remarks>
         internal struct Builder
