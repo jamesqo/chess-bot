@@ -30,6 +30,8 @@ namespace ChessBot.Search
 
         public Move PickMove(State state, out Info info)
         {
+            _tt.Clear(); // in case Depth changed
+
             Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             var (alpha, beta) = (int.MinValue, int.MaxValue);

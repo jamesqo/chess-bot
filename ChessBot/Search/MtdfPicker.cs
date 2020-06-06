@@ -16,12 +16,28 @@ namespace ChessBot.Search
             public int Utility { get; }
         }
 
-        private readonly TranspositionTable<MtdfTtEntry> _tt;
+        private readonly struct TtEntry
+        {
+            public TtEntry(int lowerBound, int upperBound)
+            {
+                Debug.Assert(lowerBound <= upperBound);
+
+                LowerBound = lowerBound;
+                UpperBound = upperBound;
+            }
+
+            public int LowerBound { get; }
+            public int UpperBound { get; }
+
+            public override string ToString() => $"[{LowerBound}, {UpperBound}]";
+        }
+
+        private readonly TranspositionTable<TtEntry> _tt;
 
         public MtdfPicker(int depth)
         {
             Depth = depth;
-            _tt = new TranspositionTable<MtdfTtEntry>();
+            _tt = new TranspositionTable<TtEntry>();
         }
 
         public int Depth { get; set; }
@@ -31,6 +47,8 @@ namespace ChessBot.Search
 
         public Move PickMove(State state, out Info info)
         {
+            _tt.Clear(); // in case Depth changed
+
             Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             bool isTerminal = true;
@@ -61,7 +79,7 @@ namespace ChessBot.Search
             State root,
             int firstGuess,
             int depth,
-            TranspositionTable<MtdfTtEntry> tt,
+            TranspositionTable<TtEntry> tt,
             int bestSiblingValue)
         {
             int guess = firstGuess;
@@ -100,7 +118,7 @@ namespace ChessBot.Search
             int alpha,
             int beta,
             int depth,
-            TranspositionTable<MtdfTtEntry> tt)
+            TranspositionTable<TtEntry> tt)
         {
             Debug.Assert(alpha < beta);
 
@@ -109,7 +127,7 @@ namespace ChessBot.Search
                 return Evaluation.Heuristic(state);
             }
 
-            MtdfTtEntry tte;
+            TtEntry tte;
             if (tt.TryGetNode(state, out var ttNode))
             {
                 tte = ttNode.Value;
@@ -162,13 +180,13 @@ namespace ChessBot.Search
 
             if (guess <= alpha) // fail-low result => upper bound
             {
-                tte = new MtdfTtEntry(lowerBound: int.MinValue, upperBound: guess);
+                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess);
             }
             else // fail-high result => lower bound
             {
                 // for now, we're only calling this with null-window searches where alpha == beta - 1
                 Debug.Assert(guess >= beta);
-                tte = new MtdfTtEntry(lowerBound: guess, upperBound: int.MaxValue);
+                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue);
             }
             /*
             else // neither => this is the exact minimax value
@@ -181,7 +199,7 @@ namespace ChessBot.Search
             if (ttNode != null)
             {
                 // improve on what we already know
-                tte = new MtdfTtEntry(
+                tte = new TtEntry(
                     Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
                     Math.Min(tte.UpperBound, ttNode.Value.UpperBound));
                 ttNode.Value = tte;

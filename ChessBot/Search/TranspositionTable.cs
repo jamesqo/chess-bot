@@ -15,8 +15,8 @@ namespace ChessBot.Search
         private const int EvictionPeriod = 8;
 
         private readonly Dictionary<ulong, TtNode<T>> _dict;
-        private readonly TtLinkedList<T> _nodes;
         private readonly int _capacity;
+        private TtLinkedList<T> _nodes;
         private int _numAdds;
 
         public TranspositionTable() : this(DefaultCapacity) { }
@@ -24,8 +24,8 @@ namespace ChessBot.Search
         public TranspositionTable(int capacity)
         {
             _dict = new Dictionary<ulong, TtNode<T>>(capacity);
-            _nodes = new TtLinkedList<T>();
             _capacity = capacity;
+            _nodes = new TtLinkedList<T>();
             _numAdds = 0;
         }
 
@@ -45,6 +45,12 @@ namespace ChessBot.Search
             _dict.Add(state.Hash, node);
             _nodes.AddToTop(node);
             return true;
+        }
+
+        public void Clear()
+        {
+            _dict.Clear();
+            _nodes = new TtLinkedList<T>();
         }
 
         public bool TryGetValue(State state, out T value)
