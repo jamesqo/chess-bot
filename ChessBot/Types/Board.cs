@@ -14,8 +14,7 @@ namespace ChessBot.Types
     {
         private unsafe struct Buffer
         {
-            // todo: decide if 64 instead of 32 bytes is really warranted here
-            public fixed byte Bytes[64];
+            public fixed byte Bytes[32];
         }
 
         internal const int NumberOfTiles = 64;
@@ -41,7 +40,9 @@ namespace ChessBot.Types
                 Debug.Assert(location.IsValid);
 
                 int index = location.Value;
-                byte pieceValue = _buffer.Bytes[index];
+                byte pieceValue = _buffer.Bytes[index / 2];
+                pieceValue >>= (index % 2) * 4;
+                pieceValue &= 0b0000_1111;
                 return new PieceOrNone(pieceValue);
             }
         }
@@ -70,8 +71,8 @@ namespace ChessBot.Types
 
         public unsafe byte[] ToBytes()
         {
-            var bytes = new byte[64];
-            for (int i = 0; i < 64; i++)
+            var bytes = new byte[32];
+            for (int i = 0; i < 32; i++)
             {
                 bytes[i] = _buffer.Bytes[i];
             }
@@ -166,7 +167,17 @@ namespace ChessBot.Types
 
                     int index = location.Value;
                     byte pieceValue = value.Value; // 0 represents an empty tile
-                    _value._buffer.Bytes[index] = pieceValue;
+                    ref byte target = ref _value._buffer.Bytes[index / 2];
+                    if (index % 2 != 0)
+                    {
+                        target &= 0b0000_1111;
+                        target |= (byte)(pieceValue << 4);
+                    }
+                    else
+                    {
+                        target &= 0b1111_0000;
+                        target |= pieceValue;
+                    }
                 }
             }
 
