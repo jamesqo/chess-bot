@@ -40,18 +40,21 @@ namespace ChessBot.Search
 
         public int Depth { get; set; }
 
-        public Move PickMove(State state, out Info info)
+        public Move PickMove(IState state, out Info info)
         {
             Move bestMove = default;
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             var (alpha, beta) = (int.MinValue, int.MaxValue);
             bool isTerminal = true;
+            var current = state.ToMutState();
 
-            foreach (var (move, succ) in state.GetSuccessors())
+            foreach (var move in current.GetPsuedoLegalMoves())
             {
+                if (!current.TryApply(move, out _)) continue;
+
                 isTerminal = false;
 
-                int value = DoAlphaBeta(succ, Depth - 1, alpha, beta);
+                int value = _AlphaBeta(succ, Depth - 1, alpha, beta);
                 if (state.WhiteToMove)
                 {
                     bool better = (value > bestValue);

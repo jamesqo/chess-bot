@@ -70,7 +70,7 @@ namespace ChessBot.Types
             {
                 var sourceTile = possibleSources.Single(t => t.Piece.Kind == sourceKind
                     // Castling should be denoted with the special notation O-O / O-O-O, we don't want to accept Kg1 / Kc1
-                    && state.Inner.IsMovePossible(t.Location, destination, allowCastling: false));
+                    && state.Inner.IsMovePseudoLegal(t.Location, destination, allowCastling: false));
                 return sourceTile.Location;
             }
             catch (InvalidOperationException)

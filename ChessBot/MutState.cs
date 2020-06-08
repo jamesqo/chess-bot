@@ -2,6 +2,8 @@
 using ChessBot.Helpers;
 using ChessBot.Types;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -111,6 +113,32 @@ namespace ChessBot
 
         public Player GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
+        public IEnumerable<Move> GetPseudoLegalMoves()
+        {
+            for (var ss = ActivePlayer.Occupies; ss != Bitboard.Zero; ss = ss.ClearLsb())
+            {
+                var source = ss.NextLocation();
+                var piece = Board[source].Piece;
+
+                for (var ds = GetPseudoLegalDestinations(source); ds != Bitboard.Zero; ds = ds.ClearLsb())
+                {
+                    var destination = ds.NextLocation();
+                    // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
+                    if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(ActiveSide))
+                    {
+                        yield return new Move(source, destination, promotionKind: PieceKind.Knight);
+                        yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
+                        yield return new Move(source, destination, promotionKind: PieceKind.Rook);
+                        yield return new Move(source, destination, promotionKind: PieceKind.Queen);
+                    }
+                    else
+                    {
+                        yield return new Move(source, destination);
+                    }
+                }
+            }
+        }
+
         public bool TryApply(Move move, out InvalidMoveReason error)
         {
             var (source, destination) = (move.Source, move.Destination);
@@ -135,7 +163,7 @@ namespace ChessBot
                 error = InvalidMoveReason.BadPromotionKind; return false;
             }
 
-            if (!IsMovePossible(source, destination))
+            if (!IsMovePseudoLegal(source, destination))
             {
                 error = InvalidMoveReason.ViolatesMovementRules; return false;
             }
@@ -321,8 +349,8 @@ namespace ChessBot
         // this shoulndn't be true of any valid state
         private bool IsOpposingKingAttacked => FindKing(OpposingSide) is Location loc && ActivePlayer.Attacks[loc];
 
-        internal bool CanReallyCastleKingside => CanReallyCastle(kingside: true);
-        internal bool CanReallyCastleQueenside => CanReallyCastle(kingside: false);
+        private bool CanReallyCastleKingside => CanReallyCastle(kingside: true);
+        private bool CanReallyCastleQueenside => CanReallyCastle(kingside: false);
 
         private ulong InitHash()
         {
@@ -403,16 +431,17 @@ namespace ChessBot
             return bb != Bitboard.Zero ? bb.NextLocation() : (Location?)null;
         }
 
-        // todo: now that GetPossibleDestinations returns a bitboard, it shouldn't be that expensive to check for membership.
+        // todo: now that GetPseudoLegalDestinations returns a bitboard, it shouldn't be that expensive to check for membership.
         /// <summary>
-        /// Checks whether it's possible to move the piece on <paramref name="source"/> to <paramref name="destination"/>.
+        /// Checks whether it's possible to move the piece on <paramref name="source"/> to <paramref name="destination"/> according to movement rules.
         /// Ignores whether we would create an invalid position by putting our king in check.
         /// <br/>
-        /// This is basically equivalent to checking whether GetPossibleDestinations(<paramref name="source"/>) contains <paramref name="destination"/>.
+        /// This is basically equivalent to checking whether GetPseudoLegalDestinations(<paramref name="source"/>) contains <paramref name="destination"/>.
         /// </summary>
-        internal bool IsMovePossible(Location source, Location destination, bool allowCastling = true)
+        internal bool IsMovePseudoLegal(Location source, Location destination, bool allowCastling = true)
         {
             Debug.Assert(Board[source].HasPiece);
+            Debug.Assert(Board[source].Piece.Side == ActiveSide);
 
             if (source == destination)
             {
@@ -469,11 +498,11 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || (GetLocationsBetween(source, destination) & Occupied) == Bitboard.Zero);
         }
 
-        // todo: calculating this is a perf bottleneck, so pass it along in Secrets instead
+        // todo: calculating this is a perf bottleneck
         /// <summary>
         /// Returns a list of locations that are attacked by the piece at <paramref name="source"/>.
         /// </summary>
-        internal Bitboard GetModifiedAttackBitboard(Location source)
+        private Bitboard GetModifiedAttackBitboard(Location source)
         {
             Debug.Assert(Board[source].HasPiece);
 
@@ -638,7 +667,56 @@ namespace ChessBot
             return attacks;
         }
 
-        internal MutState Clone() => new MutState(this);
+
+        /// <summary>
+        /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
+        /// Does not account for whether the move would be invalid because its king is currently in check.
+        /// </summary>
+        private Bitboard GetPseudoLegalDestinations(Location source)
+        {
+            Debug.Assert(Board[source].HasPiece);
+            Debug.Assert(Board[source].Piece.Side == ActiveSide);
+
+            var result = GetModifiedAttackBitboard(source);
+            var piece = Board[source].Piece;
+
+            var side = piece.Side;
+            Debug.Assert(side == ActiveSide); // this assumption is only used when we check for castling availability
+
+            result &= ~ActivePlayer.Occupies; // we can't move to squares occupied by our own pieces
+
+            switch (piece.Kind)
+            {
+                case PieceKind.Pawn:
+                    // a pawn can only move to the left/right if it captures an opposing piece
+                    var captureMask = OpposingPlayer.Occupies;
+                    if (EnPassantTarget.HasValue) captureMask |= EnPassantTarget.Value.GetMask();
+                    result &= captureMask;
+
+                    // the attack vectors also don't include moving forward by 1/2, so OR those in
+                    Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank
+                    var forward = ForwardStep(side);
+                    var up1 = source.Up(forward);
+                    if (!Occupied[up1])
+                    {
+                        result |= up1.GetMask();
+                        if (source.Rank == SecondRank(side))
+                        {
+                            var up2 = source.Up(forward * 2);
+                            if (!Occupied[up2]) result |= up2.GetMask();
+                        }
+                    }
+                    break;
+                case PieceKind.King:
+                    if (CanReallyCastleKingside) result |= source.Right(2).GetMask();
+                    if (CanReallyCastleQueenside) result |= source.Left(2).GetMask();
+                    break;
+            }
+
+            return result;
+        }
+
+        internal MutState Copy() => new MutState(this);
 
         #endregion
     }

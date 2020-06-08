@@ -6,7 +6,7 @@ using System.Diagnostics;
 
 namespace ChessBot.Helpers
 {
-    // todo: does this have to be public? maybe just delete altogether?
+    // todo: maybe delete
     internal struct PooledList<T> : IEnumerable<T>, IDisposable
     {
         public static PooledList<T> Get(int maxLength) => new PooledList<T>(maxLength);

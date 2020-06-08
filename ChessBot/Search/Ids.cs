@@ -14,12 +14,12 @@ namespace ChessBot.Search
             public int Utility { get; }
         }
 
-        private readonly MtdfPicker _inner;
+        private readonly Mtdf _inner;
 
         public Ids(int depth)
         {
             Depth = depth;
-            _inner = new MtdfPicker(1);
+            _inner = new Mtdf(1);
         }
 
         public int Depth { get; set; }

@@ -3,10 +3,8 @@ using ChessBot.Helpers;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
 
@@ -209,7 +207,7 @@ namespace ChessBot
 
         public State? TryApply(Move move, out InvalidMoveReason error)
         {
-            var newInner = _inner.Clone();
+            var newInner = _inner.Copy();
             if (!newInner.TryApply(move, out error))
             {
                 return null;
@@ -255,42 +253,13 @@ namespace ChessBot
 
         public IEnumerable<SuccessorPair> GetSuccessors()
         {
-            // todo: should this be lazy too?
-            PooledList<Move> GetPossibleMoves(Location source)
+            foreach (var move in _inner.GetPseudoLegalMoves())
             {
-                // todo: enforce this should never reach capacity?
-                var list = PooledList<Move>.Get(28);
-
-                var destinations = GetPossibleDestinations(source);
-                var piece = this[source].Piece;
-                for (var bb = destinations; bb != Bitboard.Zero; bb = bb.ClearLsb())
+                var newInner = _inner.Copy();
+                if (newInner.TryApply(move, out _))
                 {
-                    var destination = bb.NextLocation();
-                    // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
-                    if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(ActiveSide))
-                    {
-                        list.Add(new Move(source, destination, promotionKind: PieceKind.Knight));
-                        list.Add(new Move(source, destination, promotionKind: PieceKind.Bishop));
-                        list.Add(new Move(source, destination, promotionKind: PieceKind.Rook));
-                        list.Add(new Move(source, destination, promotionKind: PieceKind.Queen));
-                    }
-                    else
-                    {
-                        list.Add(new Move(source, destination));
-                    }
-                }
-
-                return list;
-            }
-
-            for (var bb = ActivePlayer.Occupies; bb != Bitboard.Zero; bb = bb.ClearLsb())
-            {
-                var source = bb.NextLocation();
-                using var movesToTry = GetPossibleMoves(source);
-                foreach (var move in movesToTry)
-                {
-                    var succ = TryApply(move, out _);
-                    if (succ != null) yield return (move, succ);
+                    var succ = new State(newInner);
+                    yield return (move, succ);
                 }
             }
         }
@@ -312,58 +281,11 @@ namespace ChessBot
         // todo: remove this from public api?
         public State SetActiveSide(Side value)
         {
-            var newInner = _inner.Clone();
+            var newInner = _inner.Copy();
             newInner.ActiveSide = value;
             newInner.Hash ^= ZobristKey.ForActiveSide(ActiveSide);
             newInner.Hash ^= ZobristKey.ForActiveSide(value);
             return new State(newInner);
-        }
-
-        /// <summary>
-        /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
-        /// Does not account for whether the move would be invalid because its king is currently in check.
-        /// </summary>
-        private Bitboard GetPossibleDestinations(Location source)
-        {
-            Debug.Assert(this[source].HasPiece);
-
-            var result = _inner.GetModifiedAttackBitboard(source);
-            var piece = this[source].Piece;
-
-            var side = piece.Side;
-            Debug.Assert(side == ActiveSide); // this assumption is only used when we check for castling availability
-
-            result &= ~ActivePlayer.Occupies; // we can't move to squares occupied by our own pieces
-
-            switch (piece.Kind)
-            {
-                case PieceKind.Pawn:
-                    // a pawn can only move to the left/right if it captures an opposing piece
-                    var captureMask = OpposingPlayer.Occupies;
-                    if (EnPassantTarget.HasValue) captureMask |= EnPassantTarget.Value.GetMask();
-                    result &= captureMask;
-
-                    // the attack vectors also don't include moving forward by 1/2, so OR those in
-                    Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank
-                    var forward = ForwardStep(side);
-                    var up1 = source.Up(forward);
-                    if (!_inner.Occupied[up1])
-                    {
-                        result |= up1.GetMask();
-                        if (source.Rank == SecondRank(side))
-                        {
-                            var up2 = source.Up(forward * 2);
-                            if (!_inner.Occupied[up2]) result |= up2.GetMask();
-                        }
-                    }
-                    break;
-                case PieceKind.King:
-                    if (_inner.CanReallyCastleKingside) result |= source.Right(2).GetMask();
-                    if (_inner.CanReallyCastleQueenside) result |= source.Left(2).GetMask();
-                    break;
-            }
-
-            return result;
         }
     }
 }
