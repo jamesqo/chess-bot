@@ -349,10 +349,22 @@ namespace ChessBot
             Debug.Assert(Board[source].HasPiece);
             Debug.Assert(!Board[destination].HasPiece || Board[destination].Piece.Side != Board[source].Piece.Side);
 
+            // Store relevant info about the board
+            // It's important to do all of this *before* we actually modify the board.
             var piece = Board[source].Piece;
             var newKind = promotionKind ?? piece.Kind;
             var newPiece = new Piece(piece.Side, newKind);
             bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
+
+            Location toClear = default;
+            Piece capturedPiece = default;
+            if (isCapture)
+            {
+                toClear = isEnPassantCapture
+                    ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
+                    : destination;
+                capturedPiece = Board[toClear].Piece;
+            }
 
             // Update board
             _board[source] = default;
@@ -369,10 +381,6 @@ namespace ChessBot
 
             if (isCapture)
             {
-                var toClear = isEnPassantCapture
-                    ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
-                    : destination;
-                var capturedPiece = Board[toClear].Piece;
                 // Update board
                 if (isEnPassantCapture) _board[toClear] = default;
                 // Update piece placement

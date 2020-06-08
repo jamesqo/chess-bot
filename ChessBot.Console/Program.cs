@@ -34,8 +34,8 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "alphabeta": return new AlphaBeta(depth: 6);
-                    case "mtdf": return new Mtdf(depth: 5);
-                    case "ids": return new Ids(depth: 5);
+                    case "mtdf": return new Mtdf(depth: 6);
+                    case "ids": return new Ids(depth: 6);
                 }
             }
         }
