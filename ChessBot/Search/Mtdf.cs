@@ -50,18 +50,23 @@ namespace ChessBot.Search
         public int Depth { get; set; }
         public int FirstGuess { get; set; } = 0;
 
-        public Move PickMove(State state, out Info info)
+        public Move PickMove(State root, out Info info)
         {
             Move bestMove = default;
-            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
+            int bestValue = root.WhiteToMove ? int.MinValue : int.MaxValue;
             bool isTerminal = true;
+            var state = root.ToMutable();
 
-            foreach (var (move, succ) in state.GetSuccessors())
+            foreach (var move in state.GetPseudoLegalMoves())
             {
+                if (!state.TryApply(move, out _)) continue;
+
                 isTerminal = false;
 
-                int value = _Mtdf(succ, FirstGuess, Depth - 1, _tt, bestValue);
-                bool better = (state.WhiteToMove ? value > bestValue : value < bestValue);
+                int value = _Mtdf(state, FirstGuess, Depth - 1, _tt, bestValue);
+                state.Undo();
+
+                bool better = (root.WhiteToMove ? value > bestValue : value < bestValue);
                 if (better)
                 {
                     bestValue = value;
@@ -71,7 +76,7 @@ namespace ChessBot.Search
 
             if (isTerminal)
             {
-                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(state));
+                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(root));
             }
 
             info = new Info(utility: bestValue);
@@ -79,7 +84,7 @@ namespace ChessBot.Search
         }
 
         private static int _Mtdf(
-            State root,
+            MutState root,
             int firstGuess,
             int depth,
             TranspositionTable<TtEntry> tt,
@@ -117,7 +122,7 @@ namespace ChessBot.Search
         }
 
         private static int AlphaBetaWithMemory(
-            State state,
+            MutState state,
             int alpha,
             int beta,
             int depth,
@@ -170,8 +175,10 @@ namespace ChessBot.Search
             bool firstMakesCut = false;
             if (!firstMove.IsDefault)
             {
-                var succ = state.Apply(firstMove);
-                guess = AlphaBetaWithMemory(succ, alpha, beta, depth - 1, tt);
+                bool success = state.TryApply(firstMove, out _);
+                Debug.Assert(success);
+                guess = AlphaBetaWithMemory(state, alpha, beta, depth - 1, tt);
+                state.Undo();
                 if (state.WhiteToMove)
                 {
                     firstMakesCut = (guess >= beta);
@@ -186,16 +193,18 @@ namespace ChessBot.Search
 
             if (!firstMakesCut)
             {
-                var succs = state.GetSuccessors();
                 bool isTerminal = true;
 
                 if (state.WhiteToMove)
                 {
-                    foreach (var (move, succ) in succs)
+                    foreach (var move in state.GetPseudoLegalMoves())
                     {
+                        if (!state.TryApply(move, out _)) continue;
+
                         isTerminal = false;
 
-                        int value = AlphaBetaWithMemory(succ, a, beta, depth - 1, tt);
+                        int value = AlphaBetaWithMemory(state, a, beta, depth - 1, tt);
+                        state.Undo();
                         bool better = value > guess;
                         if (better)
                         {
@@ -209,11 +218,14 @@ namespace ChessBot.Search
                 }
                 else
                 {
-                    foreach (var (move, succ) in succs)
+                    foreach (var move in state.GetPseudoLegalMoves())
                     {
+                        if (!state.TryApply(move, out _)) continue;
+
                         isTerminal = false;
 
-                        int value = AlphaBetaWithMemory(succ, alpha, b, depth - 1, tt);
+                        int value = AlphaBetaWithMemory(state, alpha, b, depth - 1, tt);
+                        state.Undo();
                         bool better = value < guess;
                         if (better)
                         {

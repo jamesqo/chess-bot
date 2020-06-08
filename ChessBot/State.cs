@@ -114,7 +114,7 @@ namespace ChessBot
 
         private readonly MutState _inner;
 
-        private State(MutState inner) => _inner = inner;
+        internal State(MutState inner) => _inner = inner;
 
         internal MutState Inner => _inner;
 

@@ -2,7 +2,6 @@
 using ChessBot.Helpers;
 using ChessBot.Types;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -57,6 +56,7 @@ namespace ChessBot
             InitPiecePlacement();
             InitOccupies();
             InitAttacks();
+            _history = new Stack<Snapshot>();
         }
 
         private MutState(MutState other)
@@ -73,12 +73,14 @@ namespace ChessBot
             Hash = other.Hash;
 
             _bbs = other._bbs;
+            _history = Copy(other._history);
         }
 
         #region Fields
 
         private Board _board;
         internal Bitboards _bbs;
+        private readonly Stack<Snapshot> _history;
 
         public Player White { get; }
         public Player Black { get; }
@@ -238,7 +240,6 @@ namespace ChessBot
                 error = InvalidMoveReason.ViolatesMovementRules; return false;
             }
 
-            var oldState = Snapshot();
             ApplyUnsafe(move);
 
             // Ensure our king isn't attacked afterwards
@@ -248,7 +249,7 @@ namespace ChessBot
 
             if (IsOpposingKingAttacked) // this corresponds to the king that was active in the previous state
             {
-                Restore(in oldState);
+                Undo();
                 error = InvalidMoveReason.AllowsKingToBeAttacked; return false;
             }
 
@@ -268,6 +269,10 @@ namespace ChessBot
             bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
 
             var (oldCastlingRights, oldEnPassantTarget) = (CastlingRights, EnPassantTarget);
+
+            // Before we do anything, push our old state to the history stack
+
+            _history.Push(Snapshot());
 
             // Update the board
 
@@ -380,6 +385,11 @@ namespace ChessBot
 
             // Recompute attack vectors
             InitAttacks();
+        }
+
+        public void Undo()
+        {
+            Restore(_history.Pop());
         }
 
         public override string ToString()
@@ -740,6 +750,13 @@ namespace ChessBot
         }
 
         internal MutState Copy() => new MutState(this);
+
+        private Stack<T> Copy<T>(Stack<T> source)
+        {
+            var array = source.ToArray();
+            Array.Reverse(array);
+            return new Stack<T>(array);
+        }
 
         #endregion
     }
