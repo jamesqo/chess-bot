@@ -8,7 +8,7 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses MTD-f search to pick the best move.
     /// </summary>
-    public class MtdfPicker : IMovePicker<MtdfPicker.Info>
+    public class Mtdf : IMovePicker<Mtdf.Info>
     {
         public class Info
         {
@@ -41,7 +41,7 @@ namespace ChessBot.Search
 
         private readonly TranspositionTable<TtEntry> _tt;
 
-        public MtdfPicker(int depth)
+        public Mtdf(int depth)
         {
             Depth = depth;
             _tt = new TranspositionTable<TtEntry>();
@@ -49,8 +49,6 @@ namespace ChessBot.Search
 
         public int Depth { get; set; }
         public int FirstGuess { get; set; } = 0;
-
-        public Move PickMove(State state) => PickMove(state, out _);
 
         public Move PickMove(State state, out Info info)
         {
@@ -62,7 +60,7 @@ namespace ChessBot.Search
             {
                 isTerminal = false;
 
-                int value = Mtdf(succ, FirstGuess, Depth - 1, _tt, bestValue);
+                int value = _Mtdf(succ, FirstGuess, Depth - 1, _tt, bestValue);
                 bool better = (state.WhiteToMove ? value > bestValue : value < bestValue);
                 if (better)
                 {
@@ -80,7 +78,7 @@ namespace ChessBot.Search
             return bestMove;
         }
 
-        private static int Mtdf(
+        private static int _Mtdf(
             State root,
             int firstGuess,
             int depth,

@@ -5,7 +5,7 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses iterative deepening with MTD-f search to find the best move.
     /// </summary>
-    public class IdsPicker : IMovePicker<IdsPicker.Info>
+    public class Ids : IMovePicker<Ids.Info>
     {
         public class Info
         {
@@ -16,15 +16,13 @@ namespace ChessBot.Search
 
         private readonly MtdfPicker _inner;
 
-        public IdsPicker(int depth)
+        public Ids(int depth)
         {
             Depth = depth;
             _inner = new MtdfPicker(1);
         }
 
         public int Depth { get; set; }
-
-        public Move PickMove(State state) => PickMove(state, out _);
 
         public Move PickMove(State state, out Info info)
         {

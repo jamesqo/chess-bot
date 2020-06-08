@@ -26,4 +26,15 @@ namespace ChessBot
 
         Player GetPlayer(Side side);
     }
+
+    public static class IStateExtensions
+    {
+        public static MutState ToMutState(this IState state) => new MutState(
+            board: in state.Board,
+            activeSide: state.ActiveSide,
+            castlingRights: state.CastlingRights,
+            enPassantTarget: state.EnPassantTarget,
+            halfMoveClock: state.HalfMoveClock,
+            fullMoveNumber: state.FullMoveNumber);
+    }
 }
