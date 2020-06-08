@@ -115,16 +115,86 @@ namespace ChessBot
 
         public IEnumerable<Move> GetPseudoLegalMoves()
         {
-            for (var ss = ActivePlayer.Occupies; ss != Bitboard.Zero; ss = ss.ClearLsb())
+            // because this method is lazy (ie. uses iterators) and our state is mutable, we have to make a copy of all of the relevant state variables
+            return GetPseudoLegalMoves(
+                Board,
+                ActiveSide,
+                EnPassantTarget,
+                ActivePlayer.Occupies,
+                OpposingPlayer.Occupies,
+                CanReallyCastleKingside,
+                CanReallyCastleQueenside);
+        }
+
+        private static IEnumerable<Move> GetPseudoLegalMoves(
+            Board board,
+            Side activeSide,
+            Location? enPassantTarget,
+            Bitboard activeOccupies,
+            Bitboard opposingOccupies,
+            bool canReallyCastleKingside,
+            bool canReallyCastleQueenside)
+        {
+            Bitboard occupied = activeOccupies | opposingOccupies;
+
+            /// <summary>
+            /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
+            /// Does not account for whether the move would be invalid because its king is currently in check.
+            /// </summary>
+            Bitboard GetPseudoLegalDestinations(Location source)
+            {
+                Debug.Assert(board[source].HasPiece);
+                Debug.Assert(board[source].Piece.Side == activeSide);
+
+                var piece = board[source].Piece;
+                var result = GetModifiedAttackBitboard(source, piece, occupied);
+
+                var side = piece.Side;
+                Debug.Assert(side == activeSide); // this assumption is only used when we check for castling availability
+
+                result &= ~activeOccupies; // we can't move to squares occupied by our own pieces
+
+                switch (piece.Kind)
+                {
+                    case PieceKind.Pawn:
+                        // a pawn can only move to the left/right if it captures an opposing piece
+                        var captureMask = opposingOccupies;
+                        if (enPassantTarget.HasValue) captureMask |= enPassantTarget.Value.GetMask();
+                        result &= captureMask;
+
+                        // the attack vectors also don't include moving forward by 1/2, so OR those in
+                        Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank
+                        var forward = ForwardStep(side);
+                        var up1 = source.Up(forward);
+                        if (!occupied[up1])
+                        {
+                            result |= up1.GetMask();
+                            if (source.Rank == SecondRank(side))
+                            {
+                                var up2 = source.Up(forward * 2);
+                                if (!occupied[up2]) result |= up2.GetMask();
+                            }
+                        }
+                        break;
+                    case PieceKind.King:
+                        if (canReallyCastleKingside) result |= source.Right(2).GetMask();
+                        if (canReallyCastleQueenside) result |= source.Left(2).GetMask();
+                        break;
+                }
+
+                return result;
+            }
+
+            for (var ss = activeOccupies; ss != Bitboard.Zero; ss = ss.ClearLsb())
             {
                 var source = ss.NextLocation();
-                var piece = Board[source].Piece;
+                var piece = board[source].Piece;
 
                 for (var ds = GetPseudoLegalDestinations(source); ds != Bitboard.Zero; ds = ds.ClearLsb())
                 {
                     var destination = ds.NextLocation();
                     // If we're a pawn moving to the back rank and promoting, there are multiple moves to consider
-                    if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(ActiveSide))
+                    if (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(activeSide))
                     {
                         yield return new Move(source, destination, promotionKind: PieceKind.Knight);
                         yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
@@ -498,26 +568,28 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || (GetLocationsBetween(source, destination) & Occupied) == Bitboard.Zero);
         }
 
+        private Bitboard GetModifiedAttackBitboard(Location source)
+        {
+            Debug.Assert(Board[source].HasPiece);
+            return GetModifiedAttackBitboard(source, Board[source].Piece, Occupied);
+        }
+
         // todo: calculating this is a perf bottleneck
         /// <summary>
         /// Returns a list of locations that are attacked by the piece at <paramref name="source"/>.
         /// </summary>
-        private Bitboard GetModifiedAttackBitboard(Location source)
+        private static Bitboard GetModifiedAttackBitboard(Location source, Piece piece, Bitboard occupied)
         {
-            Debug.Assert(Board[source].HasPiece);
-
-            var piece = Board[source].Piece;
             var kind = piece.Kind;
             var attacks = GetAttackBitboard(piece, source);
 
-            var totalOccupied = Occupied; // queens, rooks, and bishops can be blocked by pieces of either side
             if (kind == PieceKind.Bishop || kind == PieceKind.Queen)
             {
-                attacks = RestrictDiagonally(attacks, totalOccupied, source);
+                attacks = RestrictDiagonally(attacks, occupied, source);
             }
             if (kind == PieceKind.Rook || kind == PieceKind.Queen)
             {
-                attacks = RestrictOrthogonally(attacks, totalOccupied, source);
+                attacks = RestrictOrthogonally(attacks, occupied, source);
             }
             // It's possible we may have left in squares that are occupied by our own camp. This doesn't affect
             // any of the use cases for this bitboard, though.
@@ -665,55 +737,6 @@ namespace ChessBot
             }
 
             return attacks;
-        }
-
-
-        /// <summary>
-        /// Returns a list of locations that the piece at <paramref name="source"/> may move to.
-        /// Does not account for whether the move would be invalid because its king is currently in check.
-        /// </summary>
-        private Bitboard GetPseudoLegalDestinations(Location source)
-        {
-            Debug.Assert(Board[source].HasPiece);
-            Debug.Assert(Board[source].Piece.Side == ActiveSide);
-
-            var result = GetModifiedAttackBitboard(source);
-            var piece = Board[source].Piece;
-
-            var side = piece.Side;
-            Debug.Assert(side == ActiveSide); // this assumption is only used when we check for castling availability
-
-            result &= ~ActivePlayer.Occupies; // we can't move to squares occupied by our own pieces
-
-            switch (piece.Kind)
-            {
-                case PieceKind.Pawn:
-                    // a pawn can only move to the left/right if it captures an opposing piece
-                    var captureMask = OpposingPlayer.Occupies;
-                    if (EnPassantTarget.HasValue) captureMask |= EnPassantTarget.Value.GetMask();
-                    result &= captureMask;
-
-                    // the attack vectors also don't include moving forward by 1/2, so OR those in
-                    Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank
-                    var forward = ForwardStep(side);
-                    var up1 = source.Up(forward);
-                    if (!Occupied[up1])
-                    {
-                        result |= up1.GetMask();
-                        if (source.Rank == SecondRank(side))
-                        {
-                            var up2 = source.Up(forward * 2);
-                            if (!Occupied[up2]) result |= up2.GetMask();
-                        }
-                    }
-                    break;
-                case PieceKind.King:
-                    if (CanReallyCastleKingside) result |= source.Right(2).GetMask();
-                    if (CanReallyCastleQueenside) result |= source.Left(2).GetMask();
-                    break;
-            }
-
-            return result;
         }
 
         internal MutState Copy() => new MutState(this);
