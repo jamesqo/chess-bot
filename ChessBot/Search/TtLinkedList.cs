@@ -17,6 +17,8 @@
             _tail.Previous = _head;
         }
 
+        public TtNode<TValue> Lru => _tail.Previous;
+
         public void AddToTop(TtNode<TValue> node)
         {
             node.Next = _head.Next;
@@ -31,13 +33,6 @@
             node.Next.Previous = node.Previous;
             node.Previous = null;
             node.Next = null;
-        }
-
-        public TtNode<TValue> RemoveLru()
-        {
-            var target = _tail.Previous;
-            Remove(target);
-            return target;
         }
     }
 }

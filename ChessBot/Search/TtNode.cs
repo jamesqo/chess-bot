@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace ChessBot.Search
+﻿namespace ChessBot.Search
 {
     /// <summary>
     /// An entry in the transposition table.

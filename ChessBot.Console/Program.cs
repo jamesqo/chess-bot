@@ -176,7 +176,7 @@ namespace ChessBot.Console
                         }
                         catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
                         {
-                            Debug.WriteLine(e.ToString());
+                            WriteLine(e);
                             WriteLine("Sorry, try again.");
                         }
                         break;

@@ -53,7 +53,7 @@ namespace ChessBot.Helpers
         {
             int newCapacity = _capacity;
             while (newCapacity <= _array.Length) newCapacity *= 2;
-            Debug.WriteLine($"[{nameof(PooledList<T>)}] Capacity of {_capacity} was hit, increasing to {newCapacity}");
+            Log.Debug("Capacity of {0} was hit, increasing to {1}", _capacity, newCapacity);
 
             ArrayPool<T>.Shared.Return(_array);
             _array = ArrayPool<T>.Shared.Rent(newCapacity);
