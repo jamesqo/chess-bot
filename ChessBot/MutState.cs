@@ -340,6 +340,8 @@ namespace ChessBot
 
         private unsafe void InitPiecePlacement()
         {
+            for (int i = 0; i < Piece.NumberOfValues; i++) _bbs.PiecePlacement[i] = 0;
+
             foreach (var tile in Board.GetOccupiedTiles())
             {
                 var piece = tile.Piece;
@@ -349,6 +351,8 @@ namespace ChessBot
         
         private unsafe void InitOccupies()
         {
+            _bbs.Occupies[0] = _bbs.Occupies[1] = 0;
+
             for (var kind = PieceKind.Pawn; kind <= PieceKind.King; kind++)
             {
                 _bbs.Occupies[0] |= White.GetPiecePlacement(kind);
@@ -358,6 +362,8 @@ namespace ChessBot
 
         private unsafe void InitAttacks()
         {
+            _bbs.Attacks[0] = _bbs.Attacks[1] = 0;
+
             for (var bb = Occupied; bb != Bitboard.Zero; bb = bb.ClearLsb())
             {
                 var source = bb.NextLocation();

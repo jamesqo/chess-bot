@@ -220,6 +220,16 @@ namespace ChessBot.Tests
         }
 
         [Fact]
+        public void Apply__AttackVectorIsRecomputed()
+        {
+            // previously, attack vectors were not being reset after a piece moved, so the following sequence
+            // would be invalid because it thinks white still attacks d5.
+            var state = State.ParseFen("8/8/8/2k5/4P3/8/8/8 w - - 0 1");
+
+            Assert.Equal(State.ParseFen("8/8/8/3kP3/8/8/8/8 w - - 1 2"), state.Apply("e5").Apply("Kd5"));
+        }
+
+        [Fact]
         public void GetMoves()
         {
             var state = State.Start;
@@ -306,7 +316,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void ParseFen_Works()
+        public void ParseFen()
         {
             var fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
             Assert.Equal(State.Start, State.ParseFen(fen)); // todo: this isn't actually testing anything
