@@ -249,6 +249,8 @@ namespace ChessBot
             return hc.ToHashCode();
         }
 
+        public override string ToString() => _inner.ToString();
+
         public IEnumerable<Move> GetMoves() => GetSuccessors().Select(p => p.Move);
 
         public IEnumerable<SuccessorPair> GetSuccessors()

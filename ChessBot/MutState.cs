@@ -8,6 +8,16 @@ using System.Text;
 using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
+using Snapshot = System.ValueTuple<
+    ChessBot.Types.Board,
+    ChessBot.MutState.Bitboards,
+    ChessBot.Types.Side,
+    ChessBot.Types.CastlingRights,
+    ChessBot.Types.Location?,
+    int,
+    int,
+    System.ValueTuple<ulong>
+>;
 
 namespace ChessBot
 {
@@ -80,6 +90,10 @@ namespace ChessBot
         public int FullMoveNumber { get; private set; }
         public ulong Hash { get; internal set; }
 
+        private Snapshot Snapshot() => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash);
+        private void Restore(in Snapshot snapshot) =>
+            (_board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash) = snapshot;
+
         #endregion
 
         public bool IsCheck => FindKing(ActiveSide) is Location loc && OpposingPlayer.Attacks[loc];
@@ -126,6 +140,7 @@ namespace ChessBot
                 error = InvalidMoveReason.ViolatesMovementRules; return false;
             }
 
+            var oldState = Snapshot();
             ApplyUnsafe(move);
 
             // Ensure our king isn't attacked afterwards
@@ -135,7 +150,7 @@ namespace ChessBot
 
             if (IsOpposingKingAttacked) // this corresponds to the king that was active in the previous state
             {
-                Undo(move);
+                Restore(in oldState);
                 error = InvalidMoveReason.AllowsKingToBeAttacked; return false;
             }
 
@@ -234,6 +249,8 @@ namespace ChessBot
             var piece = Board[source].Piece;
             var newKind = promotionKind ?? piece.Kind;
             var newPiece = new Piece(piece.Side, newKind);
+            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
+
             // Update board
             _board[source] = default;
             _board[destination] = newPiece;
@@ -247,7 +264,6 @@ namespace ChessBot
             Hash ^= ZobristKey.ForPieceSquare(piece, source);
             Hash ^= ZobristKey.ForPieceSquare(newPiece, destination);
 
-            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
             if (isCapture)
             {
                 var toClear = isEnPassantCapture
@@ -268,35 +284,13 @@ namespace ChessBot
             InitAttacks();
         }
 
-        private void Undo(Move move)
-        {
-            Debug.Assert(IsOpposingKingAttacked); // for now, this is the only scenario in which we call this
-
-            // todo
-        }
-
         public override string ToString()
         {
             var fen = new StringBuilder();
 
-            for (var rank = Rank8; rank >= Rank1; rank--)
-            {
-                int gap = 0;
-                for (var file = FileA; file <= FileH; file++)
-                {
-                    var piece = Board[(file, rank)];
-                    if (!piece.HasPiece) gap++;
-                    else
-                    {
-                        if (gap > 0) fen.Append(gap);
-                        fen.Append(piece.Piece.ToDisplayChar());
-                        gap = 0;
-                    }
-                }
-                if (gap > 0) fen.Append(gap);
-                if (rank > Rank1) fen.Append('/');
-            }
+            fen.Append(Board);
             fen.Append(' ');
+
             fen.Append(WhiteToMove ? 'w' : 'b');
             fen.Append(' ');
 

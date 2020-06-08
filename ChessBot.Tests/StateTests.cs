@@ -25,7 +25,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply_PawnAdvance_BlockedByFriendlyPawn()
+        public void Apply_PawnAdvance_BlockedByFriendlyPawn_Fails()
         {
             var state = State.ParseFen("8/8/8/8/8/4P3/4P3/8 w - - 0 1");
 
@@ -39,7 +39,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply_PawnAdvance_BlockedByEnemyPawn()
+        public void Apply_PawnAdvance_BlockedByEnemyPawn_Fails()
         {
             var state = State.ParseFen("8/8/8/8/8/4p3/4P3/8 w - - 0 1");
 
@@ -119,7 +119,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply_CastlingConditionsNotMet()
+        public void Apply_CastlingConditionsNotMet_Fails()
         {
             var state = State.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
@@ -209,6 +209,14 @@ namespace ChessBot.Tests
             Assert.Throws<InvalidMoveException>(() => state.Apply("a1"));
             Assert.Throws<InvalidMoveException>(() => state.Apply("a1P"));
             Assert.Throws<InvalidMoveException>(() => state.Apply("a1K"));
+        }
+
+        [Fact]
+        public void Apply_LetsKingBeAttacked_Fails()
+        {
+            var state = State.ParseFen("8/8/8/3p4/3K4/8/8/8 w - - 0 1");
+
+            Assert.Throws<InvalidMoveException>(() => state.Apply("Ke4"));
         }
 
         [Fact]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace ChessBot.Types
 {
@@ -86,6 +87,29 @@ namespace ChessBot.Types
                 hc.Add(_bytes[i]);
             }
             return hc.ToHashCode();
+        }
+
+        public override string ToString()
+        {
+            var fen = new StringBuilder();
+            for (var rank = Rank.Rank8; rank >= Rank.Rank1; rank--)
+            {
+                int gap = 0;
+                for (var file = File.FileA; file <= File.FileH; file++)
+                {
+                    var piece = this[(file, rank)];
+                    if (!piece.HasPiece) gap++;
+                    else
+                    {
+                        if (gap > 0) fen.Append(gap);
+                        fen.Append(piece.Piece.ToDisplayChar());
+                        gap = 0;
+                    }
+                }
+                if (gap > 0) fen.Append(gap);
+                if (rank > Rank.Rank1) fen.Append('/');
+            }
+            return fen.ToString();
         }
     }
 }
