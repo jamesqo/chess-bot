@@ -23,7 +23,7 @@ using Snapshot = System.ValueTuple<
 namespace ChessBot
 {
     /// <summary>
-    /// Immutable class representing the state of the chess board.
+    /// Mutable class representing the state of a chess game.
     /// </summary>
     public class MutState : IState
     {

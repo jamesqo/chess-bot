@@ -10,6 +10,9 @@ using static ChessBot.Types.Rank;
 
 namespace ChessBot
 {
+    /// <summary>
+    /// Immutable class representing the state of a chess game.
+    /// </summary>
     public class State : IState, IEquatable<State>
     {
         public static string StartFen { get; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
