@@ -115,7 +115,7 @@ namespace ChessBot.Types
         internal static Builder CreateBuilder(Bitboard value = default) => new Builder(value);
 
         /// <summary>
-        /// Mutable struct that helps with generating <see cref="Types.Bitboard"/> values.
+        /// Mutable struct that helps with generating <see cref="Bitboard"/> values.
         /// </summary>
         /// <remarks>
         /// Since this is a mutable struct, try not to copy it or you may get unintuitive behavior.

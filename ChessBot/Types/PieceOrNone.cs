@@ -3,7 +3,7 @@
 namespace ChessBot.Types
 {
     // todo: decide if this is really worth it
-    internal readonly struct PieceOrNone
+    public readonly struct PieceOrNone
     {
         public static readonly PieceOrNone None = default;
 

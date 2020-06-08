@@ -109,7 +109,7 @@ namespace ChessBot.Search
         };
 
         // note: Heuristic is always calculated from White's viewpoint (positive = good for White)
-        public static int Heuristic(State state)
+        public static int Heuristic(MutState state)
         {
             //Debug.Assert(state.GetMoves().Any());
 
@@ -162,9 +162,9 @@ namespace ChessBot.Search
         }
 
         // todo: give preference to checkmates that occur in fewer moves
-        public static int Terminal(State state)
+        public static int Terminal(MutState state)
         {
-            Debug.Assert(!state.GetMoves().Any());
+            //Debug.Assert(!state.GetMoves().Any());
 
             bool isStalemate = !state.IsCheck;
             if (isStalemate) return 0;

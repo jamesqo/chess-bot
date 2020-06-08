@@ -7,7 +7,7 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses alpha-beta search to pick the best move.
     /// </summary>
-    public class AlphaBetaPicker : IMovePicker<AlphaBetaPicker.Info>
+    public class AlphaBeta : IMovePicker<AlphaBeta.Info>
     {
         public class Info
         {
@@ -32,7 +32,7 @@ namespace ChessBot.Search
 
         private readonly TranspositionTable<TtEntry> _tt;
 
-        public AlphaBetaPicker(int depth)
+        public AlphaBeta(int depth)
         {
             Depth = depth;
             _tt = new TranspositionTable<TtEntry>();
@@ -40,21 +40,24 @@ namespace ChessBot.Search
 
         public int Depth { get; set; }
 
-        public Move PickMove(State state) => PickMove(state, out _);
-
-        public Move PickMove(State state, out Info info)
+        public Move PickMove(State root, out Info info)
         {
             Move bestMove = default;
-            int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
+            int bestValue = root.WhiteToMove ? int.MinValue : int.MaxValue;
             var (alpha, beta) = (int.MinValue, int.MaxValue);
             bool isTerminal = true;
+            var state = root.ToMutable();
 
-            foreach (var (move, succ) in state.GetSuccessors())
+            foreach (var move in state.GetPseudoLegalMoves())
             {
+                if (!state.TryApply(move, out _)) continue;
+
                 isTerminal = false;
 
-                int value = AlphaBeta(succ, Depth - 1, alpha, beta);
-                if (state.WhiteToMove)
+                int value = _AlphaBeta(state, Depth - 1, alpha, beta);
+                state.Undo();
+
+                if (root.WhiteToMove)
                 {
                     bool better = (value > bestValue);
                     if (better)
@@ -83,14 +86,14 @@ namespace ChessBot.Search
 
             if (isTerminal)
             {
-                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(state));
+                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(root));
             }
 
             info = new Info(utility: bestValue);
             return bestMove;
         }
 
-        private int AlphaBeta(State state, int d, int alpha, int beta)
+        private int _AlphaBeta(MutState state, int d, int alpha, int beta)
         {
             Debug.Assert(alpha < beta);
 
@@ -112,11 +115,15 @@ namespace ChessBot.Search
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             bool isTerminal = true;
 
-            foreach (var (_, succ) in state.GetSuccessors())
+            foreach (var move in state.GetPseudoLegalMoves())
             {
+                if (!state.TryApply(move, out _)) continue;
+
                 isTerminal = false;
 
-                int value = AlphaBeta(succ, d - 1, alpha, beta);
+                int value = _AlphaBeta(state, d - 1, alpha, beta);
+                state.Undo();
+
                 if (state.WhiteToMove)
                 {
                     bestValue = Math.Max(bestValue, value);

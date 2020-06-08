@@ -25,7 +25,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply_PawnAdvance_BlockedByFriendlyPawn()
+        public void Apply_PawnAdvance_BlockedByFriendlyPawn_Fails()
         {
             var state = State.ParseFen("8/8/8/8/8/4P3/4P3/8 w - - 0 1");
 
@@ -39,7 +39,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply_PawnAdvance_BlockedByEnemyPawn()
+        public void Apply_PawnAdvance_BlockedByEnemyPawn_Fails()
         {
             var state = State.ParseFen("8/8/8/8/8/4p3/4P3/8 w - - 0 1");
 
@@ -119,7 +119,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply_CastlingConditionsNotMet()
+        public void Apply_CastlingConditionsNotMet_Fails()
         {
             var state = State.ParseFen("8/8/8/8/8/8/8/R3K2R w KQ - 0 1");
 
@@ -212,6 +212,24 @@ namespace ChessBot.Tests
         }
 
         [Fact]
+        public void Apply_LetsKingBeAttacked_Fails()
+        {
+            var state = State.ParseFen("8/8/8/3p4/3K4/8/8/8 w - - 0 1");
+
+            Assert.Throws<InvalidMoveException>(() => state.Apply("Ke4"));
+        }
+
+        [Fact]
+        public void Apply__AttackVectorIsRecomputed()
+        {
+            // previously, attack vectors were not being reset after a piece moved, so the following sequence
+            // would be invalid because it thinks white still attacks d5.
+            var state = State.ParseFen("8/8/8/2k5/4P3/8/8/8 w - - 0 1");
+
+            Assert.Equal(State.ParseFen("8/8/8/3kP3/8/8/8/8 w - - 1 2"), state.Apply("e5").Apply("Kd5"));
+        }
+
+        [Fact]
         public void GetMoves()
         {
             var state = State.Start;
@@ -298,7 +316,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void ParseFen_Works()
+        public void ParseFen()
         {
             var fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
             Assert.Equal(State.Start, State.ParseFen(fen)); // todo: this isn't actually testing anything

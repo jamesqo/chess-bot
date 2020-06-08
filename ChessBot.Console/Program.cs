@@ -33,9 +33,9 @@ namespace ChessBot.Console
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
-                    case "": case "alphabeta": return new AlphaBetaPicker(depth: 5);
-                    case "mtdf": return new MtdfPicker(depth: 5);
-                    case "ids": return new IdsPicker(depth: 5);
+                    case "": case "alphabeta": return new AlphaBeta(depth: 5);
+                    case "mtdf": return new Mtdf(depth: 5);
+                    case "ids": return new Ids(depth: 5);
                 }
             }
         }
@@ -142,7 +142,7 @@ namespace ChessBot.Console
 
     class HumanPicker : IMovePicker
     {
-        public Move PickMove(State state)
+        public Move PickMove(State root)
         {
             while (true)
             {
@@ -165,13 +165,13 @@ namespace ChessBot.Console
                     case "list":
                         WriteLine("List of valid moves:");
                         WriteLine();
-                        WriteLine(string.Join(Environment.NewLine, state.GetMoves()));
+                        WriteLine(string.Join(Environment.NewLine, root.GetMoves()));
                         break;
                     default:
                         try
                         {
-                            var move = Move.Parse(input, state);
-                            _ = state.Apply(move); // make sure it's valid
+                            var move = Move.Parse(input, root);
+                            _ = root.Apply(move); // make sure it's valid
                             return move;
                         }
                         catch (Exception e) when (e is AnParseException || e is InvalidMoveException)

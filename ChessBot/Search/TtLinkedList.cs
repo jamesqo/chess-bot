@@ -3,21 +3,21 @@
     /// <summary>
     /// Linked list used to implement transposition tables.
     /// </summary>
-    /// <typeparam name="T">The type of the value.</typeparam>
-    internal class TtLinkedList<T>
+    /// <typeparam name="TValue">The type of the value.</typeparam>
+    internal class TtLinkedList<TValue>
     {
-        private readonly TtNode<T> _head;
-        private readonly TtNode<T> _tail;
+        private readonly TtNode<TValue> _head;
+        private readonly TtNode<TValue> _tail;
 
         internal TtLinkedList()
         {
-            _head = new TtNode<T>();
-            _tail = new TtNode<T>();
+            _head = new TtNode<TValue>();
+            _tail = new TtNode<TValue>();
             _head.Next = _tail;
             _tail.Previous = _head;
         }
 
-        public void AddToTop(TtNode<T> node)
+        public void AddToTop(TtNode<TValue> node)
         {
             node.Next = _head.Next;
             _head.Next.Previous = node;
@@ -25,7 +25,7 @@
             _head.Next = node;
         }
 
-        public void Remove(TtNode<T> node)
+        public void Remove(TtNode<TValue> node)
         {
             node.Previous.Next = node.Next;
             node.Next.Previous = node.Previous;
@@ -33,7 +33,7 @@
             node.Next = null;
         }
 
-        public TtNode<T> RemoveLru()
+        public TtNode<TValue> RemoveLru()
         {
             var target = _tail.Previous;
             Remove(target);
