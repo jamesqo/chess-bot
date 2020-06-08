@@ -26,7 +26,7 @@ namespace ChessBot.Console
             }
         }
 
-        static IMovePicker GetAI()
+        static AI GetAI()
         {
             IMovePicker inner;
             while (true)
@@ -74,36 +74,40 @@ namespace ChessBot.Console
             WriteLine($"Playing as: {userSide}");
             WriteLine();
 
-            var state = State.ParseFen(fen);
+            var commands = new Commands();
+            var state = new ProgramState
+            {
+                GameState = State.ParseFen(fen),
+                HumanPlayer = new Human(commands),
+                AIPlayer = ai
+            };
+            commands.State = state;
             bool justStarted = true;
 
-            var commands = new Commands { Root = state };
-            var whitePlayer = userSide.IsWhite() ? new Human(commands) : ai;
-            var blackPlayer = userSide.IsWhite() ? ai : new Human(commands);
+            var whitePlayer = userSide.IsWhite() ? (IMovePicker)state.HumanPlayer : state.AIPlayer;
+            var blackPlayer = userSide.IsWhite() ? (IMovePicker)state.AIPlayer : state.HumanPlayer;
 
-            commands.AIPlayer = (AI)(userSide.IsWhite() ? blackPlayer : whitePlayer);
-
+            var gameState = state.GameState;
             while (true)
             {
-                if (justStarted || state.WhiteToMove)
+                if (justStarted || gameState.WhiteToMove)
                 {
-                    WriteLine($"[Turn {state.FullMoveNumber}]");
+                    WriteLine($"[Turn {gameState.FullMoveNumber}]");
                     WriteLine();
                 }
 
-                WriteLine(GetDisplayString(state));
+                WriteLine(GetDisplayString(gameState));
                 WriteLine();
 
-                WriteLine($"It's {state.ActiveSide}'s turn.");
-                var player = state.WhiteToMove ? whitePlayer : blackPlayer;
-                var nextMove = player.PickMove(state);
-                WriteLine($"{state.ActiveSide} played: {nextMove}");
-                state = state.Apply(nextMove);
+                WriteLine($"It's {gameState.ActiveSide}'s turn.");
+                var player = gameState.WhiteToMove ? whitePlayer : blackPlayer;
+                var nextMove = player.PickMove(gameState);
+                WriteLine($"{gameState.ActiveSide} played: {nextMove}");
+                gameState = state.GameState = gameState.Apply(nextMove);
                 WriteLine();
-                CheckForEnd(state);
+                CheckForEnd(gameState);
 
                 justStarted = false;
-                commands.Root = state;
             }
         }
 
@@ -150,9 +154,9 @@ namespace ChessBot.Console
 
     class Human : IMovePicker
     {
-        private readonly ICommandHandler _handler;
+        private readonly ICommands _handler;
 
-        public Human(ICommandHandler handler)
+        public Human(ICommands handler)
         {
             _handler = handler;
         }

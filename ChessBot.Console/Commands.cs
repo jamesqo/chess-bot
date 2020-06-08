@@ -3,10 +3,17 @@ using static System.Console;
 
 namespace ChessBot.Console
 {
-    class Commands : ICommandHandler
+    interface ICommands
     {
-        public State Root { get; set; }
-        public AI AIPlayer { get; set; }
+        void ExitCommand();
+        void HelpCommand();
+        void MovesCommand();
+        void SearchTimesCommand();
+    }
+
+    class Commands : ICommands
+    {
+        public IProgramState State { get; set; }
 
         public void ExitCommand()
         {
@@ -20,23 +27,24 @@ namespace ChessBot.Console
             WriteLine("exit|quit - exits the program");
             WriteLine("help - displays this message");
             WriteLine("moves - lists all valid moves");
-            WriteLine("searchtime - lists times the ai took to execute each move");
+            WriteLine("searchtimes - lists times the ai took to execute each move");
         }
 
         public void MovesCommand()
         {
             WriteLine("List of valid moves:");
             WriteLine();
-            WriteLine(string.Join(Environment.NewLine, Root.GetMoves()));
+            WriteLine(string.Join(Environment.NewLine, _state.GameState.GetMoves()));
         }
 
         public void SearchTimesCommand()
         {
-            for (int i = 0; i < AIPlayer.History.Count; i++)
+            int moveCount = _state.AIPlayer.History.Count;
+            for (int i = 0; i < moveCount; i++)
             {
-                var move = AIPlayer.History[i];
-                var time = AIPlayer.SearchTimes[i];
-                WriteLine($"{move} - {time.Milliseconds}ms");
+                var move = _state.AIPlayer.History[i];
+                var time = _state.AIPlayer.SearchTimes[i];
+                WriteLine($"{move} - {time.TotalMilliseconds}ms");
             }
         }
     }
