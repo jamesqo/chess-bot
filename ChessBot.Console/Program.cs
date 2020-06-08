@@ -2,6 +2,8 @@
 using ChessBot.Search;
 using ChessBot.Types;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using static System.Console;
@@ -24,18 +26,21 @@ namespace ChessBot.Console
             }
         }
 
-        static IMovePicker GetAIPicker()
+        static IMovePicker GetAI()
         {
+            IMovePicker inner;
             while (true)
             {
                 Write("Pick ai strategy [alphabeta (default), mtdf, ids]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
-                    case "": case "alphabeta": return new AlphaBeta(depth: 6);
-                    case "mtdf": return new Mtdf(depth: 6);
-                    case "ids": return new Ids(depth: 6);
+                    case "": case "alphabeta": inner = new AlphaBeta(depth: 6); break;
+                    case "mtdf": inner = new Mtdf(depth: 6); break;
+                    case "ids": inner = new Ids(depth: 6); break;
+                    default: continue;
                 }
+                return new AI(inner);
             }
         }
 
@@ -62,18 +67,21 @@ namespace ChessBot.Console
             WriteLine();
 
             var userSide = GetUserSide();
-            var ai = GetAIPicker();
+            var ai = GetAI();
             var fen = GetStartFen();
             WriteLine();
-
-            var whitePlayer = userSide.IsWhite() ? new HumanPicker() : ai;
-            var blackPlayer = userSide.IsWhite() ? ai : new HumanPicker();
 
             WriteLine($"Playing as: {userSide}");
             WriteLine();
 
             var state = State.ParseFen(fen);
             bool justStarted = true;
+
+            var commands = new Commands { Root = state };
+            var whitePlayer = userSide.IsWhite() ? new Human(commands) : ai;
+            var blackPlayer = userSide.IsWhite() ? ai : new Human(commands);
+
+            commands.AIPlayer = (AI)(userSide.IsWhite() ? blackPlayer : whitePlayer);
 
             while (true)
             {
@@ -95,6 +103,7 @@ namespace ChessBot.Console
                 CheckForEnd(state);
 
                 justStarted = false;
+                commands.Root = state;
             }
         }
 
@@ -139,8 +148,15 @@ namespace ChessBot.Console
             => tile.HasPiece ? tile.Piece.ToDisplayChar() : '.';
     }
 
-    class HumanPicker : IMovePicker
+    class Human : IMovePicker
     {
+        private readonly ICommandHandler _handler;
+
+        public Human(ICommandHandler handler)
+        {
+            _handler = handler;
+        }
+
         public Move PickMove(State root)
         {
             while (true)
@@ -151,20 +167,16 @@ namespace ChessBot.Console
                 {
                     case "exit":
                     case "quit":
-                        Environment.Exit(0);
+                        _handler.ExitCommand();
                         break;
                     case "help":
-                        // todo: have some kind of _commands object that you loop thru
-                        WriteLine("List of commands:");
-                        WriteLine();
-                        WriteLine("exit|quit - exits the program");
-                        WriteLine("help - displays this message");
-                        WriteLine("list - lists all valid moves");
+                        _handler.HelpCommand();
                         break;
-                    case "list":
-                        WriteLine("List of valid moves:");
-                        WriteLine();
-                        WriteLine(string.Join(Environment.NewLine, root.GetMoves()));
+                    case "moves":
+                        _handler.MovesCommand();
+                        break;
+                    case "searchtimes":
+                        _handler.SearchTimesCommand();
                         break;
                     default:
                         try
@@ -181,6 +193,41 @@ namespace ChessBot.Console
                         break;
                 }
             }
+        }
+    }
+
+    class AI : IMovePicker
+    {
+        private readonly IMovePicker _inner;
+        private readonly List<Move> _history;
+        private readonly List<TimeSpan> _searchTimes;
+        private readonly Stopwatch _sw;
+
+        public List<Move> History => _history;
+        public List<TimeSpan> SearchTimes => _searchTimes;
+
+        public AI(IMovePicker inner)
+        {
+            _inner = inner;
+            _history = new List<Move>();
+            _searchTimes = new List<TimeSpan>();
+            _sw = new Stopwatch();
+        }
+
+        public Move PickMove(State root)
+        {
+            Debug.Assert(!_sw.IsRunning);
+            Debug.Assert(_sw.Elapsed == TimeSpan.Zero);
+
+            _sw.Start();
+            var move = _inner.PickMove(root);
+            _sw.Stop();
+
+            _history.Add(move);
+            _searchTimes.Add(_sw.Elapsed);
+            _sw.Reset();
+
+            return move;
         }
     }
 }
