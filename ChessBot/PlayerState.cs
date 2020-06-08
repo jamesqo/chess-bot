@@ -11,26 +11,26 @@ namespace ChessBot
     /// <summary>
     /// Describes the state of a player in a chess game.
     /// </summary>
-    public readonly struct PlayerState
+    public class Player
     {
-        internal PlayerState(State parent, Side side)
+        internal Player(MutState parent, Side side)
         {
             _parent = parent;
             Side = side;
         }
 
-        private readonly State _parent;
+        private readonly MutState _parent;
         public Side Side { get; }
 
         /// <summary>
         /// List of locations attacked by this player.
         /// </summary>
-        public Bitboard Attacks => _parent.Attacks.Get(Side);
+        public unsafe Bitboard Attacks => _parent._bbs.Attacks[(int)Side];
 
         /// <summary>
         /// List of locations occupied by this player.
         /// </summary>
-        public Bitboard Occupies => _parent.Occupies.Get(Side);
+        public unsafe Bitboard Occupies => _parent._bbs.Occupies[(int)Side];
 
         public bool CanCastleKingside => (_parent.CastlingRights & GetKingsideCastleFlag(Side)) != 0;
         public bool CanCastleQueenside => (_parent.CastlingRights & GetQueensideCastleFlag(Side)) != 0;
@@ -39,22 +39,23 @@ namespace ChessBot
         /// Gets a list of locations occupied by a certain kind of piece on this player's side.
         /// </summary>
         /// <param name="kind">The kind of the piece.</param>
-        public Bitboard GetPiecePlacement(PieceKind kind)
+        public unsafe Bitboard GetPiecePlacement(PieceKind kind)
         {
             if (!kind.IsValid()) throw new ArgumentOutOfRangeException(nameof(kind));
-            return _parent.PiecePlacement.Get(Side)[kind];
+            return _parent._bbs.PiecePlacement[new Piece(Side, kind).ToIndex()];
         }
 
-        // don't use this on hot codepaths
+        // this is slow, don't use it on hot codepaths
         public IEnumerable<Tile> GetOccupiedTiles()
         {
-            foreach (var tile in _parent.GetTiles())
+            // we don't use `yield return` because the caller could modify the parent in between yields
+            var list = new List<Tile>();
+            for (var bb = Occupies; bb != Bitboard.Zero; bb = bb.ClearLsb())
             {
-                if (tile.HasPiece && tile.Piece.Side == Side)
-                {
-                    yield return tile;
-                }
+                var location = bb.NextLocation();
+                list.Add(new Tile(location, _parent.Board[location]));
             }
+            return list;
         }
 
         public override string ToString()

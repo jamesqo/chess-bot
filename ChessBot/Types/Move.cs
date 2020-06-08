@@ -70,7 +70,7 @@ namespace ChessBot.Types
             {
                 var sourceTile = possibleSources.Single(t => t.Piece.Kind == sourceKind
                     // Castling should be denoted with the special notation O-O / O-O-O, we don't want to accept Kg1 / Kc1
-                    && state.IsMovePossible(t.Location, destination, allowCastling: false));
+                    && state.Inner.IsMovePossible(t.Location, destination, allowCastling: false));
                 return sourceTile.Location;
             }
             catch (InvalidOperationException)
@@ -107,7 +107,7 @@ namespace ChessBot.Types
             if (kingsideCastleNode != null || queensideCastleNode != null)
             {
                 // todo: add a test for when we try to castle but there's no king / multiple kings
-                var source = state.FindKing(state.ActiveSide) ?? throw new InvalidMoveException(InvalidMoveReason.CouldNotFindKing);
+                var source = state.Inner.FindKing(state.ActiveSide) ?? throw new InvalidMoveException(InvalidMoveReason.CouldNotFindKing);
                 var destination = (kingsideCastleNode != null) ? source.Right(2) : source.Left(2);
                 return new Move(source, destination);
             }
