@@ -83,6 +83,7 @@ namespace ChessBot.Search
             return bestMove;
         }
 
+        // todo: now that we're storing moves in each entry, this should return the pv move as well so that PickMove() can use it directly
         private static int _Mtdf(
             MutState root,
             int firstGuess,
@@ -107,14 +108,16 @@ namespace ChessBot.Search
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 guess = AlphaBetaWithMemory(root, beta - 1, beta, depth, tt);
-                if (guess < beta) // alpha-cutoff
+                if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess
                 {
                     upperBound = guess;
                 }
-                else // beta-cutoff
+                else // beta-cutoff: tells us that the real value is >= guess
                 {
                     lowerBound = guess;
                 }
+                // EXPERIMENTAL: trying binary search
+                guess = checked((int)(((long)lowerBound + (long)upperBound) / 2));
             }
             while (lowerBound < upperBound);
 
