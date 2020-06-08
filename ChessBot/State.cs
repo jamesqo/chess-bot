@@ -219,6 +219,13 @@ namespace ChessBot
             return new State(newInner);
         }
 
+        public State Undo()
+        {
+            var newInner = _inner.Copy();
+            newInner.Undo();
+            return new State(newInner);
+        }
+
         public override bool Equals(object obj) => Equals(obj as State);
 
         public bool Equals([AllowNull] State other)

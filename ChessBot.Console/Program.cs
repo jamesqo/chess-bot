@@ -78,10 +78,10 @@ namespace ChessBot.Console
             var state = new ProgramState
             {
                 GameState = State.ParseFen(fen),
-                HumanPlayer = new Human(commands),
+                HumanPlayer = new Human { Commands = commands },
                 AIPlayer = ai
             };
-            commands.State = state;
+            commands.State = state.HumanPlayer.State = state;
             bool justStarted = true;
 
             var whitePlayer = userSide.IsWhite() ? (IMovePicker)state.HumanPlayer : state.AIPlayer;
@@ -96,12 +96,13 @@ namespace ChessBot.Console
                     WriteLine();
                 }
 
-                WriteLine(GetDisplayString(gameState));
+                WriteLine(Helpers.GetDisplayString(gameState));
                 WriteLine();
 
                 WriteLine($"It's {gameState.ActiveSide}'s turn.");
                 var player = gameState.WhiteToMove ? whitePlayer : blackPlayer;
                 var nextMove = player.PickMove(gameState);
+                gameState = state.GameState; // could have been updated by the undo command
                 WriteLine($"{gameState.ActiveSide} played: {nextMove}");
                 gameState = state.GameState = gameState.Apply(nextMove);
                 WriteLine();
@@ -131,35 +132,12 @@ namespace ChessBot.Console
 
             // todo: Check for 3-fold repetition, 50-move rule, etc.
         }
-
-        static string GetDisplayString(State state)
-        {
-            var sb = new StringBuilder();
-            // todo: have whichever side the human is on at the bottom
-            for (var rank = Rank.Rank8; rank >= Rank.Rank1; rank--)
-            {
-                for (var file = File.FileA; file <= File.FileH; file++)
-                {
-                    if (file > File.FileA) sb.Append(' ');
-                    sb.Append(GetDisplayChar(state[file, rank]));
-                }
-                if (rank > Rank.Rank1) sb.AppendLine();
-            }
-            return sb.ToString();
-        }
-
-        static char GetDisplayChar(Tile tile)
-            => tile.HasPiece ? tile.Piece.ToDisplayChar() : '.';
     }
 
     class Human : IMovePicker
     {
-        private readonly ICommands _handler;
-
-        public Human(ICommands handler)
-        {
-            _handler = handler;
-        }
+        public IProgramState State { get; set; }
+        public ICommands Commands { get; set; }
 
         public Move PickMove(State root)
         {
@@ -171,16 +149,21 @@ namespace ChessBot.Console
                 {
                     case "exit":
                     case "quit":
-                        _handler.ExitCommand();
+                        Commands.ExitCommand();
                         break;
                     case "help":
-                        _handler.HelpCommand();
+                        Commands.HelpCommand();
                         break;
                     case "moves":
-                        _handler.MovesCommand();
+                        Commands.MovesCommand();
                         break;
                     case "searchtimes":
-                        _handler.SearchTimesCommand();
+                        Commands.SearchTimesCommand();
+                        break;
+                    case "undo":
+                        Commands.UndoCommand();
+                        // XXX: there should be a cleaner way to update this
+                        root = State.GameState;
                         break;
                     default:
                         try

@@ -4,7 +4,7 @@
     {
         Human HumanPlayer { get; }
         AI AIPlayer { get; }
-        State GameState { get; }
+        State GameState { get; set; }
     }
 
     class ProgramState : IProgramState

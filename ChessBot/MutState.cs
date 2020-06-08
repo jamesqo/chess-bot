@@ -397,6 +397,11 @@ namespace ChessBot
 
         public void Undo()
         {
+            if (_history.Count == 0)
+            {
+                throw new InvalidOperationException("Empty history stack");
+            }
+
             Restore(_history.Pop());
         }
 
