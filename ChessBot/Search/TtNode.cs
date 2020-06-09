@@ -1,4 +1,6 @@
-﻿namespace ChessBot.Search
+﻿using ChessBot.Helpers;
+
+namespace ChessBot.Search
 {
     /// <summary>
     /// An entry in the transposition table.
@@ -24,6 +26,17 @@
 
         internal bool WasEvicted => Previous == null && Next == null;
 
-        public override string ToString() => $"{nameof(Key)} = {Key}, {nameof(Value)} = {Value}";
+        public override string ToString()
+        {
+            var sb = StringBuilderCache.Acquire();
+            sb.Append(nameof(Key));
+            sb.Append(" = ");
+            sb.Append(Key);
+            sb.Append(", ");
+            sb.Append(nameof(Value));
+            sb.Append(" = ");
+            sb.Append(Value.ToString());
+            return StringBuilderCache.GetStringAndRelease(sb);
+        }
     }
 }

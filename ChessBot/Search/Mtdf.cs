@@ -81,6 +81,7 @@ namespace ChessBot.Search
             }
 
             info = new Info(utility: bestValue);
+            Log.Debug("Computed {0} as the minimax value for {1}", info.Utility, root);
             return bestMove;
         }
 
@@ -109,6 +110,7 @@ namespace ChessBot.Search
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 guess = AlphaBetaWithMemory(root, beta - 1, beta, depth, tt);
+                Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
                 if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess
                 {
                     upperBound = guess;
@@ -218,7 +220,11 @@ namespace ChessBot.Search
                             firstMove = move;
                             a = Math.Max(a, guess);
 
-                            if (guess >= beta) break;
+                            if (guess >= beta)
+                            {
+                                Log.Debug("Beta cutoff occurred with guess={0} beta={1}", guess, beta);
+                                break;
+                            }
                         }
                     }
                 }
@@ -239,7 +245,11 @@ namespace ChessBot.Search
                             firstMove = move;
                             b = Math.Min(b, guess);
 
-                            if (guess <= alpha) break;
+                            if (guess <= alpha)
+                            {
+                                Log.Debug("Alpha cutoff occurred with guess={0} alpha={1}", guess, alpha);
+                                break;
+                            }
                         }
                     }
                 }

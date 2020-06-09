@@ -33,18 +33,27 @@ namespace ChessBot.Helpers
 
         [Conditional("DEBUG")]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void Debug(
+        public static void Debug<T0>(
             string message,
-            object arg0,
-            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0), memberName);
+            T0 arg0,
+            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0.ToString()), memberName);
 
         [Conditional("DEBUG")]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void Debug(
+        public static void Debug<T0, T1>(
             string message,
-            object arg0,
-            object arg1,
-            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0, arg1), memberName);
+            T0 arg0,
+            T1 arg1,
+            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString()), memberName);
+
+        [Conditional("DEBUG")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void Debug<T0, T1, T2>(
+            string message,
+            T0 arg0,
+            T1 arg1,
+            T2 arg2,
+            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString()), memberName);
 
         private static void DebugCore(string message, string memberName)
         {

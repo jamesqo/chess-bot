@@ -58,7 +58,7 @@ namespace ChessBot.Search
                 int value = _AlphaBeta(state, Depth - 1, alpha, beta);
                 state.Undo();
 
-                if (root.WhiteToMove)
+                if (state.WhiteToMove)
                 {
                     bool better = (value > bestValue);
                     if (better)
@@ -91,6 +91,7 @@ namespace ChessBot.Search
             }
 
             info = new Info(utility: bestValue);
+            Log.Debug("Computed {0} as the minimax value for {1}", info.Utility, root);
             return bestMove;
         }
 
@@ -140,6 +141,14 @@ namespace ChessBot.Search
 
                 if (alpha >= beta)
                 {
+                    if (state.WhiteToMove)
+                    {
+                        Log.Debug("Beta cutoff occurred with alpha={0} beta={1}", alpha, beta);
+                    }
+                    else
+                    {
+                        Log.Debug("Alpha cutoff occurred with alpha={0} beta={1}", alpha, beta);
+                    }
                     break;
                 }
             }

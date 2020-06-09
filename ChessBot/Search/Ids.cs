@@ -1,4 +1,5 @@
-﻿using ChessBot.Types;
+﻿using ChessBot.Helpers;
+using ChessBot.Types;
 
 namespace ChessBot.Search
 {
@@ -31,10 +32,13 @@ namespace ChessBot.Search
 
             for (int d = 1; d <= Depth; d++)
             {
+                Log.Debug("Running mtdf with depth={0}, f={1}", Depth, utility);
                 _inner.Depth = d;
                 _inner.FirstGuess = utility;
 
+                Log.IndentLevel++;
                 bestMove = _inner.PickMove(root, out var mtdfInfo);
+                Log.IndentLevel--;
                 utility = mtdfInfo.Utility;
             }
 
