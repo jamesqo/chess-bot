@@ -3,6 +3,7 @@
     public enum InvalidMoveReason
     {
         None,
+        BadAlgebraicNotation,
         CouldNotFindKing,
         BadCaptureNotation,
         CouldNotInferSource,

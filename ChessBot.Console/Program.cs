@@ -107,7 +107,7 @@ namespace ChessBot.Console
                                 _ = state.Apply(move); // make sure it's valid
                                 return move;
                             }
-                            catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
+                            catch (InvalidMoveException e)
                             {
                                 WriteLine(e);
                                 WriteLine("Sorry, try again.");

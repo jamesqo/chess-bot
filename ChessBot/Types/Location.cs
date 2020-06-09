@@ -30,7 +30,7 @@ namespace ChessBot.Types
             return new Location((byte)value);
         }
 
-        public static Location Parse(string an) => TryParse(an) ?? throw new AnParseException($"Unable to parse location from '{an}'");
+        public static Location Parse(string an) => TryParse(an) ?? throw new ArgumentException($"Unable to parse location from '{an}'");
 
         public static Location? TryParse(string an)
         {

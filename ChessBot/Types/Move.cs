@@ -73,9 +73,9 @@ namespace ChessBot.Types
                     && state.Inner.IsMovePseudoLegal(t.Location, destination, allowCastling: false));
                 return sourceTile.Location;
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException e)
             {
-                throw new InvalidMoveException(InvalidMoveReason.CouldNotInferSource);
+                throw new InvalidMoveException(InvalidMoveReason.CouldNotInferSource, e);
             }
         }
 
@@ -94,7 +94,7 @@ namespace ChessBot.Types
             var error = moveNode.exception ?? moveNode.moveDesc().exception;
             if (error != null)
             {
-                throw new AnParseException("Could not parse input", error);
+                throw new InvalidMoveException(InvalidMoveReason.BadAlgebraicNotation, error);
             }
 
             //var statusNode = moveNode.status();

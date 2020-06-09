@@ -8,7 +8,13 @@ namespace ChessBot.Exceptions
     [Serializable]
     public class InvalidMoveException : Exception
     {
-        public InvalidMoveException(InvalidMoveReason reason) : base(GetMessage(reason))
+        public InvalidMoveException(InvalidMoveReason reason)
+            : this(reason, null)
+        {
+        }
+
+        public InvalidMoveException(InvalidMoveReason reason, Exception inner)
+            : base(GetMessage(reason), inner)
         {
             Reason = reason;
         }
@@ -17,6 +23,7 @@ namespace ChessBot.Exceptions
 
         private static string GetMessage(InvalidMoveReason reason) => reason switch
         {
+            InvalidMoveReason.BadAlgebraicNotation => "Could not parse algebraic notation",
             InvalidMoveReason.CouldNotFindKing => "Could not find king while parsing castling move",
             InvalidMoveReason.BadCaptureNotation => "Incorrect capture notation while parsing move",
             InvalidMoveReason.CouldNotInferSource => "Could not infer source tile while parsing move",

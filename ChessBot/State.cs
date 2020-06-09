@@ -182,7 +182,7 @@ namespace ChessBot
 
         #endregion
 
-        // note: these properties are very expensive to compute
+        // note: these properties are very expensive to compute, which is why they're not included in MutState
         public bool IsCheckmate => IsCheck && IsTerminal;
         public bool IsStalemate => !IsCheck && IsTerminal;
         public bool IsTerminal => !GetSuccessors().Any();

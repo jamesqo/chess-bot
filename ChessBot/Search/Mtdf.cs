@@ -117,7 +117,7 @@ namespace ChessBot.Search
                     lowerBound = guess;
                 }
                 // EXPERIMENTAL: trying binary search
-                guess = checked((int)(((long)lowerBound + (long)upperBound) / 2));
+                guess = (int)(((long)lowerBound + (long)upperBound) / 2);
             }
             while (lowerBound < upperBound);
 
