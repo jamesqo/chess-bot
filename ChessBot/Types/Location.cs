@@ -1,4 +1,5 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Helpers;
 using System;
 using System.Diagnostics;
 
@@ -87,6 +88,12 @@ namespace ChessBot.Types
 
         public int ToIndex() => _value;
 
-        public override string ToString() => $"{File.ToChar()}{Rank.ToChar()}";
+        public override string ToString()
+        {
+            var sb = StringBuilderCache.Acquire(2);
+            sb.Append(File.ToChar());
+            sb.Append(Rank.ToChar());
+            return sb.ToString();
+        }
     }
 }

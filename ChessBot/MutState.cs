@@ -407,7 +407,8 @@ namespace ChessBot
 
         public override string ToString()
         {
-            var fen = new StringBuilder();
+            // should be enough for the average fen string
+            var fen = StringBuilderCache.Acquire(70);
 
             Board.ToString(fen);
             fen.Append(' ');
@@ -434,7 +435,7 @@ namespace ChessBot
 
             fen.Append(FullMoveNumber);
 
-            return fen.ToString();
+            return StringBuilderCache.GetStringAndRelease(fen);
         }
 
         #region Helper methods and properties
@@ -520,7 +521,7 @@ namespace ChessBot
         internal Location? FindKing(Side side)
         {
             var bb = GetPlayer(side).GetPiecePlacement(PieceKind.King);
-            Debug.Assert(bb.PopCount() <= 1, $"{side} has more than one king");
+            Debug.Assert(bb.PopCount() <= 1, "Active player has multiple kings");
             return bb != Bitboard.Zero ? bb.NextLocation() : (Location?)null;
         }
 

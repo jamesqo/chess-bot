@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -34,21 +33,23 @@ namespace ChessBot.Helpers
 
         [Conditional("DEBUG")]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void Debug(string message, object arg0) => DebugCore(string.Format(message, arg0), new StackFrame(1));
+        public static void Debug(
+            string message,
+            object arg0,
+            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0), memberName);
 
         [Conditional("DEBUG")]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void Debug(string message, object arg0, object arg1) => DebugCore(string.Format(message, arg0, arg1), new StackFrame(1));
+        public static void Debug(
+            string message,
+            object arg0,
+            object arg1,
+            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0, arg1), memberName);
 
-        private static void DebugCore(string message, StackFrame sf)
+        private static void DebugCore(string message, string memberName)
         {
-            var method = sf.GetMethod();
-            var (methodName, className) = (method.Name, method.ReflectedType.Name);
-
             Trace.Write("[");
-            Trace.Write(className);
-            Trace.Write(".");
-            Trace.Write(methodName);
+            Trace.Write(memberName);
             Trace.Write("] ");
             Trace.WriteLine(message);
         }
