@@ -19,22 +19,22 @@ namespace ChessBot.Search
 
         private readonly struct TtEntry
         {
-            public TtEntry(int lowerBound, int upperBound, int depth, Move firstMove)
+            public TtEntry(int lowerBound, int upperBound, int depth, Move pvMove)
             {
                 Debug.Assert(lowerBound <= upperBound);
                 Debug.Assert(depth > 0);
-                Debug.Assert(firstMove.IsValid);
+                Debug.Assert(pvMove.IsValid);
 
                 LowerBound = lowerBound;
                 UpperBound = upperBound;
                 Depth = depth;
-                FirstMove = firstMove;
+                PvMove = pvMove;
             }
 
             public int LowerBound { get; }
             public int UpperBound { get; }
             public int Depth { get; }
-            public Move FirstMove { get; }
+            public Move PvMove { get; }
 
             public override string ToString()
             {
@@ -158,7 +158,7 @@ namespace ChessBot.Search
             }
 
             TtEntry tte;
-            Move firstMove = default;
+            Move pvMove = default;
             if (tt.TryGetNode(state, out var ttNode))
             {
                 tte = ttNode.Value;
@@ -188,32 +188,34 @@ namespace ChessBot.Search
                     alpha = Math.Max(alpha, tte.LowerBound);
                     beta = Math.Min(beta, tte.UpperBound);
                 }
-                firstMove = ttNode.Value.FirstMove;
-                Debug.Assert(!firstMove.IsDefault);
+                pvMove = ttNode.Value.PvMove;
+                Debug.Assert(!pvMove.IsDefault);
             }
 
             int guess = state.WhiteToMove ? int.MinValue : int.MaxValue;
             var (a, b) = (alpha, beta);
-            bool firstMakesCut = false;
-            if (!firstMove.IsDefault)
+            bool pvCausesCut = false;
+            if (!pvMove.IsDefault)
             {
-                bool success = state.TryApply(firstMove, out _);
+                bool success = state.TryApply(pvMove, out _);
                 Debug.Assert(success);
                 guess = AlphaBetaWithMemory(state, alpha, beta, depth - 1, tt);
                 state.Undo();
                 if (state.WhiteToMove)
                 {
-                    firstMakesCut = (guess >= beta);
+                    pvCausesCut = (guess >= beta);
+                    if (pvCausesCut) Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", pvMove, state, guess, beta);
                     a = Math.Max(a, guess);
                 }
                 else
                 {
-                    firstMakesCut = (guess <= alpha);
+                    pvCausesCut = (guess <= alpha);
+                    if (pvCausesCut) Log.Debug("PV move {0} caused alpha cutoff for state {1} with guess={2} alpha={3}", pvMove, state, guess, alpha);
                     b = Math.Min(b, guess);
                 }
             }
 
-            if (!firstMakesCut)
+            if (!pvCausesCut)
             {
                 int childrenSearched = 0;
 
@@ -233,7 +235,7 @@ namespace ChessBot.Search
                         if (better)
                         {
                             guess = value;
-                            firstMove = move;
+                            pvMove = move;
                             a = Math.Max(a, guess);
 
                             if (guess >= beta)
@@ -258,7 +260,7 @@ namespace ChessBot.Search
                         if (better)
                         {
                             guess = value;
-                            firstMove = move;
+                            pvMove = move;
                             b = Math.Min(b, guess);
 
                             if (guess <= alpha)
@@ -278,16 +280,16 @@ namespace ChessBot.Search
                 Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
             }
 
-            Debug.Assert(!firstMove.IsDefault);
+            Debug.Assert(!pvMove.IsDefault);
             if (guess <= alpha) // fail-low result => upper bound
             {
-                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth: depth, firstMove: firstMove);
+                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth: depth, pvMove: pvMove);
             }
             else // fail-high result => lower bound
             {
                 // for now, we're only calling this with null-window searches where alpha == beta - 1
                 Debug.Assert(guess >= beta);
-                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth, firstMove: firstMove);
+                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth, pvMove: pvMove);
             }
             /*
             else // neither => this is the exact minimax value
@@ -316,6 +318,8 @@ namespace ChessBot.Search
                     // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
                     // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
                     // make the earlier bounds obsolete) even though we're passing the same depth both times.
+                    //
+                    // todo: why not do this ^, but only if the ranges overlap
                     ttNode.Value = tte;
                     tt.Touch(ttNode);
                 }
