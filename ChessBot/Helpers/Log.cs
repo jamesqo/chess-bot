@@ -9,6 +9,7 @@ namespace ChessBot.Helpers
     // todo: shouldn't have to be public
     public static class Log
     {
+#if DEBUG
         private static string OutputPath = GetOutputPath();
         private static readonly StreamWriter Output = new StreamWriter(OutputPath, append: false, new UTF8Encoding(false));
 
@@ -25,6 +26,18 @@ namespace ChessBot.Helpers
         {
             Output.Dispose();
         }
+
+        private static string GetOutputPath([CallerFilePath] string thisPath = null)
+        {
+            var solutionFolder = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(thisPath)));
+            var logsFolder = Path.Combine(solutionFolder, "logs");
+            Directory.CreateDirectory(logsFolder);
+
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
+            var fileName = $"trace_{timestamp}.log";
+            return Path.Combine(logsFolder, fileName);
+        }
+#endif
 
         public static int IndentLevel
         {
@@ -64,17 +77,6 @@ namespace ChessBot.Helpers
                 Trace.Write("] ");
             }
             Trace.WriteLine(message);
-        }
-
-        private static string GetOutputPath([CallerFilePath] string thisPath = null)
-        {
-            var solutionFolder = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(thisPath)));
-            var logsFolder = Path.Combine(solutionFolder, "logs");
-            Directory.CreateDirectory(logsFolder);
-
-            var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
-            var fileName = $"trace_{timestamp}.log";
-            return Path.Combine(logsFolder, fileName);
         }
     }
 }

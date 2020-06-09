@@ -489,7 +489,7 @@ namespace ChessBot
             for (var bb = Occupied; bb != Bitboard.Zero; bb = bb.ClearLsb())
             {
                 var source = bb.NextLocation();
-                var attacks = GetModifiedAttackBitboard(source);
+                var attacks = GetModifiedAttackBitboard(source, Board[source].Piece, Occupied);
 
                 if (White.Occupies[source])
                 {
@@ -590,12 +590,6 @@ namespace ChessBot
             }
 
             return canMoveIfUnblocked && (!canPieceBeBlocked || (GetLocationsBetween(source, destination) & Occupied) == Bitboard.Zero);
-        }
-
-        private Bitboard GetModifiedAttackBitboard(Location source)
-        {
-            Debug.Assert(Board[source].HasPiece);
-            return GetModifiedAttackBitboard(source, Board[source].Piece, Occupied);
         }
 
         // todo: calculating this is a perf bottleneck

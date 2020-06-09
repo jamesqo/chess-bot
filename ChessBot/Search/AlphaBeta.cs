@@ -30,8 +30,16 @@ namespace ChessBot.Search
             public int UtilityEstimate { get; }
             public int Depth { get; }
 
-            // don't bother with the depth for now
-            public override string ToString() => UtilityEstimate.ToString();
+            public override string ToString()
+            {
+                var sb = StringBuilderCache.Acquire();
+                sb.Append(UtilityEstimate);
+                sb.Append(", ");
+                sb.Append(nameof(Depth));
+                sb.Append(" = ");
+                sb.Append(Depth);
+                return StringBuilderCache.GetStringAndRelease(sb);
+            }
         }
 
         private readonly TranspositionTable<TtEntry> _tt;

@@ -36,7 +36,19 @@ namespace ChessBot.Search
             public int Depth { get; }
             public Move FirstMove { get; }
 
-            public override string ToString() => $"[{LowerBound}, {UpperBound}], {nameof(Depth)} = {Depth}";
+            public override string ToString()
+            {
+                var sb = StringBuilderCache.Acquire();
+                sb.Append('[');
+                sb.Append(LowerBound);
+                sb.Append(", ");
+                sb.Append(UpperBound);
+                sb.Append("], ");
+                sb.Append(nameof(Depth));
+                sb.Append(" = ");
+                sb.Append(Depth);
+                return StringBuilderCache.GetStringAndRelease(sb);
+            }
         }
 
         private readonly TranspositionTable<TtEntry> _tt;
@@ -111,6 +123,7 @@ namespace ChessBot.Search
             do
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
+                Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
                 guess = AlphaBetaWithMemory(root, beta - 1, beta, depth, tt);
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
                 if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess

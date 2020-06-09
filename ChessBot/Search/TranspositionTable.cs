@@ -12,12 +12,10 @@ namespace ChessBot.Search
     public class TranspositionTable<TValue>
     {
         private const int DefaultCapacity = 4096;
-        private const int EvictionPeriod = 8;
 
         private readonly Dictionary<ulong, TtNode<TValue>> _dict;
         private readonly int _capacity;
         private readonly TtLinkedList<TValue> _nodes;
-        private int _numAdds;
 
         public TranspositionTable() : this(DefaultCapacity) { }
 
@@ -26,18 +24,12 @@ namespace ChessBot.Search
             _dict = new Dictionary<ulong, TtNode<TValue>>(capacity);
             _capacity = capacity;
             _nodes = new TtLinkedList<TValue>();
-            _numAdds = 0;
         }
 
         public bool Add<TState>(TState state, TValue value) where TState : IState
         {
-            _numAdds++;
             if (_dict.Count == _capacity)
             {
-                if ((_numAdds % EvictionPeriod) != 0)
-                {
-                    return false;
-                }
                 Evict();
             }
 

@@ -18,7 +18,8 @@ namespace ChessBot.Types
     {
         internal const int NumberOfTiles = 64;
 
-        private fixed byte _bytes[32];
+        // we only need 32 bytes but this allows us to achieve faster indexing
+        private fixed byte _bytes[NumberOfTiles];
 
         public unsafe PieceOrNone this[Location location]
         {
@@ -28,10 +29,7 @@ namespace ChessBot.Types
                 Debug.Assert(location.IsValid);
 
                 int index = location.Value;
-                byte pieceValue = _bytes[index / 2];
-                pieceValue >>= (index % 2) * 4;
-                pieceValue &= 0b0000_1111;
-                return new PieceOrNone(pieceValue);
+                return new PieceOrNone(_bytes[index]);
             }
             set
             {
@@ -39,18 +37,7 @@ namespace ChessBot.Types
                 Debug.Assert(value.IsValid);
 
                 int index = location.Value;
-                byte pieceValue = value.Value; // 0 represents an empty tile
-                ref byte target = ref _bytes[index / 2];
-                if (index % 2 != 0)
-                {
-                    target &= 0b0000_1111;
-                    target |= (byte)(pieceValue << 4);
-                }
-                else
-                {
-                    target &= 0b1111_0000;
-                    target |= pieceValue;
-                }
+                _bytes[index] = value.Value;
             }
         }
 
@@ -72,7 +59,7 @@ namespace ChessBot.Types
 
         public bool Equals(Board other)
         {
-            for (int i = 0; i < sizeof(Board); i++)
+            for (int i = 0; i < NumberOfTiles; i++)
             {
                 if (_bytes[i] != other._bytes[i]) return false;
             }
@@ -82,7 +69,7 @@ namespace ChessBot.Types
         public override int GetHashCode()
         {
             var hc = new HashCode();
-            for (int i = 0; i < sizeof(Board); i++)
+            for (int i = 0; i < NumberOfTiles; i++)
             {
                 hc.Add(_bytes[i]);
             }
