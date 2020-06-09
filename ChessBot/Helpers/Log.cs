@@ -10,8 +10,9 @@ namespace ChessBot.Helpers
         public static void Debug(string message, params object[] formatArgs)
         {
             var sf = new StackFrame(1);
-            var caller = sf.GetMethod().Name;
-            System.Diagnostics.Debug.WriteLine($"[{caller}] {message}", formatArgs);
+            var method = sf.GetMethod();
+            var (methodName, className) = (method.Name, method.ReflectedType.Name);
+            System.Diagnostics.Debug.WriteLine($"[{className}.{methodName}] {message}", formatArgs);
         }
     }
 }

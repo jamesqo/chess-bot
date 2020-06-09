@@ -1,4 +1,5 @@
-﻿using ChessBot.Types;
+﻿using ChessBot.Helpers;
+using ChessBot.Types;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -196,7 +197,7 @@ namespace ChessBot.Search
 
             if (!firstMakesCut)
             {
-                bool isTerminal = true;
+                int childrenSearched = 0;
 
                 if (state.WhiteToMove)
                 {
@@ -204,7 +205,7 @@ namespace ChessBot.Search
                     {
                         if (!state.TryApply(move, out _)) continue;
 
-                        isTerminal = false;
+                        childrenSearched++;
 
                         int value = AlphaBetaWithMemory(state, a, beta, depth - 1, tt);
                         state.Undo();
@@ -225,7 +226,7 @@ namespace ChessBot.Search
                     {
                         if (!state.TryApply(move, out _)) continue;
 
-                        isTerminal = false;
+                        childrenSearched++;
 
                         int value = AlphaBetaWithMemory(state, alpha, b, depth - 1, tt);
                         state.Undo();
@@ -241,10 +242,11 @@ namespace ChessBot.Search
                     }
                 }
 
-                if (isTerminal)
+                if (childrenSearched == 0)
                 {
                     return Evaluation.Terminal(state);
                 }
+                Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
             }
 
             Debug.Assert(!firstMove.IsDefault);

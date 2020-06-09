@@ -64,7 +64,7 @@ namespace ChessBot.Search
             Debug.Assert(_dict.ContainsKey(node.Key));
             Debug.Assert(_dict[node.Key] == node);
 
-            Log.Debug("Moving node {0} to top of cache", node);
+            Log.Debug("Node {0} was hit, moving to top of cache", node);
             _nodes.Remove(node);
             _nodes.AddToTop(node);
         }

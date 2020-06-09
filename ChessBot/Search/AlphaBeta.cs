@@ -1,4 +1,5 @@
-﻿using ChessBot.Types;
+﻿using ChessBot.Helpers;
+using ChessBot.Types;
 using System;
 using System.Diagnostics;
 
@@ -113,13 +114,13 @@ namespace ChessBot.Search
             }
 
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
-            bool isTerminal = true;
+            int childrenSearched = 0;
 
             foreach (var move in state.GetPseudoLegalMoves())
             {
                 if (!state.TryApply(move, out _)) continue;
 
-                isTerminal = false;
+                childrenSearched++;
 
                 int value = _AlphaBeta(state, d - 1, alpha, beta);
                 state.Undo();
@@ -141,10 +142,11 @@ namespace ChessBot.Search
                 }
             }
 
-            if (isTerminal)
+            if (childrenSearched == 0)
             {
                 return Evaluation.Terminal(state);
             }
+            Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
 
             tte = new TtEntry(utilityEstimate: bestValue, depth: d);
             if (ttNode != null && !ttNode.WasEvicted) // the node could have been evicted during a recursive call
