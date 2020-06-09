@@ -6,7 +6,8 @@ using System.Text;
 
 namespace ChessBot.Helpers
 {
-    internal static class Log
+    // todo: shouldn't have to be public
+    public static class Log
     {
         private static string OutputPath = GetOutputPath();
         private static readonly StreamWriter Output = new StreamWriter(OutputPath, append: false, new UTF8Encoding(false));
@@ -31,35 +32,37 @@ namespace ChessBot.Helpers
             set => Trace.IndentLevel = value;
         }
 
+        public static bool IncludeCallerNames { get; set; } = true;
+
         [Conditional("DEBUG")]
-        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Debug<T0>(
             string message,
             T0 arg0,
-            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0.ToString()), memberName);
+            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString()), callerName);
 
         [Conditional("DEBUG")]
-        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Debug<T0, T1>(
             string message,
             T0 arg0,
             T1 arg1,
-            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString()), memberName);
+            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString()), callerName);
 
         [Conditional("DEBUG")]
-        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Debug<T0, T1, T2>(
             string message,
             T0 arg0,
             T1 arg1,
             T2 arg2,
-            [CallerMemberName] string memberName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString()), memberName);
+            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString()), callerName);
 
-        private static void DebugCore(string message, string memberName)
+        private static void DebugCore(string message, string callerName)
         {
-            Trace.Write("[");
-            Trace.Write(memberName);
-            Trace.Write("] ");
+            if (IncludeCallerNames)
+            {
+                Trace.Write("[");
+                Trace.Write(callerName);
+                Trace.Write("] ");
+            }
             Trace.WriteLine(message);
         }
 

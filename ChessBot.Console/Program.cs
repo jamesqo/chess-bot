@@ -1,4 +1,5 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Helpers;
 using ChessBot.Search;
 using ChessBot.Types;
 using System;
@@ -64,6 +65,8 @@ namespace ChessBot.Console
 
         static void Main(string[] args)
         {
+            Log.IncludeCallerNames = false;
+
             WriteLine("Welcome! This is a simple chess bot written in C#.");
             WriteLine();
 
