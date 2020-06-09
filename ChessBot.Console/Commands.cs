@@ -7,15 +7,13 @@ namespace ChessBot.Console
     {
         void ExitCommand();
         void HelpCommand();
-        void MovesCommand();
-        void SearchTimesCommand();
-        void UndoCommand();
+        void MovesCommand(State state);
+        void SearchTimesCommand(AI aiPlayer);
+        State UndoCommand(State state);
     }
 
     class Commands : ICommands
     {
-        public IProgramState State { get; set; }
-
         public void ExitCommand()
         {
             Environment.Exit(0);
@@ -32,31 +30,32 @@ namespace ChessBot.Console
             WriteLine("undo - undoes the last fullmove");
         }
 
-        public void MovesCommand()
+        public void MovesCommand(State state)
         {
             WriteLine("List of valid moves:");
             WriteLine();
-            WriteLine(string.Join(Environment.NewLine, State.GameState.GetMoves()));
+            WriteLine(string.Join(Environment.NewLine, state.GetMoves()));
         }
 
-        public void SearchTimesCommand()
+        public void SearchTimesCommand(AI aiPlayer)
         {
-            int moveCount = State.AIPlayer.History.Count;
+            int moveCount = aiPlayer.History.Count;
             for (int i = 0; i < moveCount; i++)
             {
-                var move = State.AIPlayer.History[i];
-                var time = State.AIPlayer.SearchTimes[i];
+                var move = aiPlayer.History[i];
+                var time = aiPlayer.SearchTimes[i];
                 WriteLine($"{move} - {time.TotalMilliseconds}ms");
             }
         }
 
-        public void UndoCommand()
+        public State UndoCommand(State state)
         {
-            // todo: handle InvalidOperationException
-            State.GameState = State.GameState.Undo().Undo(); // undo the last fullmove
-            WriteLine(Helpers.GetDisplayString(State.GameState));
+            // todo: handle InvalidOperationException here
+            var result = state.Undo().Undo(); // undo the last fullmove
+            WriteLine(Helpers.GetDisplayString(result));
             WriteLine();
-            WriteLine($"It's {State.GameState.ActiveSide}'s turn.");
+            WriteLine($"It's {result.ActiveSide}'s turn.");
+            return result;
         }
     }
 }

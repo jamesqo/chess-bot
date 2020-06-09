@@ -5,14 +5,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using static System.Console;
 
 namespace ChessBot.Console
 {
     class Program
     {
-        static Side GetUserSide()
+        static readonly ICommands Commands = new Commands();
+
+        static Side GetHumanSide()
         {
             while (true)
             {
@@ -66,47 +67,76 @@ namespace ChessBot.Console
             WriteLine("Welcome! This is a simple chess bot written in C#.");
             WriteLine();
 
-            var userSide = GetUserSide();
+            var humanSide = GetHumanSide();
             var ai = GetAI();
             var fen = GetStartFen();
+            var state = State.ParseFen(fen);
             WriteLine();
 
-            WriteLine($"Playing as: {userSide}");
+            WriteLine($"Playing as: {humanSide}");
             WriteLine();
 
-            var commands = new Commands();
-            var state = new ProgramState
+            Move GetHumanMove()
             {
-                GameState = State.ParseFen(fen),
-                HumanPlayer = new Human { Commands = commands },
-                AIPlayer = ai
-            };
-            commands.State = state.HumanPlayer.State = state;
+                while (true)
+                {
+                    Write("> ");
+                    string input = ReadLine().Trim();
+                    switch (input.ToLower())
+                    {
+                        case "exit":
+                        case "quit":
+                            Commands.ExitCommand();
+                            break;
+                        case "help":
+                            Commands.HelpCommand();
+                            break;
+                        case "moves":
+                            Commands.MovesCommand(state);
+                            break;
+                        case "searchtimes":
+                            Commands.SearchTimesCommand(ai);
+                            break;
+                        case "undo":
+                            state = Commands.UndoCommand(state);
+                            break;
+                        default:
+                            try
+                            {
+                                var move = Move.Parse(input, state);
+                                _ = state.Apply(move); // make sure it's valid
+                                return move;
+                            }
+                            catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
+                            {
+                                WriteLine(e);
+                                WriteLine("Sorry, try again.");
+                            }
+                            break;
+                    }
+                }
+            }
+
             bool justStarted = true;
 
-            var whitePlayer = userSide.IsWhite() ? (IMovePicker)state.HumanPlayer : state.AIPlayer;
-            var blackPlayer = userSide.IsWhite() ? (IMovePicker)state.AIPlayer : state.HumanPlayer;
-
-            var gameState = state.GameState;
             while (true)
             {
-                if (justStarted || gameState.WhiteToMove)
+                if (justStarted || state.WhiteToMove)
                 {
-                    WriteLine($"[Turn {gameState.FullMoveNumber}]");
+                    WriteLine($"[Turn {state.FullMoveNumber}]");
                     WriteLine();
                 }
 
-                WriteLine(Helpers.GetDisplayString(gameState));
+                WriteLine(Helpers.GetDisplayString(state));
                 WriteLine();
 
-                WriteLine($"It's {gameState.ActiveSide}'s turn.");
-                var player = gameState.WhiteToMove ? whitePlayer : blackPlayer;
-                var nextMove = player.PickMove(gameState);
-                gameState = state.GameState; // could have been updated by the undo command
-                WriteLine($"{gameState.ActiveSide} played: {nextMove}");
-                gameState = state.GameState = gameState.Apply(nextMove);
+                WriteLine($"It's {state.ActiveSide}'s turn.");
+                bool humanToMove = (humanSide == state.ActiveSide);
+                var nextMove = humanToMove ? GetHumanMove() : ai.PickMove(state);
+                WriteLine($"{state.ActiveSide} played: {nextMove}");
+                state = state.Apply(nextMove);
                 WriteLine();
-                CheckForEnd(gameState);
+                CheckForEnd(state);
 
                 justStarted = false;
             }
@@ -131,55 +161,6 @@ namespace ChessBot.Console
             }
 
             // todo: Check for 3-fold repetition, 50-move rule, etc.
-        }
-    }
-
-    class Human : IMovePicker
-    {
-        public IProgramState State { get; set; }
-        public ICommands Commands { get; set; }
-
-        public Move PickMove(State root)
-        {
-            while (true)
-            {
-                Write("> ");
-                string input = ReadLine().Trim();
-                switch (input.ToLower())
-                {
-                    case "exit":
-                    case "quit":
-                        Commands.ExitCommand();
-                        break;
-                    case "help":
-                        Commands.HelpCommand();
-                        break;
-                    case "moves":
-                        Commands.MovesCommand();
-                        break;
-                    case "searchtimes":
-                        Commands.SearchTimesCommand();
-                        break;
-                    case "undo":
-                        Commands.UndoCommand();
-                        // XXX: there should be a cleaner way to update this
-                        root = State.GameState;
-                        break;
-                    default:
-                        try
-                        {
-                            var move = Move.Parse(input, root);
-                            _ = root.Apply(move); // make sure it's valid
-                            return move;
-                        }
-                        catch (Exception e) when (e is AnParseException || e is InvalidMoveException)
-                        {
-                            WriteLine(e);
-                            WriteLine("Sorry, try again.");
-                        }
-                        break;
-                }
-            }
         }
     }
 
