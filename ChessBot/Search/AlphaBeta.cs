@@ -1,4 +1,5 @@
 ﻿using ChessBot.Helpers;
+using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
 using System.Diagnostics;

@@ -1,25 +1,25 @@
-﻿namespace ChessBot.Search
+﻿namespace ChessBot.Search.Tt
 {
     /// <summary>
-    /// Linked list used to implement transposition tables.
+    /// Linked list used to implement LRU transposition tables.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    internal class TtLinkedList<TValue>
+    internal class LruLinkedList<TValue>
     {
-        private readonly TtNode<TValue> _head;
-        private readonly TtNode<TValue> _tail;
+        private readonly LruNode<TValue> _head;
+        private readonly LruNode<TValue> _tail;
 
-        internal TtLinkedList()
+        internal LruLinkedList()
         {
-            _head = new TtNode<TValue>();
-            _tail = new TtNode<TValue>();
+            _head = new LruNode<TValue>();
+            _tail = new LruNode<TValue>();
             _head.Next = _tail;
             _tail.Previous = _head;
         }
 
-        public TtNode<TValue> Lru => _tail.Previous;
+        public LruNode<TValue> Lru => _tail.Previous;
 
-        public void AddToTop(TtNode<TValue> node)
+        public void AddToTop(LruNode<TValue> node)
         {
             node.Next = _head.Next;
             _head.Next.Previous = node;
@@ -27,7 +27,7 @@
             _head.Next = node;
         }
 
-        public void Remove(TtNode<TValue> node)
+        public void Remove(LruNode<TValue> node)
         {
             node.Previous.Next = node.Next;
             node.Next.Previous = node.Previous;

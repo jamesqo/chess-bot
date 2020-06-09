@@ -68,6 +68,15 @@ namespace ChessBot.Helpers
             T2 arg2,
             [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString()), callerName);
 
+        [Conditional("DEBUG")]
+        public static void Debug<T0, T1, T2, T3>(
+            string message,
+            T0 arg0,
+            T1 arg1,
+            T2 arg2,
+            T3 arg3,
+            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString(), arg3.ToString()), callerName);
+
         private static void DebugCore(string message, string callerName)
         {
             if (IncludeCallerNames)

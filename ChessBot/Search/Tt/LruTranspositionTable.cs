@@ -2,26 +2,25 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace ChessBot.Search
+namespace ChessBot.Search.Tt
 {
-    // todo: it's theoretically possible for 2 states to hash to the same value. should we take care of that?
     /// <summary>
-    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>.
+    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>. Uses an LRU eviction policy.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class TranspositionTable<TValue>
+    public class LruTranspositionTable<TValue>
     {
         private const int DefaultCapacity = 4096;
 
-        private readonly Dictionary<ulong, TtNode<TValue>> _dict;
+        private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly int _capacity;
         private readonly TtLinkedList<TValue> _nodes;
 
-        public TranspositionTable() : this(DefaultCapacity) { }
+        public LruTranspositionTable() : this(DefaultCapacity) { }
 
-        public TranspositionTable(int capacity)
+        public LruTranspositionTable(int capacity)
         {
-            _dict = new Dictionary<ulong, TtNode<TValue>>(capacity);
+            _dict = new Dictionary<ulong, LruNode<TValue>>(capacity);
             _capacity = capacity;
             _nodes = new TtLinkedList<TValue>();
         }
@@ -33,7 +32,7 @@ namespace ChessBot.Search
                 Evict();
             }
 
-            var node = new TtNode<TValue>(state.Hash, value);
+            var node = new LruNode<TValue>(state.Hash, value);
             if (!_dict.TryAdd(state.Hash, node))
             {
                 // although rare, this could happen if a state is not in the table during the initial lookup, but is
@@ -51,7 +50,7 @@ namespace ChessBot.Search
             return true;
         }
 
-        public void Touch(TtNode<TValue> node)
+        public void Touch(LruNode<TValue> node)
         {
             Debug.Assert(_dict.ContainsKey(node.Key));
             Debug.Assert(_dict[node.Key] == node);
@@ -61,7 +60,7 @@ namespace ChessBot.Search
             _nodes.AddToTop(node);
         }
 
-        public bool TryGetNode<TState>(TState state, out TtNode<TValue> node) where TState : IState
+        public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState
         {
             return _dict.TryGetValue(state.Hash, out node);
         }
@@ -75,7 +74,7 @@ namespace ChessBot.Search
             Evict(lru);
         }
 
-        private void Evict(TtNode<TValue> node)
+        private void Evict(LruNode<TValue> node)
         {
             _nodes.Remove(node);
             bool removed = _dict.Remove(node.Key);
