@@ -220,7 +220,7 @@ namespace ChessBot.Tests
         }
 
         [Fact]
-        public void Apply__AttackVectorIsRecomputed()
+        public void Apply_AttackVectorIsRecomputed()
         {
             // previously, attack vectors were not being reset after a piece moved, so the following sequence
             // would be invalid because it thinks white still attacks d5.
