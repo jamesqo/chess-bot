@@ -27,6 +27,8 @@ namespace ChessBot.Search
 
         public Move PickMove(State root, out Info info)
         {
+            Log.Debug("Entering {0}.{1}", arg0: nameof(Ids), arg1: nameof(PickMove));
+
             Move bestMove = default;
             int utility = 0;
 
@@ -43,6 +45,7 @@ namespace ChessBot.Search
             }
 
             info = new Info(utility: utility);
+            Log.Debug("Exiting {0}.{1}", arg0: nameof(Ids), arg1: nameof(PickMove));
             return bestMove;
         }
     }

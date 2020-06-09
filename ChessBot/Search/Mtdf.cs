@@ -2,7 +2,6 @@
 using ChessBot.Types;
 using System;
 using System.Diagnostics;
-using System.Linq;
 
 namespace ChessBot.Search
 {
@@ -53,6 +52,8 @@ namespace ChessBot.Search
 
         public Move PickMove(State root, out Info info)
         {
+            Log.Debug("Entering {0}.{1}", arg0: nameof(Mtdf), arg1: nameof(PickMove));
+
             Move bestMove = default;
             int bestValue = root.WhiteToMove ? int.MinValue : int.MaxValue;
             bool isTerminal = true;
@@ -82,6 +83,7 @@ namespace ChessBot.Search
 
             info = new Info(utility: bestValue);
             Log.Debug("Computed {0} as the minimax value for {1}", info.Utility, root);
+            Log.Debug("Exiting {0}.{1}", arg0: nameof(Mtdf), arg1: nameof(PickMove));
             return bestMove;
         }
 
@@ -202,6 +204,7 @@ namespace ChessBot.Search
             {
                 int childrenSearched = 0;
 
+                Log.Debug("Commencing search of children of state {0}", state);
                 Log.IndentLevel++;
                 if (state.WhiteToMove)
                 {

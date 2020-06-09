@@ -29,6 +29,9 @@ namespace ChessBot.Search
 
             public int UtilityEstimate { get; }
             public int Depth { get; }
+
+            // don't bother with the depth for now
+            public override string ToString() => UtilityEstimate.ToString();
         }
 
         private readonly TranspositionTable<TtEntry> _tt;
@@ -43,6 +46,8 @@ namespace ChessBot.Search
 
         public Move PickMove(State root, out Info info)
         {
+            Log.Debug("Entering {0}.{1}", arg0: nameof(AlphaBeta), arg1: nameof(PickMove));
+
             Move bestMove = default;
             int bestValue = root.WhiteToMove ? int.MinValue : int.MaxValue;
             var (alpha, beta) = (int.MinValue, int.MaxValue);
@@ -92,6 +97,7 @@ namespace ChessBot.Search
 
             info = new Info(utility: bestValue);
             Log.Debug("Computed {0} as the minimax value for {1}", info.Utility, root);
+            Log.Debug("Exiting {0}.{1}", arg0: nameof(AlphaBeta), arg1: nameof(PickMove));
             return bestMove;
         }
 
@@ -118,6 +124,7 @@ namespace ChessBot.Search
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             int childrenSearched = 0;
 
+            Log.Debug("Commencing search of children of state {0}", state);
             Log.IndentLevel++;
             foreach (var move in state.GetPseudoLegalMoves())
             {
