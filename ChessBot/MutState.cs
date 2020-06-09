@@ -409,7 +409,7 @@ namespace ChessBot
         {
             var fen = new StringBuilder();
 
-            fen.Append(Board);
+            Board.ToString(fen);
             fen.Append(' ');
 
             fen.Append(WhiteToMove ? 'w' : 'b');

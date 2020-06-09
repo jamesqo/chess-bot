@@ -91,7 +91,13 @@ namespace ChessBot.Types
 
         public override string ToString()
         {
-            var fen = new StringBuilder();
+            var sb = new StringBuilder();
+            ToString(sb);
+            return sb.ToString();
+        }
+
+        internal void ToString(StringBuilder sb)
+        {
             for (var rank = Rank.Rank8; rank >= Rank.Rank1; rank--)
             {
                 int gap = 0;
@@ -101,15 +107,14 @@ namespace ChessBot.Types
                     if (!piece.HasPiece) gap++;
                     else
                     {
-                        if (gap > 0) fen.Append(gap);
-                        fen.Append(piece.Piece.ToDisplayChar());
+                        if (gap > 0) sb.Append(gap);
+                        sb.Append(piece.Piece.ToDisplayChar());
                         gap = 0;
                     }
                 }
-                if (gap > 0) fen.Append(gap);
-                if (rank > Rank.Rank1) fen.Append('/');
+                if (gap > 0) sb.Append(gap);
+                if (rank > Rank.Rank1) sb.Append('/');
             }
-            return fen.ToString();
         }
     }
 }
