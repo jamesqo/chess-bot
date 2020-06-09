@@ -133,6 +133,7 @@ namespace ChessBot.Search
             TranspositionTable<TtEntry> tt)
         {
             Debug.Assert(alpha < beta);
+            Debug.Assert(depth >= 0);
 
             if (depth == 0)
             {
@@ -199,6 +200,7 @@ namespace ChessBot.Search
             {
                 int childrenSearched = 0;
 
+                Log.IndentLevel++;
                 if (state.WhiteToMove)
                 {
                     foreach (var move in state.GetPseudoLegalMoves())
@@ -241,6 +243,7 @@ namespace ChessBot.Search
                         }
                     }
                 }
+                Log.IndentLevel--;
 
                 if (childrenSearched == 0)
                 {

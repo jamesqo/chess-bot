@@ -97,6 +97,7 @@ namespace ChessBot.Search
         private int _AlphaBeta(MutState state, int d, int alpha, int beta)
         {
             Debug.Assert(alpha < beta);
+            Debug.Assert(d >= 0 && d < Depth);
 
             if (d == 0)
             {
@@ -116,6 +117,7 @@ namespace ChessBot.Search
             int bestValue = state.WhiteToMove ? int.MinValue : int.MaxValue;
             int childrenSearched = 0;
 
+            Log.IndentLevel++;
             foreach (var move in state.GetPseudoLegalMoves())
             {
                 if (!state.TryApply(move, out _)) continue;
@@ -141,6 +143,7 @@ namespace ChessBot.Search
                     break;
                 }
             }
+            Log.IndentLevel--;
 
             if (childrenSearched == 0)
             {
