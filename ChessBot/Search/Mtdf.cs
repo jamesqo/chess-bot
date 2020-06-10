@@ -125,7 +125,7 @@ namespace ChessBot.Search
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
-                guess = AlphaBetaWithMemory(root, beta - 1, beta, depth, tt);
+                guess = NullWindowSearch(root, beta, depth, tt);
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
                 if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess
                 {
@@ -143,14 +143,13 @@ namespace ChessBot.Search
             return guess;
         }
 
-        private static int AlphaBetaWithMemory(
+        // does alpha-beta search on the null window [beta-1, beta] using a transposition table
+        private static int NullWindowSearch(
             MutState state,
-            int alpha,
             int beta,
             int depth,
             ITranspositionTable<TtEntry, LruNode<TtEntry>> tt)
         {
-            Debug.Assert(alpha < beta);
             Debug.Assert(depth >= 0);
 
             if (depth == 0)
@@ -158,6 +157,7 @@ namespace ChessBot.Search
                 return Evaluation.Heuristic(state);
             }
 
+            int alpha = beta - 1;
             TtEntry tte;
             Move pvMove = default;
             if (tt.TryGetNode(state, out var ttNode))
@@ -194,25 +194,22 @@ namespace ChessBot.Search
             }
 
             int guess = state.WhiteToMove ? int.MinValue : int.MaxValue;
-            var (a, b) = (alpha, beta);
             bool pvCausesCut = false;
             if (!pvMove.IsDefault)
             {
                 bool success = state.TryApply(pvMove, out _);
                 Debug.Assert(success);
-                guess = AlphaBetaWithMemory(state, alpha, beta, depth - 1, tt);
+                guess = NullWindowSearch(state, beta, depth - 1, tt);
                 state.Undo();
                 if (state.WhiteToMove)
                 {
                     pvCausesCut = (guess >= beta);
                     if (pvCausesCut) Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", pvMove, state, guess, beta);
-                    a = Math.Max(a, guess);
                 }
                 else
                 {
                     pvCausesCut = (guess <= alpha);
                     if (pvCausesCut) Log.Debug("PV move {0} caused alpha cutoff for state {1} with guess={2} alpha={3}", pvMove, state, guess, alpha);
-                    b = Math.Min(b, guess);
                 }
             }
 
@@ -230,14 +227,13 @@ namespace ChessBot.Search
 
                         childrenSearched++;
 
-                        int value = AlphaBetaWithMemory(state, a, beta, depth - 1, tt);
+                        int value = NullWindowSearch(state, beta, depth - 1, tt);
                         state.Undo();
                         bool better = value > guess;
                         if (better)
                         {
                             guess = value;
                             pvMove = move;
-                            a = Math.Max(a, guess);
 
                             if (guess >= beta)
                             {
@@ -255,14 +251,13 @@ namespace ChessBot.Search
 
                         childrenSearched++;
 
-                        int value = AlphaBetaWithMemory(state, alpha, b, depth - 1, tt);
+                        int value = NullWindowSearch(state, beta, depth - 1, tt);
                         state.Undo();
                         bool better = value < guess;
                         if (better)
                         {
                             guess = value;
                             pvMove = move;
-                            b = Math.Min(b, guess);
 
                             if (guess <= alpha)
                             {
@@ -288,8 +283,7 @@ namespace ChessBot.Search
             }
             else // fail-high result => lower bound
             {
-                // for now, we're only calling this with null-window searches where alpha == beta - 1
-                Debug.Assert(guess >= beta);
+                Debug.Assert(guess >= beta); // must be true for null-window searches, where alpha == (beta - 1)
                 tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth, pvMove: pvMove);
             }
             /*
