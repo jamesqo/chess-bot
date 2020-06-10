@@ -18,7 +18,7 @@ namespace ChessBot.Search
             public int Utility { get; }
         }
 
-        private readonly struct TtEntry
+        private readonly struct TtEntry : IHasDepth
         {
             public TtEntry(int lowerBound, int upperBound, int depth, Move pvMove)
             {
@@ -52,12 +52,12 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly LruReplacementTt<TtEntry> _tt;
+        private readonly ITranspositionTable<TtEntry, LruNode<TtEntry>> _tt;
 
         public Mtdf(int depth)
         {
             Depth = depth;
-            _tt = new LruReplacementTt<TtEntry>();
+            _tt = new TwoTierReplacementTt<TtEntry>();
         }
 
         public int Depth { get; set; }
@@ -105,7 +105,7 @@ namespace ChessBot.Search
             MutState root,
             int firstGuess,
             int depth,
-            LruReplacementTt<TtEntry> tt,
+            ITranspositionTable<TtEntry, LruNode<TtEntry>> tt,
             int bestSiblingValue)
         {
             int guess = firstGuess;
@@ -148,7 +148,7 @@ namespace ChessBot.Search
             int alpha,
             int beta,
             int depth,
-            LruReplacementTt<TtEntry> tt)
+            ITranspositionTable<TtEntry, LruNode<TtEntry>> tt)
         {
             Debug.Assert(alpha < beta);
             Debug.Assert(depth >= 0);

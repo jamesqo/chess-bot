@@ -48,8 +48,9 @@ namespace ChessBot.Search
         public AlphaBeta(int depth)
         {
             Depth = depth;
-            // todo: figure out why this isn't performing any better than plain old lru replacement?
-            _tt = new TwoTierReplacementTt<TtEntry>();
+            _tt = new LruReplacementTt<TtEntry>();
+            // todo: figure out why this isn't performing any better than plain old lru replacement for alphabeta?
+            //_tt = new TwoTierReplacementTt<TtEntry>();
         }
 
         public int Depth { get; set; }
