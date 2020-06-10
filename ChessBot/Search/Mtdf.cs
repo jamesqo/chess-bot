@@ -305,22 +305,26 @@ namespace ChessBot.Search
                 int ttDepth = ttNode.Value.Depth;
                 if (depth >= ttDepth) // information about higher depths is more valuable
                 {
-                    /*
                     if (depth == ttDepth)
                     {
-                        // improve on what we already know
-                        tte = new TtEntry(
-                            Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
-                            Math.Min(tte.UpperBound, ttNode.Value.UpperBound),
-                            depth: depth);
+                        bool overlaps = (tte.LowerBound <= ttNode.Value.UpperBound) && (ttNode.Value.LowerBound <= tte.UpperBound);
+                        // although rare, this could be false in the following scenario:
+                        //
+                        // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
+                        // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
+                        // make the earlier bounds obsolete) even though we're passing the same depth both times.
+                        //
+                        // in this case, we just assume the old range is obsolete and replace it entirely.
+                        if (overlaps)
+                        {
+                            // improve on what we already know
+                            tte = new TtEntry(
+                                Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
+                                Math.Min(tte.UpperBound, ttNode.Value.UpperBound),
+                                depth: depth,
+                                pvMove: pvMove);
+                        }
                     }
-                    */
-                    // ^ this looks reasonable but it doesn't work.
-                    // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
-                    // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
-                    // make the earlier bounds obsolete) even though we're passing the same depth both times.
-                    //
-                    // todo: why not do this ^, but only if the ranges overlap
                     ttNode.Value = tte;
                     tt.Touch(ttNode);
                 }
