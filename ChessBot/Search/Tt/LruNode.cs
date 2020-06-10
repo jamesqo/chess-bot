@@ -24,7 +24,15 @@ namespace ChessBot.Search.Tt
         public LruNode<TValue> Previous { get; internal set; }
         public LruNode<TValue> Next { get; internal set; }
 
-        internal bool WasEvicted => Previous == null && Next == null;
+        internal bool WasRemoved => Previous == null && Next == null;
+
+        public void Remove()
+        {
+            Previous.Next = Next;
+            Next.Previous = Previous;
+            Previous = null;
+            Next = null;
+        }
 
         public override string ToString()
         {

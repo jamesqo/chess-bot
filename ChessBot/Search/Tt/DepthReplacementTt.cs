@@ -5,24 +5,25 @@ using System.Diagnostics;
 namespace ChessBot.Search.Tt
 {
     /// <summary>
-    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>. Uses an LRU eviction policy.
+    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>.
+    /// Evicts nodes with lesser depths first.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class LruTranspositionTable<TValue>
+    public class DepthReplacementTt<TValue> where TValue : IHasDepth
     {
         private const int DefaultCapacity = 4096;
 
         private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly int _capacity;
-        private readonly TtLinkedList<TValue> _nodes;
+        private readonly List<LruLinkedList<TValue>> _lists;
 
-        public LruTranspositionTable() : this(DefaultCapacity) { }
+        public DepthReplacementTt() : this(DefaultCapacity) { }
 
-        public LruTranspositionTable(int capacity)
+        public DepthReplacementTt(int capacity)
         {
             _dict = new Dictionary<ulong, LruNode<TValue>>(capacity);
             _capacity = capacity;
-            _nodes = new TtLinkedList<TValue>();
+            _lists = new List<LruLinkedList<TValue>>();
         }
 
         public bool Add<TState>(TState state, TValue value) where TState : IState
@@ -31,22 +32,17 @@ namespace ChessBot.Search.Tt
             {
                 Evict();
             }
+            EnsureDepth(value.Depth);
 
             var node = new LruNode<TValue>(state.Hash, value);
             if (!_dict.TryAdd(state.Hash, node))
             {
-                // although rare, this could happen if a state is not in the table during the initial lookup, but is
-                // populated during a recursive call as it searches its children. afterwards, there will be a conflict
-                // when it tries to call Add() with an existing key. our behavior is to favor the newer entry since it
-                // probably contains information about a greater depth.
-                //
-                // this could also theoretically happen in the case of a hash collision, although that's very unlikely.
                 var existingNode = _dict[state.Hash];
                 Log.Debug("Evicting node {0} in favor of {1}", existingNode, node);
                 Evict(existingNode);
                 _dict.Add(state.Hash, node);
             }
-            _nodes.AddToTop(node);
+            _lists[value.Depth].AddToTop(node);
             return true;
         }
 
@@ -54,10 +50,11 @@ namespace ChessBot.Search.Tt
         {
             Debug.Assert(_dict.ContainsKey(node.Key));
             Debug.Assert(_dict[node.Key] == node);
+            Debug.Assert(_lists.Count > node.Value.Depth);
 
             Log.Debug("Node {0} was hit, moving to top of cache", node);
-            _nodes.Remove(node);
-            _nodes.AddToTop(node);
+            node.Remove();
+            _lists[node.Value.Depth].AddToTop(node);
         }
 
         public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState
@@ -65,20 +62,42 @@ namespace ChessBot.Search.Tt
             return _dict.TryGetValue(state.Hash, out node);
         }
 
-        // For now, we're using an LRU cache scheme to decide who gets evicted.
-        // In the future, we could take other factors into account such as number of hits, relative depth, etc.
         private void Evict()
         {
-            var lru = _nodes.Lru;
-            Log.Debug("Evicting lru node {0}", lru);
-            Evict(lru);
+            for (int depth = 0; depth < _lists.Count; depth++)
+            {
+                var list = _lists[depth];
+                if (!list.IsEmpty)
+                {
+                    var lru = list.Lru;
+                    Log.Debug("Evicting lru node {0} for depth={1}", lru, depth);
+                    Evict(lru);
+                    return;
+                }
+            }
         }
 
         private void Evict(LruNode<TValue> node)
         {
-            _nodes.Remove(node);
+            node.Remove();
             bool removed = _dict.Remove(node.Key);
             Debug.Assert(removed);
+        }
+
+        private void EnsureDepth(int depth)
+        {
+            Debug.Assert(depth >= 0);
+
+            if (_lists.Count <= depth)
+            {
+                int delta = (depth + 1) - _lists.Count;
+                for (int i = 0; i < delta; i++)
+                {
+                    _lists.Add(new LruLinkedList<TValue>());
+                }
+            }
+
+            Debug.Assert(_lists.Count > depth);
         }
     }
 }

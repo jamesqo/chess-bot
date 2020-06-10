@@ -52,12 +52,12 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly TranspositionTable<TtEntry> _tt;
+        private readonly LruReplacementTt<TtEntry> _tt;
 
         public Mtdf(int depth)
         {
             Depth = depth;
-            _tt = new TranspositionTable<TtEntry>();
+            _tt = new LruReplacementTt<TtEntry>();
         }
 
         public int Depth { get; set; }
@@ -105,7 +105,7 @@ namespace ChessBot.Search
             MutState root,
             int firstGuess,
             int depth,
-            TranspositionTable<TtEntry> tt,
+            LruReplacementTt<TtEntry> tt,
             int bestSiblingValue)
         {
             int guess = firstGuess;
@@ -148,7 +148,7 @@ namespace ChessBot.Search
             int alpha,
             int beta,
             int depth,
-            TranspositionTable<TtEntry> tt)
+            LruReplacementTt<TtEntry> tt)
         {
             Debug.Assert(alpha < beta);
             Debug.Assert(depth >= 0);
@@ -300,7 +300,7 @@ namespace ChessBot.Search
             }
             */
 
-            if (ttNode != null && !ttNode.WasEvicted) // the node could have been evicted during a recursive call
+            if (ttNode != null && !ttNode.WasRemoved) // the node could have been evicted during a recursive call
             {
                 int ttDepth = ttNode.Value.Depth;
                 if (depth >= ttDepth) // information about higher depths is more valuable

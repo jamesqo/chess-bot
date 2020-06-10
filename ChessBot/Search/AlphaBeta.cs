@@ -18,7 +18,7 @@ namespace ChessBot.Search
             public int Utility { get; }
         }
 
-        private readonly struct TtEntry
+        private readonly struct TtEntry : IHasDepth
         {
             public TtEntry(int utilityEstimate, int depth)
             {
@@ -43,12 +43,14 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly TranspositionTable<TtEntry> _tt;
+        private readonly LruReplacementTt<TtEntry> _tt;
+        // todo: this isn't actually performing better than plain old lru, figure out why
+        //private readonly DepthReplacementTt<TtEntry> _tt;
 
         public AlphaBeta(int depth)
         {
             Depth = depth;
-            _tt = new TranspositionTable<TtEntry>();
+            _tt = new LruReplacementTt<TtEntry>();
         }
 
         public int Depth { get; set; }
@@ -177,7 +179,7 @@ namespace ChessBot.Search
             Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
 
             tte = new TtEntry(utilityEstimate: bestValue, depth: d);
-            if (ttNode != null && !ttNode.WasEvicted) // the node could have been evicted during a recursive call
+            if (ttNode != null && !ttNode.WasRemoved) // the node could have been evicted during a recursive call
             {
                 // update the existing node
                 ttNode.Value = tte;

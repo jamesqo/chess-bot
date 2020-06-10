@@ -17,6 +17,8 @@
             _tail.Previous = _head;
         }
 
+        public bool IsEmpty => _tail.Previous == _head;
+
         public LruNode<TValue> Lru => _tail.Previous;
 
         public void AddToTop(LruNode<TValue> node)
@@ -25,14 +27,6 @@
             _head.Next.Previous = node;
             node.Previous = _head;
             _head.Next = node;
-        }
-
-        public void Remove(LruNode<TValue> node)
-        {
-            node.Previous.Next = node.Next;
-            node.Next.Previous = node.Previous;
-            node.Previous = null;
-            node.Next = null;
         }
     }
 }
