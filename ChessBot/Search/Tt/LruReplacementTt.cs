@@ -8,7 +8,7 @@ namespace ChessBot.Search.Tt
     /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>. Uses an LRU eviction policy.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class LruReplacementTt<TValue>
+    public class LruReplacementTt<TValue> : ITranspositionTable<TValue, LruNode<TValue>>
     {
         private const int DefaultCapacity = 4096;
 
@@ -25,7 +25,7 @@ namespace ChessBot.Search.Tt
             _nodes = new LruLinkedList<TValue>();
         }
 
-        public bool Add<TState>(TState state, TValue value) where TState : IState
+        public void Add<TState>(TState state, TValue value) where TState : IState
         {
             if (_dict.Count == _capacity)
             {
@@ -47,17 +47,19 @@ namespace ChessBot.Search.Tt
                 _dict.Add(state.Hash, node);
             }
             _nodes.AddToTop(node);
-            return true;
         }
 
-        public void Touch(LruNode<TValue> node)
+        public bool Touch(LruNode<TValue> node)
         {
-            Debug.Assert(_dict.ContainsKey(node.Key));
-            Debug.Assert(_dict[node.Key] == node);
+            if (_dict.TryGetValue(node.Key, out var dictNode) && ReferenceEquals(node, dictNode))
+            {
+                Log.Debug("Node {0} was hit, moving to top of cache", node);
+                node.Remove();
+                _nodes.AddToTop(node);
+                return true;
+            }
 
-            Log.Debug("Node {0} was hit, moving to top of cache", node);
-            node.Remove();
-            _nodes.AddToTop(node);
+            return false; // node isn't from here or got evicted
         }
 
         public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState

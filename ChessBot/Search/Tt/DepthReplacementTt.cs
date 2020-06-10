@@ -9,7 +9,7 @@ namespace ChessBot.Search.Tt
     /// Evicts nodes with lesser depths first.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class DepthReplacementTt<TValue> where TValue : IHasDepth
+    public class DepthReplacementTt<TValue> : ITranspositionTable<TValue, LruNode<TValue>> where TValue : IHasDepth
     {
         private const int DefaultCapacity = 4096;
 
@@ -26,7 +26,7 @@ namespace ChessBot.Search.Tt
             _lists = new List<LruLinkedList<TValue>>();
         }
 
-        public bool Add<TState>(TState state, TValue value) where TState : IState
+        public void Add<TState>(TState state, TValue value) where TState : IState
         {
             if (_dict.Count == _capacity)
             {
@@ -43,18 +43,21 @@ namespace ChessBot.Search.Tt
                 _dict.Add(state.Hash, node);
             }
             _lists[value.Depth].AddToTop(node);
-            return true;
         }
 
-        public void Touch(LruNode<TValue> node)
+        public bool Touch(LruNode<TValue> node)
         {
-            Debug.Assert(_dict.ContainsKey(node.Key));
-            Debug.Assert(_dict[node.Key] == node);
-            Debug.Assert(_lists.Count > node.Value.Depth);
+            if (_dict.TryGetValue(node.Key, out var dictNode) && ReferenceEquals(node, dictNode))
+            {
+                Debug.Assert(_lists.Count > node.Value.Depth);
 
-            Log.Debug("Node {0} was hit, moving to top of cache", node);
-            node.Remove();
-            _lists[node.Value.Depth].AddToTop(node);
+                Log.Debug("Node {0} was hit, moving to top of cache", node);
+                node.Remove();
+                _lists[node.Value.Depth].AddToTop(node);
+                return true;
+            }
+
+            return false; // node isn't from here or got evicted
         }
 
         public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState
