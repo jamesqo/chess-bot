@@ -43,14 +43,13 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly LruReplacementTt<TtEntry> _tt;
-        // todo: figure out why this isn't performing any better than plain old lru replacement?
-        //private readonly TwoTierReplacementTt<TtEntry> _tt;
+        private readonly ITranspositionTable<TtEntry, LruNode<TtEntry>> _tt;
 
         public AlphaBeta(int depth)
         {
             Depth = depth;
-            _tt = new LruReplacementTt<TtEntry>();
+            // todo: figure out why this isn't performing any better than plain old lru replacement?
+            _tt = new TwoTierReplacementTt<TtEntry>();
         }
 
         public int Depth { get; set; }

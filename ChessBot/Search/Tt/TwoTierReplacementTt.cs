@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace ChessBot.Search.Tt
 {
@@ -23,10 +22,12 @@ namespace ChessBot.Search.Tt
             _depthTt = new DepthReplacementTt<TValue>(capacity / 2);
         }
 
-        public void Add<TState>(TState state, TValue value) where TState : IState
+        public bool Add<TState>(TState state, TValue value) where TState : IState
         {
-            _lruTt.Add(state, value);
-            _depthTt.Add(state, value);
+            // NOTE: we're using | and not || because we want to add to both of them
+            bool wasAdded = _lruTt.Add(state, value) | _depthTt.Add(state, value);
+            Debug.Assert(wasAdded); // lru replacement should always add new states
+            return wasAdded;
         }
 
         public bool Touch(LruNode<TValue> node)

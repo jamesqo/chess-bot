@@ -16,6 +16,7 @@ namespace ChessBot.Search.Tt
         private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly int _capacity;
         private readonly List<LruLinkedList<TValue>> _lists;
+        private int _minDepth; // lowest depth value for which a node is present
 
         public DepthReplacementTt() : this(DefaultCapacity) { }
 
@@ -24,25 +25,39 @@ namespace ChessBot.Search.Tt
             _dict = new Dictionary<ulong, LruNode<TValue>>(capacity);
             _capacity = capacity;
             _lists = new List<LruLinkedList<TValue>>();
+            _minDepth = -1;
         }
 
-        public void Add<TState>(TState state, TValue value) where TState : IState
+        public bool Add<TState>(TState state, TValue value) where TState : IState
         {
+            int depth = value.Depth;
+            Debug.Assert(depth >= 0);
+
             if (_dict.Count == _capacity)
             {
+                if (depth < _minDepth)
+                {
+                    return false;
+                }
+
                 Evict();
             }
-            EnsureDepth(value.Depth);
+            else if (_minDepth == -1 || depth < _minDepth)
+            {
+                _minDepth = depth;
+            }
+            EnsureDepth(depth);
 
             var node = new LruNode<TValue>(state.Hash, value);
             if (!_dict.TryAdd(state.Hash, node))
             {
                 var existingNode = _dict[state.Hash];
-                Log.Debug("Evicting node {0} in favor of {1}", existingNode, node);
+                Log.Debug("(depth) Evicting node {0} in favor of {1}", existingNode, node);
                 Evict(existingNode);
                 _dict.Add(state.Hash, node);
             }
-            _lists[value.Depth].AddToTop(node);
+            _lists[depth].AddToTop(node);
+            return true;
         }
 
         public bool Touch(LruNode<TValue> node)
@@ -51,7 +66,7 @@ namespace ChessBot.Search.Tt
             {
                 Debug.Assert(_lists.Count > node.Value.Depth);
 
-                Log.Debug("Node {0} was hit, moving to top of cache", node);
+                Log.Debug("(depth) Node {0} was hit, moving to top of cache", node);
                 node.Remove();
                 _lists[node.Value.Depth].AddToTop(node);
                 return true;
@@ -67,17 +82,13 @@ namespace ChessBot.Search.Tt
 
         private void Evict()
         {
-            for (int depth = 0; depth < _lists.Count; depth++)
-            {
-                var list = _lists[depth];
-                if (!list.IsEmpty)
-                {
-                    var lru = list.Lru;
-                    Log.Debug("Evicting lru node {0} for depth={1}", lru, depth);
-                    Evict(lru);
-                    return;
-                }
-            }
+            Debug.Assert(_minDepth >= 0 && _minDepth < _lists.Count);
+
+            var targetList = _lists[_minDepth];
+            var target = targetList.Lru;
+            Log.Debug("(depth) Evicting lru node {0} for depth={1}", target, _minDepth);
+            Evict(target);
+            if (targetList.IsEmpty) UpdateMinDepth();
         }
 
         private void Evict(LruNode<TValue> node)
@@ -101,6 +112,25 @@ namespace ChessBot.Search.Tt
             }
 
             Debug.Assert(_lists.Count > depth);
+        }
+
+        private void UpdateMinDepth()
+        {
+            Debug.Assert(_minDepth >= 0 && _minDepth < _lists.Count);
+            Debug.Assert(_lists[_minDepth].IsEmpty);
+
+            for (int depth = (_minDepth + 1); depth < _lists.Count; depth++)
+            {
+                if (!_lists[depth].IsEmpty)
+                {
+                    _minDepth = depth;
+                    return;
+                }
+            }
+
+            // all of the lists are empty
+            Debug.Assert(_dict.Count == 0);
+            _minDepth = -1;
         }
     }
 }

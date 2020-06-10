@@ -25,7 +25,7 @@ namespace ChessBot.Search.Tt
             _nodes = new LruLinkedList<TValue>();
         }
 
-        public void Add<TState>(TState state, TValue value) where TState : IState
+        public bool Add<TState>(TState state, TValue value) where TState : IState
         {
             if (_dict.Count == _capacity)
             {
@@ -42,18 +42,19 @@ namespace ChessBot.Search.Tt
                 //
                 // this could also theoretically happen in the case of a hash collision, although that's very unlikely.
                 var existingNode = _dict[state.Hash];
-                Log.Debug("Evicting node {0} in favor of {1}", existingNode, node);
+                Log.Debug("(lru) Evicting node {0} in favor of {1}", existingNode, node);
                 Evict(existingNode);
                 _dict.Add(state.Hash, node);
             }
             _nodes.AddToTop(node);
+            return true;
         }
 
         public bool Touch(LruNode<TValue> node)
         {
             if (_dict.TryGetValue(node.Key, out var dictNode) && ReferenceEquals(node, dictNode))
             {
-                Log.Debug("Node {0} was hit, moving to top of cache", node);
+                Log.Debug("(lru) Node {0} was hit, moving to top of cache", node);
                 node.Remove();
                 _nodes.AddToTop(node);
                 return true;
@@ -72,7 +73,7 @@ namespace ChessBot.Search.Tt
         private void Evict()
         {
             var lru = _nodes.Lru;
-            Log.Debug("Evicting lru node {0}", lru);
+            Log.Debug("(lru) Evicting lru node {0}", lru);
             Evict(lru);
         }
 
