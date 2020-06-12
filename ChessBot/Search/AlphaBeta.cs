@@ -6,6 +6,7 @@ using System.Diagnostics;
 
 namespace ChessBot.Search
 {
+    // todo: implement killer move heuristic for this searcher
     /// <summary>
     /// Uses alpha-beta search to pick the best move.
     /// </summary>

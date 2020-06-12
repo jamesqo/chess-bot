@@ -3,9 +3,9 @@ using ChessBot.Helpers;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using static ChessBot.StaticInfo;
 using static ChessBot.Types.File;
 using static ChessBot.Types.Rank;
@@ -115,7 +115,7 @@ namespace ChessBot
 
         public Player GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        public IEnumerable<Move> GetPseudoLegalMoves()
+        public IEnumerable<Move> GetPseudoLegalMoves(ImmutableArray<Move> killers = default)
         {
             // because this method is lazy (ie. uses iterators) and our state is mutable, we have to make a copy of all of the relevant state variables
             return GetPseudoLegalMoves(
@@ -124,7 +124,8 @@ namespace ChessBot
                 ActiveSide,
                 EnPassantTarget,
                 CanReallyCastleKingside,
-                CanReallyCastleQueenside);
+                CanReallyCastleQueenside,
+                killers);
         }
 
         private static IEnumerable<Move> GetPseudoLegalMoves(
@@ -133,11 +134,13 @@ namespace ChessBot
             Side activeSide,
             Location? enPassantTarget,
             bool canReallyCastleKingside,
-            bool canReallyCastleQueenside)
+            bool canReallyCastleQueenside,
+            ImmutableArray<Move> killers)
         {
             // We attempt to return "better" moves (ie. ones that are more likely to cause cutoffs) first.
-            // Captures are returned first, then non-captures. (todo: give promotions priority within non-captures)
+            // Captures are returned first, then killer moves, then non-captures.
             // Captures are ordered according to MVV-LVA. Non-captures will be ordered according to the history heuristic (todo).
+            // (todo: also, give promotions priority within non-captures)
 
             // workarounds for unsafe code not being allowed in iterator blocks
             unsafe static Bitboard GetPiecePlacement(in Bitboards bbs, Piece piece)
@@ -158,6 +161,49 @@ namespace ChessBot
 
             var opposingSide = activeSide.Flip();
             Bitboard occupied = GetOccupies(in bbs, Side.White) | GetOccupies(in bbs, Side.Black);
+
+            Bitboard GetNonCaptureDestinations(Location source)
+            {
+                Debug.Assert(board[source].HasPiece);
+                Debug.Assert(board[source].Piece.Side == activeSide);
+
+                var result = Bitboard.Zero;
+
+                var piece = board[source].Piece;
+                var (side, kind) = (piece.Side, piece.Kind);
+                Debug.Assert(side == activeSide); // this assumption is only used when we check for castling availability
+
+                // don't bother with attack vectors for pawns. they're totally unrelated to where the pawn can move without capturing.
+                if (kind == PieceKind.Pawn)
+                {
+                    Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank, so Up() should be safe
+
+                    var forward = ForwardStep(side);
+                    var up1 = source.Up(forward);
+                    if (!occupied[up1])
+                    {
+                        result |= up1.GetMask();
+                        if (source.Rank == SecondRank(side))
+                        {
+                            var up2 = source.Up(forward * 2);
+                            if (!occupied[up2]) result |= up2.GetMask();
+                        }
+                    }
+                    return result;
+                }
+
+                result = GetModifiedAttackBitboard(source, piece, occupied);
+                // we can't move to squares occupied by our own pieces, so exclude those.
+                // since we already dealt with captures, exclude squares that are occupied by opposing pieces.
+                result &= ~occupied;
+                if (kind == PieceKind.King)
+                {
+                    if (canReallyCastleKingside) result |= source.Right(2).GetMask();
+                    if (canReallyCastleQueenside) result |= source.Left(2).GetMask();
+                }
+
+                return result;
+            }
 
             // Captures
 
@@ -223,50 +269,18 @@ namespace ChessBot
                 }
             }
 
-            // Non-captures
-
-            Bitboard GetNonCaptureDestinations(Location source)
+            // Killer moves (non-captures)
+            if (!killers.IsDefault)
             {
-                Debug.Assert(board[source].HasPiece);
-                Debug.Assert(board[source].Piece.Side == activeSide);
-
-                var result = Bitboard.Zero;
-
-                var piece = board[source].Piece;
-                var (side, kind) = (piece.Side, piece.Kind);
-                Debug.Assert(side == activeSide); // this assumption is only used when we check for castling availability
-
-                // don't bother with attack vectors for pawns. they're totally unrelated to where the pawn can move without capturing.
-                if (kind == PieceKind.Pawn)
+                foreach (var killer in killers)
                 {
-                    Debug.Assert(source.Rank != EighthRank(side)); // pawns should be promoted once they reach the eighth rank, so Up() should be safe
-
-                    var forward = ForwardStep(side);
-                    var up1 = source.Up(forward);
-                    if (!occupied[up1])
-                    {
-                        result |= up1.GetMask();
-                        if (source.Rank == SecondRank(side))
-                        {
-                            var up2 = source.Up(forward * 2);
-                            if (!occupied[up2]) result |= up2.GetMask();
-                        }
-                    }
-                    return result;
+                    // Ensure we haven't already returned this move in case it happens to be a capture in this state
+                    bool isPseudoLegalAndNonCapture = GetNonCaptureDestinations(killer.Source)[killer.Destination];
+                    if (isPseudoLegalAndNonCapture) yield return killer;
                 }
-
-                result = GetModifiedAttackBitboard(source, piece, occupied);
-                // we can't move to squares occupied by our own pieces, so exclude those.
-                // since we already dealt with captures, exclude squares that are occupied by opposing pieces.
-                result &= ~occupied;
-                if (kind == PieceKind.King)
-                {
-                    if (canReallyCastleKingside) result |= source.Right(2).GetMask();
-                    if (canReallyCastleQueenside) result |= source.Left(2).GetMask();
-                }
-
-                return result;
             }
+
+            // Non-captures
 
             for (var ss = GetOccupies(in bbs, activeSide); !ss.IsZero; ss = ss.ClearNext())
             {
@@ -277,16 +291,23 @@ namespace ChessBot
                 {
                     var destination = ds.NextLocation();
                     bool isPromotion = (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(activeSide));
+
+                    Move next;
                     if (isPromotion)
                     {
-                        yield return new Move(source, destination, promotionKind: PieceKind.Knight);
-                        yield return new Move(source, destination, promotionKind: PieceKind.Bishop);
-                        yield return new Move(source, destination, promotionKind: PieceKind.Rook);
-                        yield return new Move(source, destination, promotionKind: PieceKind.Queen);
+                        next = new Move(source, destination, promotionKind: PieceKind.Knight);
+                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        next = new Move(source, destination, promotionKind: PieceKind.Bishop);
+                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        next = new Move(source, destination, promotionKind: PieceKind.Rook);
+                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        next = new Move(source, destination, promotionKind: PieceKind.Queen);
+                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
                     }
                     else
                     {
-                        yield return new Move(source, destination);
+                        next = new Move(source, destination);
+                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
                     }
                 }
             }
