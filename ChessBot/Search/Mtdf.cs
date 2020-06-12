@@ -229,6 +229,7 @@ namespace ChessBot.Search
             if (!pvCausesCut)
             {
                 int childrenSearched = 0;
+                Move bestMove = default;
 
                 Log.Debug("Commencing search of children of state {0}", state);
                 Log.IndentLevel++;
@@ -236,7 +237,7 @@ namespace ChessBot.Search
                 {
                     foreach (var move in state.GetPseudoLegalMoves(killers))
                     {
-                        if (!state.TryApply(move, out _)) continue;
+                        if (move == pvMove || !state.TryApply(move, out _)) continue;
 
                         childrenSearched++;
 
@@ -246,11 +247,11 @@ namespace ChessBot.Search
                         if (better)
                         {
                             guess = value;
-                            pvMove = move;
+                            bestMove = move;
 
                             if (guess >= beta)
                             {
-                                Log.Debug("Beta cutoff occurred with guess={0} beta={1}", guess, beta);
+                                Log.Debug("Beta cutoff occurred with guess={0} beta={1} move={2}", guess, beta, move);
                                 killers = killers.Add(move);
                                 break;
                             }
@@ -261,7 +262,7 @@ namespace ChessBot.Search
                 {
                     foreach (var move in state.GetPseudoLegalMoves(killers))
                     {
-                        if (!state.TryApply(move, out _)) continue;
+                        if (move == pvMove || !state.TryApply(move, out _)) continue;
 
                         childrenSearched++;
 
@@ -271,11 +272,11 @@ namespace ChessBot.Search
                         if (better)
                         {
                             guess = value;
-                            pvMove = move;
+                            bestMove = move;
 
                             if (guess <= alpha)
                             {
-                                Log.Debug("Alpha cutoff occurred with guess={0} alpha={1}", guess, alpha);
+                                Log.Debug("Alpha cutoff occurred with guess={0} alpha={1} move={2}", guess, alpha, move);
                                 killers = killers.Add(move);
                                 break;
                             }
@@ -289,6 +290,8 @@ namespace ChessBot.Search
                     return Evaluation.Terminal(state);
                 }
                 Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
+
+                pvMove = bestMove;
             }
 
             Debug.Assert(!pvMove.IsDefault);

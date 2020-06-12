@@ -6,6 +6,7 @@ using System.Linq;
 using ChessBot.Exceptions;
 using static ChessBot.AlgebraicNotation.AlgebraicNotationParser;
 using System.Text;
+using ChessBot.Helpers;
 
 namespace ChessBot.Types
 {
@@ -130,6 +131,9 @@ namespace ChessBot.Types
             }
         }
 
+        public static bool operator ==(Move left, Move right) => left.Equals(right);
+        public static bool operator !=(Move left, Move right) => !(left == right);
+
         public Move(Location source, Location destination, PieceKind? promotionKind = null)
         {
             if (source == destination)
@@ -184,7 +188,7 @@ namespace ChessBot.Types
 
         public override string ToString()
         {
-            var sb = new StringBuilder();
+            var sb = StringBuilderCache.Acquire();
             sb.Append(Source);
             sb.Append(Destination);
             sb.Append(PromotionKind switch
@@ -195,7 +199,7 @@ namespace ChessBot.Types
                 PieceKind.Queen => "Q",
                 null => ""
             });
-            return sb.ToString();
+            return StringBuilderCache.GetStringAndRelease(sb);
         }
     }
 }

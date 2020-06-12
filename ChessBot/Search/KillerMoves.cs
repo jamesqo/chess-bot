@@ -36,7 +36,7 @@ namespace ChessBot.Search
             }
         }
 
-        public bool Contains(Move move) => move.Equals(_move0) || move.Equals(_move1);
+        public bool Contains(Move move) => move == _move0 || move == _move1;
 
         public Enumerator GetEnumerator() => new Enumerator(this);
 
