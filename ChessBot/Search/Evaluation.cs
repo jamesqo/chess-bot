@@ -135,7 +135,7 @@ namespace ChessBot.Search
             bool isEndgame = false;
 
             int result = 0;
-            for (var bb = state.Occupied; bb != Bitboard.Zero; bb = bb.ClearLsb())
+            for (var bb = state.Occupied; !bb.IsZero; bb = bb.ClearNext())
             {
                 var location = bb.NextLocation();
                 var (file, rank) = location;

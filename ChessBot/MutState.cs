@@ -165,7 +165,7 @@ namespace ChessBot
             for (var victimKind = PieceKind.Queen; victimKind >= PieceKind.Pawn; victimKind--)
             {
                 var victim = new Piece(opposingSide, victimKind);
-                for (var ds = GetPiecePlacement(in bbs, victim); ds != Bitboard.Zero; ds = ds.ClearLsb())
+                for (var ds = GetPiecePlacement(in bbs, victim); !ds.IsZero; ds = ds.ClearNext())
                 {
                     var destination = ds.NextLocation();
                     Debug.Assert(board[destination].HasPiece && board[destination].Piece == victim);
@@ -176,7 +176,7 @@ namespace ChessBot
                         for (var aggKind = PieceKind.Pawn; aggKind <= PieceKind.King; aggKind++)
                         {
                             var agg = new Piece(activeSide, aggKind);
-                            for (var ss = GetPiecePlacement(in bbs, agg); ss != Bitboard.Zero; ss = ss.ClearLsb())
+                            for (var ss = GetPiecePlacement(in bbs, agg); !ss.IsZero; ss = ss.ClearNext())
                             {
                                 var source = ss.NextLocation();
                                 Debug.Assert(board[source].HasPiece && board[source].Piece == agg);
@@ -268,12 +268,12 @@ namespace ChessBot
                 return result;
             }
 
-            for (var ss = GetOccupies(in bbs, activeSide); ss != Bitboard.Zero; ss = ss.ClearLsb())
+            for (var ss = GetOccupies(in bbs, activeSide); !ss.IsZero; ss = ss.ClearNext())
             {
                 var source = ss.NextLocation();
                 var piece = board[source].Piece;
 
-                for (var ds = GetNonCaptureDestinations(source); ds != Bitboard.Zero; ds = ds.ClearLsb())
+                for (var ds = GetNonCaptureDestinations(source); !ds.IsZero; ds = ds.ClearNext())
                 {
                     var destination = ds.NextLocation();
                     bool isPromotion = (piece.Kind == PieceKind.Pawn && source.Rank == SeventhRank(activeSide));
@@ -567,7 +567,7 @@ namespace ChessBot
         {
             _bbs.Attacks[0] = _bbs.Attacks[1] = 0;
 
-            for (var bb = Occupied; bb != Bitboard.Zero; bb = bb.ClearLsb())
+            for (var bb = Occupied; !bb.IsZero; bb = bb.ClearNext())
             {
                 var source = bb.NextLocation();
                 var attacks = GetModifiedAttackBitboard(source, Board[source].Piece, Occupied);
@@ -594,16 +594,16 @@ namespace ChessBot
             var rookSource = GetStartLocation(ActiveSide, PieceKind.Rook, kingside);
             var kingDestination = kingside ? kingSource.Right(2) : kingSource.Left(2);
 
-            bool piecesBetweenKingAndRook = (GetLocationsBetween(kingSource, rookSource) & Occupied) != Bitboard.Zero;
-            bool kingPassesThroughAttackedLocation = (GetLocationsBetween(kingSource, kingDestination) & OpposingPlayer.Attacks) != Bitboard.Zero;
+            bool piecesBetweenKingAndRook = !(GetLocationsBetween(kingSource, rookSource) & Occupied).IsZero;
+            bool kingPassesThroughAttackedLocation = !(GetLocationsBetween(kingSource, kingDestination) & OpposingPlayer.Attacks).IsZero;
             return !(piecesBetweenKingAndRook || IsCheck || kingPassesThroughAttackedLocation);
         }
 
         internal Location? FindKing(Side side)
         {
             var bb = GetPlayer(side).GetPiecePlacement(PieceKind.King);
-            Debug.Assert(bb.PopCount() <= 1, "Active player has multiple kings");
-            return bb != Bitboard.Zero ? bb.NextLocation() : (Location?)null;
+            Debug.Assert(bb.CountSetBits() <= 1, "Active player has multiple kings");
+            return !bb.IsZero ? bb.NextLocation() : (Location?)null;
         }
 
         // todo: now that GetPseudoLegalDestinations returns a bitboard, it shouldn't be that expensive to check for membership.

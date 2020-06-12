@@ -50,7 +50,7 @@ namespace ChessBot
         {
             // we don't use `yield return` because the caller could modify the parent in between yields
             var list = new List<Tile>();
-            for (var bb = Occupies; bb != Bitboard.Zero; bb = bb.ClearLsb())
+            for (var bb = Occupies; !bb.IsZero; bb = bb.ClearNext())
             {
                 var location = bb.NextLocation();
                 list.Add(new Tile(location, _parent.Board[location]));

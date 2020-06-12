@@ -25,10 +25,14 @@ namespace ChessBot.Types
 
         public static bool operator ==(Bitboard left, Bitboard right) => left.Equals(right);
         public static bool operator !=(Bitboard left, Bitboard right) => !(left == right);
+        public static Bitboard operator &(Bitboard left, Bitboard right) => new Bitboard(left._value & right._value);
+        public static Bitboard operator |(Bitboard left, Bitboard right) => new Bitboard(left._value | right._value);
 
         private readonly ulong _value;
 
         public Bitboard(ulong value) => _value = value;
+
+        public bool IsZero => _value == 0;
 
         public bool this[Location location]
         {
@@ -48,7 +52,7 @@ namespace ChessBot.Types
             }
         }
 
-        public Bitboard ClearLsb()
+        public Bitboard ClearNext() // clears the lsb
         {
             unchecked
             {
@@ -57,19 +61,7 @@ namespace ChessBot.Types
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int IndexOfLsb()
-        {
-            unchecked
-            {
-                Debug.Assert(_value != 0);
-                return MultiplyDeBruijnBitPosition[((_value & (ulong)(-(long)_value)) * 0x022FDD63CC95386DUL) >> 58];
-            }
-        }
-
-        public Location NextLocation() => new Location((byte)IndexOfLsb());
-
-        public int PopCount()
+        public int CountSetBits() // popcount
         {
             unchecked
             {
@@ -79,6 +71,8 @@ namespace ChessBot.Types
                 return (int)((((v + (v >> 4)) & 0xF0F0F0F0F0F0F0FUL) * 0x101010101010101UL) >> 56);
             }
         }
+
+        public Location NextLocation() => new Location((byte)IndexOfNext());
 
         public Bitboard Reverse()
         {
@@ -104,6 +98,16 @@ namespace ChessBot.Types
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int IndexOfNext() // gets the index of the lsb
+        {
+            unchecked
+            {
+                Debug.Assert(_value != 0);
+                return MultiplyDeBruijnBitPosition[((_value & (ulong)(-(long)_value)) * 0x022FDD63CC95386DUL) >> 58];
+            }
+        }
+
         public override bool Equals(object obj) => obj is Bitboard other && Equals(other);
 
         public bool Equals(Bitboard other) => _value == other._value;
@@ -114,6 +118,7 @@ namespace ChessBot.Types
 
         internal static Builder CreateBuilder(Bitboard value = default) => new Builder(value);
 
+        // todo: remove this
         /// <summary>
         /// Mutable struct that helps with generating <see cref="Bitboard"/> values.
         /// </summary>
