@@ -1,5 +1,6 @@
 ﻿using ChessBot.Exceptions;
 using ChessBot.Helpers;
+using ChessBot.Search;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
@@ -115,7 +116,7 @@ namespace ChessBot
 
         public Player GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        public IEnumerable<Move> GetPseudoLegalMoves(ImmutableArray<Move> killers = default)
+        public IEnumerable<Move> GetPseudoLegalMoves(KillerMoves killers = default)
         {
             // because this method is lazy (ie. uses iterators) and our state is mutable, we have to make a copy of all of the relevant state variables
             return GetPseudoLegalMoves(
@@ -135,7 +136,7 @@ namespace ChessBot
             Location? enPassantTarget,
             bool canReallyCastleKingside,
             bool canReallyCastleQueenside,
-            ImmutableArray<Move> killers)
+            KillerMoves killers)
         {
             // We attempt to return "better" moves (ie. ones that are more likely to cause cutoffs) first.
             // Captures are returned first, then killer moves, then non-captures.
@@ -270,14 +271,11 @@ namespace ChessBot
             }
 
             // Killer moves (non-captures)
-            if (!killers.IsDefault)
+            foreach (var killer in killers)
             {
-                foreach (var killer in killers)
-                {
-                    // Ensure we haven't already returned this move in case it happens to be a capture in this state
-                    bool isPseudoLegalAndNonCapture = GetNonCaptureDestinations(killer.Source)[killer.Destination];
-                    if (isPseudoLegalAndNonCapture) yield return killer;
-                }
+                // Ensure we haven't already returned this move in case it happens to be a capture in this state
+                bool isPseudoLegalAndNonCapture = GetNonCaptureDestinations(killer.Source)[killer.Destination];
+                if (isPseudoLegalAndNonCapture) yield return killer;
             }
 
             // Non-captures
@@ -296,18 +294,18 @@ namespace ChessBot
                     if (isPromotion)
                     {
                         next = new Move(source, destination, promotionKind: PieceKind.Knight);
-                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        if (!killers.Contains(next)) yield return next;
                         next = new Move(source, destination, promotionKind: PieceKind.Bishop);
-                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        if (!killers.Contains(next)) yield return next;
                         next = new Move(source, destination, promotionKind: PieceKind.Rook);
-                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        if (!killers.Contains(next)) yield return next;
                         next = new Move(source, destination, promotionKind: PieceKind.Queen);
-                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        if (!killers.Contains(next)) yield return next;
                     }
                     else
                     {
                         next = new Move(source, destination);
-                        if (killers.IsDefault || !killers.Contains(next)) yield return next;
+                        if (!killers.Contains(next)) yield return next;
                     }
                 }
             }

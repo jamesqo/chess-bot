@@ -126,7 +126,7 @@ namespace ChessBot.Search
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
-                var unused = ImmutableArray<Move>.Empty;
+                var unused = KillerMoves.Empty;
                 guess = NullWindowSearch(root, beta, depth, tt, killers: ref unused);
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
                 if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess
@@ -151,7 +151,7 @@ namespace ChessBot.Search
             int beta,
             int depth,
             ITranspositionTable<TtEntry> tt,
-            ref ImmutableArray<Move> killers)
+            ref KillerMoves killers)
         {
             Debug.Assert(depth >= 0);
 
@@ -199,7 +199,7 @@ namespace ChessBot.Search
             }
 
             int guess = state.WhiteToMove ? int.MinValue : int.MaxValue;
-            var childKillers = ImmutableArray<Move>.Empty;
+            var childKillers = KillerMoves.Empty;
             bool pvCausesCut = false;
             if (!pvMove.IsDefault)
             {
@@ -213,7 +213,7 @@ namespace ChessBot.Search
                     if (pvCausesCut)
                     {
                         Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", pvMove, state, guess, beta);
-                        AddKiller(ref killers, pvMove);
+                        killers = killers.Add(pvMove);
                     }
                 }
                 else
@@ -222,7 +222,7 @@ namespace ChessBot.Search
                     if (pvCausesCut)
                     {
                         Log.Debug("PV move {0} caused alpha cutoff for state {1} with guess={2} alpha={3}", pvMove, state, guess, alpha);
-                        AddKiller(ref killers, pvMove);
+                        killers = killers.Add(pvMove);
                     }
                 }
             }
@@ -252,7 +252,7 @@ namespace ChessBot.Search
                             if (guess >= beta)
                             {
                                 Log.Debug("Beta cutoff occurred with guess={0} beta={1}", guess, beta);
-                                AddKiller(ref killers, move);
+                                killers = killers.Add(move);
                                 break;
                             }
                         }
@@ -277,7 +277,7 @@ namespace ChessBot.Search
                             if (guess <= alpha)
                             {
                                 Log.Debug("Alpha cutoff occurred with guess={0} alpha={1}", guess, alpha);
-                                AddKiller(ref killers, move);
+                                killers = killers.Add(move);
                                 break;
                             }
                         }
@@ -336,16 +336,6 @@ namespace ChessBot.Search
                 tt.UpdateOrAdd(ttRef, state.Hash, tte);
             }
             return guess;
-        }
-
-        private static void AddKiller(ref ImmutableArray<Move> killers, Move killer)
-        {
-            Debug.Assert(!killers.IsDefault);
-
-            const int MaxKillers = 2;
-
-            if (killers.Length == MaxKillers) killers = ImmutableArray.Create(killer, killers[0]);
-            else killers = killers.Add(killer);
         }
     }
 }
