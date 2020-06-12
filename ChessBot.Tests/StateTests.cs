@@ -281,6 +281,7 @@ namespace ChessBot.Tests
             });
         }
         
+        // todo: add stress test for GetMoves
         // todo: add castling tests for GetMoves
 
         [Fact]
