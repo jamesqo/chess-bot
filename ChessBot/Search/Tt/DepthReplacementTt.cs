@@ -1,15 +1,16 @@
 ﻿using ChessBot.Helpers;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace ChessBot.Search.Tt
 {
     /// <summary>
-    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>.
+    /// Maps transpositions to values of type <typeparamref name="TValue"/>.
     /// Evicts nodes with lesser depths first.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class DepthReplacementTt<TValue> : ITranspositionTable<TValue, LruNode<TValue>> where TValue : IHasDepth
+    public class DepthReplacementTt<TValue> : ITranspositionTable<TValue> where TValue : IHasDepth
     {
         private const int DefaultCapacity = 4096;
 
@@ -28,7 +29,7 @@ namespace ChessBot.Search.Tt
             _minDepth = -1;
         }
 
-        public bool Add<TState>(TState state, TValue value) where TState : IState
+        public bool Add(ulong key, TValue value)
         {
             int depth = value.Depth;
             Debug.Assert(depth >= 0);
@@ -37,6 +38,7 @@ namespace ChessBot.Search.Tt
             {
                 if (depth < _minDepth)
                 {
+                    // If we're full, don't bother adding nodes below our minimum depth
                     return false;
                 }
 
@@ -48,20 +50,22 @@ namespace ChessBot.Search.Tt
             }
             EnsureDepth(depth);
 
-            var node = new LruNode<TValue>(state.Hash, value);
-            if (!_dict.TryAdd(state.Hash, node))
+            var node = new LruNode<TValue>(key, value);
+            if (!_dict.TryAdd(key, node))
             {
-                var existingNode = _dict[state.Hash];
+                var existingNode = _dict[key];
                 Log.Debug("(depth) Evicting node {0} in favor of {1}", existingNode, node);
                 Evict(existingNode);
-                _dict.Add(state.Hash, node);
+                _dict.Add(key, node);
             }
             _lists[depth].AddToTop(node);
             return true;
         }
 
-        public bool Touch(LruNode<TValue> node)
+        public bool Touch(ITtReference<TValue> @ref)
         {
+            if (!(@ref is LruNode<TValue> node) || node.HasExpired) throw new ArgumentException("", nameof(@ref));
+
             if (_dict.TryGetValue(node.Key, out var dictNode) && ReferenceEquals(node, dictNode))
             {
                 Debug.Assert(_lists.Count > node.Value.Depth);
@@ -75,9 +79,30 @@ namespace ChessBot.Search.Tt
             return false; // node isn't from here or got evicted
         }
 
-        public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState
+        public ITtReference<TValue>? TryGetReference(ulong key)
         {
-            return _dict.TryGetValue(state.Hash, out node);
+            _dict.TryGetValue(key, out var node);
+            return node;
+        }
+
+        public bool Update(ITtReference<TValue> @ref, TValue newValue)
+        {
+            if (!(@ref is LruNode<TValue> node) || node.HasExpired) throw new ArgumentException("", nameof(@ref));
+
+            if (Touch(node))
+            {
+                var (oldDepth, newDepth) = (node.Value.Depth, newValue.Depth);
+                node.Value = newValue;
+                // we also have to move the node to the appropriate list if its depth has changed
+                if (oldDepth != newDepth)
+                {
+                    node.Remove();
+                    EnsureDepth(newDepth);
+                    _lists[newDepth].AddToTop(node);
+                }
+                return true;
+            }
+            return false;
         }
 
         private void Evict()

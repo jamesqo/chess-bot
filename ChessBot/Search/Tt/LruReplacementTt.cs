@@ -1,14 +1,15 @@
 ﻿using ChessBot.Helpers;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace ChessBot.Search.Tt
 {
     /// <summary>
-    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>. Uses an LRU eviction policy.
+    /// Maps transpositions to values of type <typeparamref name="TValue"/>. Uses an LRU eviction policy.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class LruReplacementTt<TValue> : ITranspositionTable<TValue, LruNode<TValue>>
+    public class LruReplacementTt<TValue> : ITranspositionTable<TValue>
     {
         private const int DefaultCapacity = 4096;
 
@@ -25,15 +26,15 @@ namespace ChessBot.Search.Tt
             _nodes = new LruLinkedList<TValue>();
         }
 
-        public bool Add<TState>(TState state, TValue value) where TState : IState
+        public bool Add(ulong key, TValue value)
         {
             if (_dict.Count == _capacity)
             {
                 Evict();
             }
 
-            var node = new LruNode<TValue>(state.Hash, value);
-            if (!_dict.TryAdd(state.Hash, node))
+            var node = new LruNode<TValue>(key, value);
+            if (!_dict.TryAdd(key, node))
             {
                 // although rare, this could happen if a state is not in the table during the initial lookup, but is
                 // populated during a recursive call as it searches its children. afterwards, there will be a conflict
@@ -41,17 +42,19 @@ namespace ChessBot.Search.Tt
                 // probably contains information about a greater depth.
                 //
                 // this could also theoretically happen in the case of a hash collision, although that's very unlikely.
-                var existingNode = _dict[state.Hash];
+                var existingNode = _dict[key];
                 Log.Debug("(lru) Evicting node {0} in favor of {1}", existingNode, node);
                 Evict(existingNode);
-                _dict.Add(state.Hash, node);
+                _dict.Add(key, node);
             }
             _nodes.AddToTop(node);
             return true;
         }
 
-        public bool Touch(LruNode<TValue> node)
+        public bool Touch(ITtReference<TValue> @ref)
         {
+            if (!(@ref is LruNode<TValue> node) || node.HasExpired) throw new ArgumentException("", nameof(@ref));
+
             if (_dict.TryGetValue(node.Key, out var dictNode) && ReferenceEquals(node, dictNode))
             {
                 Log.Debug("(lru) Node {0} was hit, moving to top of cache", node);
@@ -63,9 +66,22 @@ namespace ChessBot.Search.Tt
             return false; // node isn't from here or got evicted
         }
 
-        public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState
+        public ITtReference<TValue>? TryGetReference(ulong key)
         {
-            return _dict.TryGetValue(state.Hash, out node);
+            _dict.TryGetValue(key, out var node);
+            return node;
+        }
+
+        public bool Update(ITtReference<TValue> @ref, TValue newValue)
+        {
+            if (!(@ref is LruNode<TValue> node) || node.HasExpired) throw new ArgumentException("", nameof(@ref));
+
+            if (Touch(node))
+            {
+                node.Value = newValue;
+                return true;
+            }
+            return false;
         }
 
         // For now, we're using an LRU cache scheme to decide who gets evicted.

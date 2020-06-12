@@ -43,7 +43,7 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly ITranspositionTable<TtEntry, LruNode<TtEntry>> _tt;
+        private readonly ITranspositionTable<TtEntry> _tt;
 
         public AlphaBeta(int depth)
         {
@@ -121,13 +121,15 @@ namespace ChessBot.Search
             {
                 return Evaluation.Heuristic(state);
             }
+
             TtEntry tte;
-            if (_tt.TryGetNode(state, out var ttNode))
+            var ttRef = _tt.TryGetReference(state.Hash);
+            if (ttRef != null)
             {
-                tte = ttNode.Value;
+                tte = ttRef.Value;
                 if (tte.Depth >= d)
                 {
-                    _tt.Touch(ttNode);
+                    _tt.Touch(ttRef);
                     return tte.UtilityEstimate;
                 }
             }
@@ -179,17 +181,7 @@ namespace ChessBot.Search
             Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
 
             tte = new TtEntry(utilityEstimate: bestValue, depth: d);
-            if (ttNode != null && !ttNode.WasRemoved) // the node could have been evicted during a recursive call
-            {
-                // update the existing node
-                ttNode.Value = tte;
-                _tt.Touch(ttNode);
-            }
-            else
-            {
-                _tt.Add(state, tte);
-            }
-
+            _tt.UpdateOrAdd(ttRef, state.Hash, tte);
             return bestValue;
         }
     }

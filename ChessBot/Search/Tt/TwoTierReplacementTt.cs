@@ -3,11 +3,11 @@
 namespace ChessBot.Search.Tt
 {
     /// <summary>
-    /// Maps <see cref="IState"/> objects to values of type <typeparamref name="TValue"/>.
-    /// Uses a two-tier replacement strategy to decide which node get evicted.
+    /// Maps transpositions to values of type <typeparamref name="TValue"/>.
+    /// Uses a two-tier replacement strategy to decide which nodes get evicted.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class TwoTierReplacementTt<TValue> : ITranspositionTable<TValue, LruNode<TValue>> where TValue : IHasDepth
+    public class TwoTierReplacementTt<TValue> : ITranspositionTable<TValue> where TValue : IHasDepth
     {
         private const int DefaultCapacity = 8192;
 
@@ -22,25 +22,30 @@ namespace ChessBot.Search.Tt
             _depthTt = new DepthReplacementTt<TValue>(capacity / 2);
         }
 
-        public bool Add<TState>(TState state, TValue value) where TState : IState
+        public bool Add(ulong key, TValue value)
         {
             // NOTE: we're using | and not || because we want to add to both of them
-            bool wasAdded = _lruTt.Add(state, value) | _depthTt.Add(state, value);
-            Debug.Assert(wasAdded); // lru replacement should always add new states
-            return wasAdded;
+            bool added = _lruTt.Add(key, value) | _depthTt.Add(key, value);
+            Debug.Assert(added); // lru replacement should always add new states
+            return added;
         }
 
-        public bool Touch(LruNode<TValue> node)
+        public bool Touch(ITtReference<TValue> @ref)
         {
-            bool touched = _lruTt.Touch(node) || _depthTt.Touch(node);
-            Debug.Assert(touched); // for now, we should only be calling this method with nodes that belong to us
+            bool touched = _lruTt.Touch(@ref) || _depthTt.Touch(@ref);
+            Debug.Assert(touched);
             return touched;
         }
 
-        public bool TryGetNode<TState>(TState state, out LruNode<TValue> node) where TState : IState
+        public ITtReference<TValue>? TryGetReference(ulong key)
         {
             // lru-based tt is more likely to contain recent entries, so look there first
-            return _lruTt.TryGetNode(state, out node) || _depthTt.TryGetNode(state, out node);
+            return _lruTt.TryGetReference(key) ?? _depthTt.TryGetReference(key);
+        }
+
+        public bool Update(ITtReference<TValue> @ref, TValue newValue)
+        {
+            return _lruTt.Update(@ref, newValue) || _depthTt.Update(@ref, newValue);
         }
     }
 }

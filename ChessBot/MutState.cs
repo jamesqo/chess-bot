@@ -345,8 +345,8 @@ namespace ChessBot
             var piece = Board[source].Piece;
             bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
             bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
-            bool isKingsideCastle = (piece.Kind == PieceKind.King && destination == source.Right(2));
-            bool isQueensideCastle = (piece.Kind == PieceKind.King && destination == source.Left(2));
+            bool isKingsideCastle = (piece.Kind == PieceKind.King && source.File < FileG && destination == source.Right(2)); // todo: add regression tests for bounds check
+            bool isQueensideCastle = (piece.Kind == PieceKind.King && source.File > FileB && destination == source.Left(2)); // todo: add regression tests for bounds check
             bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
 
             var (oldCastlingRights, oldEnPassantTarget) = (CastlingRights, EnPassantTarget);

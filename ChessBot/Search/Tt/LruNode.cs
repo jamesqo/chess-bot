@@ -6,7 +6,7 @@ namespace ChessBot.Search.Tt
     /// An entry in the LRU transposition table.
     /// </summary>
     /// <typeparam name="TValue">The type of the value.</typeparam>
-    public class LruNode<TValue>
+    internal sealed class LruNode<TValue> : ITtReference<TValue>
     {
         // dummy initializer for head and tail
         internal LruNode()
@@ -24,7 +24,7 @@ namespace ChessBot.Search.Tt
         public LruNode<TValue> Previous { get; internal set; }
         public LruNode<TValue> Next { get; internal set; }
 
-        internal bool WasRemoved => Previous == null && Next == null;
+        public bool HasExpired => Previous == null && Next == null;
 
         public void Remove()
         {

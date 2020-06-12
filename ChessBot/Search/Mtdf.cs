@@ -52,7 +52,7 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly ITranspositionTable<TtEntry, LruNode<TtEntry>> _tt;
+        private readonly ITranspositionTable<TtEntry> _tt;
 
         public Mtdf(int depth)
         {
@@ -105,7 +105,7 @@ namespace ChessBot.Search
             MutState root,
             int firstGuess,
             int depth,
-            ITranspositionTable<TtEntry, LruNode<TtEntry>> tt,
+            ITranspositionTable<TtEntry> tt,
             int bestSiblingValue)
         {
             int guess = firstGuess;
@@ -148,7 +148,7 @@ namespace ChessBot.Search
             MutState state,
             int beta,
             int depth,
-            ITranspositionTable<TtEntry, LruNode<TtEntry>> tt)
+            ITranspositionTable<TtEntry> tt)
         {
             Debug.Assert(depth >= 0);
 
@@ -160,27 +160,29 @@ namespace ChessBot.Search
             int alpha = beta - 1;
             TtEntry tte;
             Move pvMove = default;
-            if (tt.TryGetNode(state, out var ttNode))
+
+            var ttRef = tt.TryGetReference(state.Hash);
+            if (ttRef != null)
             {
-                tte = ttNode.Value;
+                tte = ttRef.Value;
                 if (tte.Depth >= depth)
                 {
                     // beta-cutoff
                     if (tte.LowerBound >= beta)
                     {
-                        tt.Touch(ttNode);
+                        tt.Touch(ttRef);
                         return tte.LowerBound;
                     }
                     // alpha-cutoff
                     if (tte.UpperBound <= alpha)
                     {
-                        tt.Touch(ttNode);
+                        tt.Touch(ttRef);
                         return tte.UpperBound;
                     }
                     // we know the exact value
                     if (tte.LowerBound == tte.UpperBound)
                     {
-                        tt.Touch(ttNode);
+                        tt.Touch(ttRef);
                         return tte.LowerBound;
                     }
 
@@ -189,7 +191,7 @@ namespace ChessBot.Search
                     alpha = Math.Max(alpha, tte.LowerBound);
                     beta = Math.Min(beta, tte.UpperBound);
                 }
-                pvMove = ttNode.Value.PvMove;
+                pvMove = ttRef.Value.PvMove;
                 Debug.Assert(!pvMove.IsDefault);
             }
 
@@ -294,40 +296,31 @@ namespace ChessBot.Search
             }
             */
 
-            if (ttNode != null && !ttNode.WasRemoved) // the node could have been evicted during a recursive call
+            int ttDepth = ttRef?.Value.Depth ?? 0;
+            if (depth >= ttDepth) // information about higher depths is more valuable
             {
-                int ttDepth = ttNode.Value.Depth;
-                if (depth >= ttDepth) // information about higher depths is more valuable
+                if (depth == ttDepth)
                 {
-                    if (depth == ttDepth)
+                    bool overlaps = (tte.LowerBound <= ttRef.Value.UpperBound) && (ttRef.Value.LowerBound <= tte.UpperBound);
+                    // although rare, this could be false in the following scenario:
+                    //
+                    // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
+                    // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
+                    // make the earlier bounds obsolete) even though we're passing the same depth both times.
+                    //
+                    // in this case, we just assume the old range is obsolete and replace it entirely.
+                    if (overlaps)
                     {
-                        bool overlaps = (tte.LowerBound <= ttNode.Value.UpperBound) && (ttNode.Value.LowerBound <= tte.UpperBound);
-                        // although rare, this could be false in the following scenario:
-                        //
-                        // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
-                        // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
-                        // make the earlier bounds obsolete) even though we're passing the same depth both times.
-                        //
-                        // in this case, we just assume the old range is obsolete and replace it entirely.
-                        if (overlaps)
-                        {
-                            // improve on what we already know
-                            tte = new TtEntry(
-                                Math.Max(tte.LowerBound, ttNode.Value.LowerBound),
-                                Math.Min(tte.UpperBound, ttNode.Value.UpperBound),
-                                depth: depth,
-                                pvMove: pvMove);
-                        }
+                        // improve on what we already know
+                        tte = new TtEntry(
+                            Math.Max(tte.LowerBound, ttRef.Value.LowerBound),
+                            Math.Min(tte.UpperBound, ttRef.Value.UpperBound),
+                            depth: depth,
+                            pvMove: pvMove);
                     }
-                    ttNode.Value = tte;
-                    tt.Touch(ttNode);
                 }
+                tt.UpdateOrAdd(ttRef, state.Hash, tte);
             }
-            else
-            {
-                tt.Add(state, tte);
-            }
-
             return guess;
         }
     }
