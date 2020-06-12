@@ -4,7 +4,6 @@ using ChessBot.Search;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using static ChessBot.StaticInfo;
@@ -129,6 +128,7 @@ namespace ChessBot
                 killers);
         }
 
+        // todo: reduce the size of this iterator! allocations of it are using 400+ MB.
         private static IEnumerable<Move> GetPseudoLegalMoves(
             Board board,
             Bitboards bbs,

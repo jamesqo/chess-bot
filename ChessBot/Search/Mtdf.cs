@@ -2,7 +2,6 @@
 using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace ChessBot.Search
@@ -58,7 +57,7 @@ namespace ChessBot.Search
         public Mtdf(int depth)
         {
             Depth = depth;
-            _tt = new TwoTierReplacementTt<TtEntry>();
+            _tt = new TwoTierReplacementTt<TtEntry>(capacity: 1 << 16);
         }
 
         public int Depth { get; set; }

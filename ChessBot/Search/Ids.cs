@@ -34,7 +34,7 @@ namespace ChessBot.Search
 
             for (int d = 1; d <= Depth; d++)
             {
-                Log.Debug("Running mtdf with depth={0}, f={1}", Depth, utility);
+                Log.Debug("Running mtdf with depth={0}, f={1}", d, utility);
                 _inner.Depth = d;
                 _inner.FirstGuess = utility;
 
