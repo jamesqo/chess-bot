@@ -2,6 +2,7 @@
 using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace ChessBot.Search
@@ -125,7 +126,8 @@ namespace ChessBot.Search
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
-                guess = NullWindowSearch(root, beta, depth, tt);
+                var unused = ImmutableArray<Move>.Empty;
+                guess = NullWindowSearch(root, beta, depth, tt, killers: ref unused);
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
                 if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess
                 {
@@ -148,7 +150,8 @@ namespace ChessBot.Search
             MutState state,
             int beta,
             int depth,
-            ITranspositionTable<TtEntry> tt)
+            ITranspositionTable<TtEntry> tt,
+            ref ImmutableArray<Move> killers)
         {
             Debug.Assert(depth >= 0);
 
@@ -196,22 +199,31 @@ namespace ChessBot.Search
             }
 
             int guess = state.WhiteToMove ? int.MinValue : int.MaxValue;
+            var childKillers = ImmutableArray<Move>.Empty;
             bool pvCausesCut = false;
             if (!pvMove.IsDefault)
             {
                 bool success = state.TryApply(pvMove, out _);
                 Debug.Assert(success);
-                guess = NullWindowSearch(state, beta, depth - 1, tt);
+                guess = NullWindowSearch(state, beta, depth - 1, tt, ref childKillers);
                 state.Undo();
                 if (state.WhiteToMove)
                 {
                     pvCausesCut = (guess >= beta);
-                    if (pvCausesCut) Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", pvMove, state, guess, beta);
+                    if (pvCausesCut)
+                    {
+                        Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", pvMove, state, guess, beta);
+                        AddKiller(ref killers, pvMove);
+                    }
                 }
                 else
                 {
                     pvCausesCut = (guess <= alpha);
-                    if (pvCausesCut) Log.Debug("PV move {0} caused alpha cutoff for state {1} with guess={2} alpha={3}", pvMove, state, guess, alpha);
+                    if (pvCausesCut)
+                    {
+                        Log.Debug("PV move {0} caused alpha cutoff for state {1} with guess={2} alpha={3}", pvMove, state, guess, alpha);
+                        AddKiller(ref killers, pvMove);
+                    }
                 }
             }
 
@@ -223,13 +235,13 @@ namespace ChessBot.Search
                 Log.IndentLevel++;
                 if (state.WhiteToMove)
                 {
-                    foreach (var move in state.GetPseudoLegalMoves())
+                    foreach (var move in state.GetPseudoLegalMoves(killers))
                     {
                         if (!state.TryApply(move, out _)) continue;
 
                         childrenSearched++;
 
-                        int value = NullWindowSearch(state, beta, depth - 1, tt);
+                        int value = NullWindowSearch(state, beta, depth - 1, tt, ref childKillers);
                         state.Undo();
                         bool better = value > guess;
                         if (better)
@@ -240,6 +252,7 @@ namespace ChessBot.Search
                             if (guess >= beta)
                             {
                                 Log.Debug("Beta cutoff occurred with guess={0} beta={1}", guess, beta);
+                                AddKiller(ref killers, move);
                                 break;
                             }
                         }
@@ -247,13 +260,13 @@ namespace ChessBot.Search
                 }
                 else
                 {
-                    foreach (var move in state.GetPseudoLegalMoves())
+                    foreach (var move in state.GetPseudoLegalMoves(killers))
                     {
                         if (!state.TryApply(move, out _)) continue;
 
                         childrenSearched++;
 
-                        int value = NullWindowSearch(state, beta, depth - 1, tt);
+                        int value = NullWindowSearch(state, beta, depth - 1, tt, ref childKillers);
                         state.Undo();
                         bool better = value < guess;
                         if (better)
@@ -264,6 +277,7 @@ namespace ChessBot.Search
                             if (guess <= alpha)
                             {
                                 Log.Debug("Alpha cutoff occurred with guess={0} alpha={1}", guess, alpha);
+                                AddKiller(ref killers, move);
                                 break;
                             }
                         }
@@ -281,12 +295,12 @@ namespace ChessBot.Search
             Debug.Assert(!pvMove.IsDefault);
             if (guess <= alpha) // fail-low result => upper bound
             {
-                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth: depth, pvMove: pvMove);
+                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth, pvMove);
             }
             else // fail-high result => lower bound
             {
                 Debug.Assert(guess >= beta); // must be true for null-window searches, where alpha == (beta - 1)
-                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth: depth, pvMove: pvMove);
+                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth, pvMove);
             }
             /*
             else // neither => this is the exact minimax value
@@ -313,15 +327,25 @@ namespace ChessBot.Search
                     {
                         // improve on what we already know
                         tte = new TtEntry(
-                            Math.Max(tte.LowerBound, ttRef.Value.LowerBound),
-                            Math.Min(tte.UpperBound, ttRef.Value.UpperBound),
-                            depth: depth,
-                            pvMove: pvMove);
+                            lowerBound: Math.Max(tte.LowerBound, ttRef.Value.LowerBound),
+                            upperBound: Math.Min(tte.UpperBound, ttRef.Value.UpperBound),
+                            depth,
+                            pvMove);
                     }
                 }
                 tt.UpdateOrAdd(ttRef, state.Hash, tte);
             }
             return guess;
+        }
+
+        private static void AddKiller(ref ImmutableArray<Move> killers, Move killer)
+        {
+            Debug.Assert(!killers.IsDefault);
+
+            const int MaxKillers = 2;
+
+            if (killers.Length == MaxKillers) killers = ImmutableArray.Create(killer, killers[0]);
+            else killers = killers.Add(killer);
         }
     }
 }
