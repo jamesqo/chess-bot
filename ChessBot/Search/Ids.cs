@@ -17,10 +17,10 @@ namespace ChessBot.Search
 
         private readonly Mtdf _inner;
 
-        public Ids(int depth)
+        public Ids(int depth, int? ttCapacity = null)
         {
             Depth = depth;
-            _inner = new Mtdf(1);
+            _inner = new Mtdf(1, ttCapacity);
         }
 
         public int Depth { get; set; }

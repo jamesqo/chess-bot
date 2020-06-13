@@ -46,12 +46,12 @@ namespace ChessBot.Search
 
         private readonly ITranspositionTable<TtEntry> _tt;
 
-        public AlphaBeta(int depth)
+        public AlphaBeta(int depth, int? ttCapacity = null)
         {
             Depth = depth;
-            _tt = new LruReplacementTt<TtEntry>();
+            _tt = new LruReplacementTt<TtEntry>(ttCapacity);
             // todo: figure out why this isn't performing any better than plain old lru replacement for alphabeta?
-            //_tt = new TwoTierReplacementTt<TtEntry>();
+            //_tt = new TwoTierReplacementTt<TtEntry>(ttCapacity);
         }
 
         public int Depth { get; set; }

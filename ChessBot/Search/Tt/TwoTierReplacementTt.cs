@@ -16,10 +16,11 @@ namespace ChessBot.Search.Tt
 
         public TwoTierReplacementTt() : this(DefaultCapacity) { }
 
-        public TwoTierReplacementTt(int capacity)
+        public TwoTierReplacementTt(int? capacity = null)
         {
-            _lruTt = new LruReplacementTt<TValue>(capacity / 2);
-            _depthTt = new DepthReplacementTt<TValue>(capacity / 2);
+            int cap = capacity ?? DefaultCapacity;
+            _lruTt = new LruReplacementTt<TValue>(cap / 2);
+            _depthTt = new DepthReplacementTt<TValue>(cap / 2);
         }
 
         public bool Add(ulong key, TValue value)

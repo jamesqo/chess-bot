@@ -13,16 +13,14 @@ namespace ChessBot.Search.Tt
     {
         private const int DefaultCapacity = 4096;
 
-        private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly int _capacity;
+        private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly LruLinkedList<TValue> _nodes;
 
-        public LruReplacementTt() : this(DefaultCapacity) { }
-
-        public LruReplacementTt(int capacity)
+        public LruReplacementTt(int? capacity = null)
         {
-            _dict = new Dictionary<ulong, LruNode<TValue>>(capacity);
-            _capacity = capacity;
+            _capacity = capacity ?? DefaultCapacity;
+            _dict = new Dictionary<ulong, LruNode<TValue>>(_capacity);
             _nodes = new LruLinkedList<TValue>();
         }
 

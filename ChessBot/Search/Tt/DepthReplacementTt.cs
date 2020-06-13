@@ -14,17 +14,15 @@ namespace ChessBot.Search.Tt
     {
         private const int DefaultCapacity = 4096;
 
-        private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly int _capacity;
+        private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly List<LruLinkedList<TValue>> _lists;
         private int _minDepth; // lowest depth value for which a node is present
 
-        public DepthReplacementTt() : this(DefaultCapacity) { }
-
-        public DepthReplacementTt(int capacity)
+        public DepthReplacementTt(int? capacity = null)
         {
-            _dict = new Dictionary<ulong, LruNode<TValue>>(capacity);
-            _capacity = capacity;
+            _capacity = capacity ?? DefaultCapacity;
+            _dict = new Dictionary<ulong, LruNode<TValue>>(_capacity);
             _lists = new List<LruLinkedList<TValue>>();
             _minDepth = -1;
         }

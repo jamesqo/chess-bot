@@ -38,8 +38,8 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "alphabeta": inner = new AlphaBeta(depth: 6); break;
-                    case "mtdf": inner = new Mtdf(depth: 7); break;
-                    case "ids": inner = new Ids(depth: 7); break;
+                    case "mtdf": inner = new Mtdf(depth: 7, ttCapacity: (1 << 16)); break;
+                    case "ids": inner = new Ids(depth: 7, ttCapacity: (1 << 16)); break;
                     default: continue;
                 }
                 return new AI(inner);

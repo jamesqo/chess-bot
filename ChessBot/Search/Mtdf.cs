@@ -54,10 +54,10 @@ namespace ChessBot.Search
 
         private readonly ITranspositionTable<TtEntry> _tt;
 
-        public Mtdf(int depth)
+        public Mtdf(int depth, int? ttCapacity = null)
         {
             Depth = depth;
-            _tt = new TwoTierReplacementTt<TtEntry>(capacity: 1 << 16);
+            _tt = new TwoTierReplacementTt<TtEntry>(ttCapacity);
         }
 
         public int Depth { get; set; }
