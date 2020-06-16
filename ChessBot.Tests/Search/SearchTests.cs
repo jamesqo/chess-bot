@@ -16,7 +16,7 @@ namespace ChessBot.Tests.Search
                 var data = new TheoryData<IMovePicker>();
                 for (int d = 1; d <= 3; d++)
                 {
-                    data.Add(new AlphaBeta(d));
+                    //data.Add(new AlphaBeta(d));
                     data.Add(new Mtdf(d));
                     data.Add(new Ids(d));
                 }

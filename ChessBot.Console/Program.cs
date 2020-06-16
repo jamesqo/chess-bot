@@ -33,12 +33,12 @@ namespace ChessBot.Console
             IMovePicker inner;
             while (true)
             {
-                Write("Pick ai strategy [alphabeta (default), mtdf, ids]: ");
+                Write("Pick ai strategy [mtdf (default), ids]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
-                    case "": case "alphabeta": inner = new AlphaBeta(depth: 6); break;
-                    case "mtdf": inner = new Mtdf(depth: 7, ttCapacity: (1 << 16)); break;
+                    //case "alphabeta": inner = new AlphaBeta(depth: 6); break;
+                    case "":  case "mtdf": inner = new Mtdf(depth: 7, ttCapacity: (1 << 16)); break;
                     case "ids": inner = new Ids(depth: 7, ttCapacity: (1 << 16)); break;
                     default: continue;
                 }
