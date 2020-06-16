@@ -6,7 +6,7 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses iterative deepening with MTD-f search to find the best move.
     /// </summary>
-    public class Ids : IMovePicker<Ids.Info>
+    public class Ids : ISearchAlgorithm<Ids.Info>
     {
         public class Info
         {

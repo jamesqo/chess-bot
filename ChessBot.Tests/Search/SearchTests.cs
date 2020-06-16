@@ -9,11 +9,11 @@ namespace ChessBot.Tests.Search
 {
     public class SearchTests
     {
-        public static TheoryData<IMovePicker> Searchers
+        public static TheoryData<ISearchAlgorithm> Searchers
         {
             get
             {
-                var data = new TheoryData<IMovePicker>();
+                var data = new TheoryData<ISearchAlgorithm>();
                 for (int d = 1; d <= 3; d++)
                 {
                     //data.Add(new AlphaBeta(d));
@@ -26,7 +26,7 @@ namespace ChessBot.Tests.Search
 
         [Theory]
         [MemberData(nameof(Searchers))]
-        public void PickMove_StressTest(IMovePicker picker)
+        public void PickMove_StressTest(ISearchAlgorithm picker)
         {
             var rsg = GetRsg();
             for (int i = 0; i < 20; i++)
@@ -40,7 +40,7 @@ namespace ChessBot.Tests.Search
 
         [Theory]
         [MemberData(nameof(Searchers))]
-        public void PickMove_TerminalState_Fails(IMovePicker picker)
+        public void PickMove_TerminalState_Fails(ISearchAlgorithm picker)
         {
             // Checkmate
             var state = State.ParseFen("8/8/p7/8/P7/1Kbk4/1q6/8 w - - 4 59");

@@ -30,7 +30,7 @@ namespace ChessBot.Console
 
         static AI GetAI()
         {
-            IMovePicker inner;
+            ISearchAlgorithm inner;
             while (true)
             {
                 Write("Pick ai strategy [mtdf (default), ids]: ");
@@ -167,9 +167,9 @@ namespace ChessBot.Console
         }
     }
 
-    class AI : IMovePicker
+    class AI
     {
-        private readonly IMovePicker _inner;
+        private readonly ISearchAlgorithm _searcher;
         private readonly List<Move> _history;
         private readonly List<TimeSpan> _searchTimes;
         private readonly Stopwatch _sw;
@@ -177,9 +177,9 @@ namespace ChessBot.Console
         public List<Move> History => _history;
         public List<TimeSpan> SearchTimes => _searchTimes;
 
-        public AI(IMovePicker inner)
+        public AI(ISearchAlgorithm searcher)
         {
-            _inner = inner;
+            _searcher = searcher;
             _history = new List<Move>();
             _searchTimes = new List<TimeSpan>();
             _sw = new Stopwatch();
@@ -191,7 +191,7 @@ namespace ChessBot.Console
             Debug.Assert(_sw.Elapsed == TimeSpan.Zero);
 
             _sw.Start();
-            var move = _inner.PickMove(root);
+            var move = _searcher.PickMove(root);
             _sw.Stop();
 
             _history.Add(move);

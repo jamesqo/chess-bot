@@ -9,7 +9,7 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses MTD-f search to pick the best move.
     /// </summary>
-    public class Mtdf : IMovePicker<Mtdf.Info>
+    public class Mtdf : ISearchAlgorithm<Mtdf.Info>
     {
         public class Info
         {

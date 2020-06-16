@@ -4,7 +4,7 @@ namespace ChessBot.Search
     /// <summary>
     /// The interface for search algorithms.
     /// </summary>
-    public interface IMovePicker
+    public interface ISearchAlgorithm
     {
         Move PickMove(State root);
     }
@@ -13,9 +13,9 @@ namespace ChessBot.Search
     /// The interface for search algorithms.
     /// </summary>
     /// <typeparam name="TInfo">The type of additional info computed by the search algorithm.</typeparam>
-    public interface IMovePicker<TInfo> : IMovePicker
+    public interface ISearchAlgorithm<TInfo> : ISearchAlgorithm
     {
-        Move IMovePicker.PickMove(State root) => PickMove(root, out _);
+        Move ISearchAlgorithm.PickMove(State root) => PickMove(root, out _);
 
         Move PickMove(State root, out TInfo info);
     }
