@@ -12,16 +12,14 @@ namespace ChessBot.Search.Tt
     /// <typeparam name="TValue">The type of the value.</typeparam>
     public class DepthReplacementTt<TValue> : ITranspositionTable<TValue> where TValue : IHasDepth
     {
-        private const int DefaultCapacity = 4096;
-
         private readonly int _capacity;
         private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly List<LruLinkedList<TValue>> _lists;
         private int _minDepth; // lowest depth value for which a node is present
 
-        public DepthReplacementTt(int? capacity = null)
+        public DepthReplacementTt(int capacity)
         {
-            _capacity = capacity ?? DefaultCapacity;
+            _capacity = capacity;
             _dict = new Dictionary<ulong, LruNode<TValue>>(_capacity);
             _lists = new List<LruLinkedList<TValue>>();
             _minDepth = -1;

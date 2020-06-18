@@ -9,13 +9,13 @@ namespace ChessBot.Search
     /// <summary>
     /// Uses MTD-f search to pick the best move.
     /// </summary>
-    public class Mtdf : ISearchAlgorithm<Mtdf.Info>
+    public class Mtdf : ISearchAlgorithm
     {
         public class Info
         {
-            internal Info(int utility) => Utility = utility;
+            internal Info(int score) => Score = score;
 
-            public int Utility { get; }
+            public int Score { get; }
         }
 
         private readonly struct TtEntry : IHasDepth
@@ -53,19 +53,25 @@ namespace ChessBot.Search
         }
 
         private readonly ITranspositionTable<TtEntry> _tt;
+        private readonly Stopwatch _sw;
 
-        public Mtdf(int depth, int? ttCapacity = null)
+        public Mtdf(int ttCapacity)
         {
-            Depth = depth;
             _tt = new TwoTierReplacementTt<TtEntry>(ttCapacity);
+            _sw = new Stopwatch();
         }
 
-        public int Depth { get; set; }
+        public int Depth { get; set; } = 0;
         public int FirstGuess { get; set; } = 0;
 
-        public Move PickMove(State root, out Info info)
+        public ISearchInfo Search(State root)
         {
-            Log.Debug("Entering {0}.{1}", arg0: nameof(Mtdf), arg1: nameof(PickMove));
+            if (Depth <= 0)
+            {
+                throw new InvalidOperationException("Depth wasn't set");
+            }
+
+            Log.Debug("Starting MTD-f search");
 
             Move bestMove = default;
             int bestValue = root.WhiteToMove ? int.MinValue : int.MaxValue;
@@ -78,7 +84,7 @@ namespace ChessBot.Search
 
                 isTerminal = false;
 
-                int value = _Mtdf(state, FirstGuess, Depth - 1, _tt, bestValue);
+                int value = RunMtdf(state, FirstGuess, Depth - 1, _tt, bestValue);
                 state.Undo();
 
                 bool better = (root.WhiteToMove ? value > bestValue : value < bestValue);
@@ -91,17 +97,21 @@ namespace ChessBot.Search
 
             if (isTerminal)
             {
-                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(root));
+                throw new ArgumentException($"A terminal state was passed to {nameof(Search)}", nameof(root));
             }
 
-            info = new Info(utility: bestValue);
-            Log.Debug("Computed {0} as the minimax value for {1}", info.Utility, root);
-            Log.Debug("Exiting {0}.{1}", arg0: nameof(Mtdf), arg1: nameof(PickMove));
-            return bestMove;
+            Log.Debug("Computed {0} as the minimax value for {1}", bestValue, root);
+            Log.Debug("Finished MTD-f search");
+            return new SearchInfo(
+                depth: Depth,
+                elapsed: _sw.Elapsed,
+                nodesSearched: default /* todo */,
+                pv: default /* todo */,
+                score: bestValue);
         }
 
         // todo: now that we're storing moves in each entry, this should return the pv move as well so that PickMove() can use it directly
-        private static int _Mtdf(
+        private static int RunMtdf(
             MutState root,
             int firstGuess,
             int depth,

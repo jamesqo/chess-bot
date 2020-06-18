@@ -131,6 +131,8 @@ namespace ChessBot.Types
             }
         }
 
+        public static Move ParseLong(string longAn) => new LongAnParser(longAn).Parse();
+
         public static bool operator ==(Move left, Move right) => left.Equals(right);
         public static bool operator !=(Move left, Move right) => !(left == right);
 

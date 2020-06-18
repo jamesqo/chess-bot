@@ -11,15 +11,13 @@ namespace ChessBot.Search.Tt
     /// <typeparam name="TValue">The type of the value.</typeparam>
     public class LruReplacementTt<TValue> : ITranspositionTable<TValue>
     {
-        private const int DefaultCapacity = 4096;
-
         private readonly int _capacity;
         private readonly Dictionary<ulong, LruNode<TValue>> _dict;
         private readonly LruLinkedList<TValue> _nodes;
 
-        public LruReplacementTt(int? capacity = null)
+        public LruReplacementTt(int capacity)
         {
-            _capacity = capacity ?? DefaultCapacity;
+            _capacity = capacity;
             _dict = new Dictionary<ulong, LruNode<TValue>>(_capacity);
             _nodes = new LruLinkedList<TValue>();
         }

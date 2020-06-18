@@ -48,6 +48,11 @@ namespace ChessBot.Helpers
         public static bool IncludeCallerNames { get; set; } = true;
 
         [Conditional("DEBUG")]
+        public static void Debug(
+            string message,
+            [CallerMemberName] string callerName = null) => DebugCore(message, callerName);
+
+        [Conditional("DEBUG")]
         public static void Debug<T0>(
             string message,
             T0 arg0,
