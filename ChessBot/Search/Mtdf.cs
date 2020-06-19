@@ -18,7 +18,6 @@ namespace ChessBot.Search
             {
                 Debug.Assert(lowerBound <= upperBound);
                 Debug.Assert(depth > 0);
-                Debug.Assert(pvMove.IsValid);
 
                 LowerBound = lowerBound;
                 UpperBound = upperBound;
@@ -42,6 +41,10 @@ namespace ChessBot.Search
                 sb.Append(nameof(Depth));
                 sb.Append(" = ");
                 sb.Append(Depth);
+                sb.Append(", ");
+                sb.Append(nameof(PvMove));
+                sb.Append(" = ");
+                sb.Append(PvMove.ToString());
                 return StringBuilderCache.GetStringAndRelease(sb);
             }
         }
@@ -108,13 +111,13 @@ namespace ChessBot.Search
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
 
-                //var unused = KillerMoves.Empty;
-                guess = NullWindowSearch(root, beta, depth, tt, maxNodes, pvTable, out int nodesSearchedThisIteration);
+                var unused = Killers.Empty;
+                guess = NullWindowSearch(root, beta, depth, tt, maxNodes, pvTable, out int nodesSearchedThisIteration, ref unused);
                 nodesSearched += nodesSearchedThisIteration;
                 maxNodes -= nodesSearchedThisIteration;
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
 
-                if (guess < beta) // alpha-cutoff: the real value is <= guess
+                if (guess < beta) // the real value is <= guess
                 {
                     upperBound = guess;
                 }
@@ -133,7 +136,7 @@ namespace ChessBot.Search
         }
 
         // does alpha-beta search on the null window [beta-1, beta] using a transposition table.
-        // for maintainability purposes, utilities are from the active player's perspective.
+        // for maintainability purposes, the score returned is from the active player's perspective.
         private static int NullWindowSearch(
             MutState state,
             int beta,
@@ -141,10 +144,10 @@ namespace ChessBot.Search
             ITranspositionTable<TtEntry> tt,
             int maxNodes,
             PvTable pvTable,
-            out int nodesSearched
-            //ref KillerMoves killers
-            )
+            out int nodesSearched,
+            ref Killers killers)
         {
+            Debug.Assert(beta != int.MinValue); // doesn't negate properly
             Debug.Assert(depth >= 0);
             Debug.Assert(maxNodes > 0);
 
@@ -171,22 +174,21 @@ namespace ChessBot.Search
             {
                 tte = ttRef.Value;
                 storedPvMove = tte.PvMove;
-                Debug.Assert(!storedPvMove.IsDefault);
 
                 if (tte.Depth >= depth)
                 {
-                    // beta-cutoff
+                    // beta-cutoff / fail-high
                     if (tte.LowerBound >= beta)
                     {
                         tt.Touch(ttRef);
                         pvTable.SetOne(depth, storedPvMove);
                         return tte.LowerBound;
                     }
-                    // alpha-cutoff
+                    // fail-low
                     if (tte.UpperBound <= alpha)
                     {
                         tt.Touch(ttRef);
-                        pvTable.SetOne(depth, storedPvMove);
+                        pvTable.SetNone(depth);
                         return tte.UpperBound;
                     }
                     // we know the exact value
@@ -207,7 +209,7 @@ namespace ChessBot.Search
             // Search the PV move first if we already stored one for this node
 
             int guess = Evaluation.MinScore;
-            //var childKillers = KillerMoves.Empty;
+            var childKillers = Killers.Empty;
             bool pvCausedCut = false;
 
             if (!storedPvMove.IsDefault)
@@ -215,7 +217,7 @@ namespace ChessBot.Search
                 bool success = state.TryApply(storedPvMove, out _);
                 Debug.Assert(success);
 
-                guess = -NullWindowSearch(state, -alpha, depth - 1, tt, maxNodes, pvTable, out int childrenSearched);
+                guess = -NullWindowSearch(state, -alpha, depth - 1, tt, maxNodes, pvTable, out int childrenSearched, ref childKillers);
                 nodesSearched += childrenSearched;
                 maxNodes -= childrenSearched;
                 state.Undo();
@@ -223,10 +225,10 @@ namespace ChessBot.Search
                 pvTable.BubbleUpTo(depth, storedPvMove);
 
                 pvCausedCut = (guess >= beta || maxNodes <= 0);
-                if (pvCausedCut)
+                if (guess >= beta)
                 {
                     Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} storedPvMove={3}", state, guess, beta, storedPvMove);
-                    //killers = killers.Add(storedPvMove);
+                    killers = killers.Add(storedPvMove);
                 }
             }
 
@@ -238,11 +240,11 @@ namespace ChessBot.Search
             {
                 Log.Debug("Commencing search of children of state {0}", state);
                 Log.IndentLevel++;
-                foreach (var move in state.GetPseudoLegalMoves())
+                foreach (var move in state.GetPseudoLegalMoves(killers))
                 {
                     if (move == storedPvMove || !state.TryApply(move, out _)) continue;
 
-                    int value = -NullWindowSearch(state, -alpha, depth - 1, tt, maxNodes, pvTable, out int childrenSearched);
+                    int value = -NullWindowSearch(state, -alpha, depth - 1, tt, maxNodes, pvTable, out int childrenSearched, ref childKillers);
                     nodesSearched += childrenSearched;
                     maxNodes -= childrenSearched;
                     state.Undo();
@@ -257,8 +259,11 @@ namespace ChessBot.Search
 
                     if (guess >= beta || maxNodes <= 0)
                     {
-                        Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} pvMove={3}", state, guess, beta, pvMove);
-                        //killers = killers.Add(move);
+                        if (guess >= beta)
+                        {
+                            Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} pvMove={3}", state, guess, beta, pvMove);
+                            killers = killers.Add(move);
+                        }
                         break;
                     }
                 }
@@ -274,8 +279,12 @@ namespace ChessBot.Search
 
             // Store information from the search in TT
 
-            if (guess <= alpha) // alpha-cutoff, aka fail-low => upper bound
+            if (guess <= alpha) // fail-low => upper bound
             {
+                // We don't store the "PV move" for alpha cutoffs. Since we've only been maximizing over upper bounds,
+                // we only know that no move is good enough to produce a score greater than alpha; we can't tell which one is best.
+                // Also, if the move caused an alpha cutoff this time, there's little reason to expect it would cause a beta cutoff next time.
+                pvMove = default;
                 tte = new TtEntry(lowerBound: Evaluation.MinScore, upperBound: guess, depth, pvMove);
             }
             else // beta-cutoff, aka fail-high => lower bound
@@ -301,6 +310,7 @@ namespace ChessBot.Search
                     if (overlaps)
                     {
                         // improve on what we already know
+                        if (pvMove.IsDefault) pvMove = storedPvMove;
                         tte = new TtEntry(
                             lowerBound: Math.Max(tte.LowerBound, ttRef.Value.LowerBound),
                             upperBound: Math.Min(tte.UpperBound, ttRef.Value.UpperBound),

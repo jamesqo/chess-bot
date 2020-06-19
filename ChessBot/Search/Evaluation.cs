@@ -112,6 +112,7 @@ namespace ChessBot.Search
         };
 
         // note: Heuristic is calculated from the active player's viewpoint
+        // todo: this can probably be sped up a lot using popcount?
         public static int Heuristic(MutState state)
         {
             bool isEndgame = false; // todo: compute this cheaply

@@ -115,7 +115,7 @@ namespace ChessBot
 
         public Player GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        public IEnumerable<Move> GetPseudoLegalMoves(KillerMoves killers = default)
+        public IEnumerable<Move> GetPseudoLegalMoves(Killers killers = default)
         {
             // because this method is lazy (ie. uses iterators) and our state is mutable, we have to make a copy of all of the relevant state variables
             return GetPseudoLegalMoves(
@@ -136,7 +136,7 @@ namespace ChessBot
             Location? enPassantTarget,
             bool canReallyCastleKingside,
             bool canReallyCastleQueenside,
-            KillerMoves killers)
+            Killers killers)
         {
             // We attempt to return "better" moves (ie. ones that are more likely to cause cutoffs) first.
             // Captures are returned first, then killer moves, then non-captures.

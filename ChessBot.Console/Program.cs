@@ -4,6 +4,7 @@ using ChessBot.Search;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using static System.Console;
@@ -33,7 +34,7 @@ namespace ChessBot.Console
             ISearchAlgorithm inner;
             while (true)
             {
-                Write("Pick ai strategy [mtdf (default), mtdf-ids]: ");
+                Write("Pick AI strategy [mtdf (default), mtdf-ids]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
@@ -92,19 +93,19 @@ namespace ChessBot.Console
                     {
                         case "exit":
                         case "quit":
-                            Commands.ExitCommand();
+                            Commands.Exit();
                             break;
                         case "help":
-                            Commands.HelpCommand();
+                            Commands.Help();
                             break;
                         case "moves":
-                            Commands.MovesCommand(state);
+                            Commands.Moves(state);
                             break;
-                        case "searchtimes":
-                            Commands.SearchTimesCommand(ai);
+                        case "searchinfo":
+                            Commands.SearchInfo(ai);
                             break;
                         case "undo":
-                            state = Commands.UndoCommand(state);
+                            state = Commands.Undo(state);
                             break;
                         default:
                             try
@@ -174,32 +175,25 @@ namespace ChessBot.Console
     {
         private readonly ISearchAlgorithm _searcher;
         private readonly List<Move> _history;
-        private readonly List<TimeSpan> _searchTimes;
-        private readonly Stopwatch _sw;
+        private readonly List<ISearchInfo> _searchInfos;
 
         public List<Move> History => _history;
-        public List<TimeSpan> SearchTimes => _searchTimes;
+        public List<ISearchInfo> SearchInfos => _searchInfos;
 
         public AI(ISearchAlgorithm searcher)
         {
             _searcher = searcher;
             _history = new List<Move>();
-            _searchTimes = new List<TimeSpan>();
-            _sw = new Stopwatch();
+            _searchInfos = new List<ISearchInfo>();
         }
 
         public Move PickMove(State root)
         {
-            Debug.Assert(!_sw.IsRunning);
-            Debug.Assert(_sw.Elapsed == TimeSpan.Zero);
-
-            _sw.Start();
-            var move = _searcher.PickMove(root);
-            _sw.Stop();
+            var info = _searcher.Search(root);
+            var move = info.Pv[0];
 
             _history.Add(move);
-            _searchTimes.Add(_sw.Elapsed);
-            _sw.Reset();
+            _searchInfos.Add(info);
 
             return move;
         }
