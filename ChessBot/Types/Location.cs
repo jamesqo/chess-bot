@@ -1,5 +1,4 @@
-﻿using ChessBot.Exceptions;
-using ChessBot.Helpers;
+﻿using ChessBot.Helpers;
 using System;
 using System.Diagnostics;
 
