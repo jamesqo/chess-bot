@@ -166,7 +166,7 @@ namespace ChessBot.Helpers
             PieceKind sourceKind,
             bool isCapture)
         {
-            Debug.Assert(partialSource.Length == 1 || partialSource.Length == 2);
+            Debug.Assert(partialSource.Length >= 0 && partialSource.Length <= 2);
 
             bool realIsCapture = ctx[destination].HasPiece || (sourceKind == PieceKind.Pawn && destination == ctx.EnPassantTarget);
             if (isCapture != realIsCapture)

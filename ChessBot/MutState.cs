@@ -19,6 +19,7 @@ using Snapshot = System.ValueTuple<
     int,
     System.ValueTuple<
         ulong,
+        int,
         ChessBot.Types.Move
     >
 >;
@@ -59,6 +60,7 @@ namespace ChessBot
             InitPiecePlacement();
             InitOccupies();
             InitAttacks();
+            Heuristic = InitHeuristic();
             _history = new Stack<Snapshot>();
         }
 
@@ -76,6 +78,7 @@ namespace ChessBot
             Hash = other.Hash;
 
             _bbs = other._bbs;
+            Heuristic = other.Heuristic;
             _history = Copy(other._history);
         }
 
@@ -96,11 +99,12 @@ namespace ChessBot
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
         public ulong Hash { get; internal set; }
+        public int Heuristic { get; private set; }
 
         // `move` isn't a field, it's just *very* helpful for debugging purposes
-        private Snapshot Snapshot(Move move) => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, move);
+        private Snapshot Snapshot(Move move) => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, Heuristic, move);
         private void Restore(in Snapshot snapshot) =>
-            (_board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, _) = snapshot;
+            (_board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, Heuristic, _) = snapshot;
 
         #endregion
 
@@ -442,9 +446,18 @@ namespace ChessBot
             if (oldEnPassantTarget.HasValue) Hash ^= ZobristKey.ForEnPassantFile(oldEnPassantTarget.Value.File);
             if (EnPassantTarget.HasValue) Hash ^= ZobristKey.ForEnPassantFile(EnPassantTarget.Value.File);
 
+            // Flip the heuristic (as the active side changed)
+
+            Heuristic = -Heuristic;
+
             // Only now update the active side (to avoid confusion)
 
             ActiveSide = OpposingSide;
+            
+            // Make sure we updated these properties correctly
+
+            Debug.Assert(Hash == InitHash());
+            Debug.Assert(Heuristic == InitHeuristic());
         }
 
         private unsafe void ApplyInternal(
@@ -460,7 +473,8 @@ namespace ChessBot
             // Store relevant info about the board
             // It's important to do all of this *before* we actually modify the board.
             var piece = Board[source].Piece;
-            var newKind = promotionKind ?? piece.Kind;
+            var kind = piece.Kind;
+            var newKind = promotionKind ?? kind;
             var newPiece = new Piece(piece.Side, newKind);
             bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
 
@@ -484,8 +498,16 @@ namespace ChessBot
             _bbs.Occupies[(int)ActiveSide] &= ~source.GetMask();
             _bbs.Occupies[(int)ActiveSide] |= destination.GetMask();
             // Update hash
-            Hash ^= ZobristKey.ForPieceSquare(piece, source);
-            Hash ^= ZobristKey.ForPieceSquare(newPiece, destination);
+            Hash ^= ZobristKey.ForPsq(piece, source);
+            Hash ^= ZobristKey.ForPsq(newPiece, destination);
+            // Update heuristic
+            Heuristic -= Evaluation.PsqScore(piece, source);
+            Heuristic += Evaluation.PsqScore(newPiece, destination);
+            if (kind != newKind) // promoted
+            {
+                Heuristic -= Evaluation.PieceScore(kind);
+                Heuristic += Evaluation.PieceScore(newKind);
+            }
 
             if (isCapture)
             {
@@ -496,7 +518,10 @@ namespace ChessBot
                 // Update occupies
                 _bbs.Occupies[(int)OpposingSide] &= ~toClear.GetMask();
                 // Update hash
-                Hash ^= ZobristKey.ForPieceSquare(capturedPiece, toClear);
+                Hash ^= ZobristKey.ForPsq(capturedPiece, toClear);
+                // Update heuristic
+                Heuristic += Evaluation.PieceScore(capturedPiece.Kind);
+                Heuristic += Evaluation.PsqScore(capturedPiece, toClear);
             }
 
             // Recompute attack vectors
@@ -559,7 +584,7 @@ namespace ChessBot
             ulong hash = 0;
             foreach (var tile in Board.GetOccupiedTiles())
             {
-                hash ^= ZobristKey.ForPieceSquare(tile.Piece, tile.Location);
+                hash ^= ZobristKey.ForPsq(tile.Piece, tile.Location);
             }
 
             hash ^= ZobristKey.ForActiveSide(ActiveSide);
@@ -608,6 +633,11 @@ namespace ChessBot
                     _bbs.Attacks[1] |= attacks;
                 }
             }
+        }
+
+        private int InitHeuristic()
+        {
+            return Evaluation.Heuristic(this);
         }
 
         private bool CanReallyCastle(bool kingside)

@@ -1,16 +1,17 @@
 ﻿using ChessBot.Search;
 using ChessBot.Tests.TestHelpers;
 using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace ChessBot.Tests.Search
 {
+    // todo: find a way to disable logging when running xUnit tests
     public class SearchTests
     {
         const int TtCapacity = 1 << 8;
+        static readonly bool EnableOutput = false; // writing to the xUnit console is extremely slow
 
         public static TheoryData<ISearchAlgorithm> Searchers
         {
@@ -43,7 +44,7 @@ namespace ChessBot.Tests.Search
         public void Search_StressTest(ISearchAlgorithm searcher)
         {
             var rsg = GetRsg();
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < 100; i++)
             {
                 var state = rsg.Next();
                 var info = searcher.Search(state);
@@ -96,6 +97,8 @@ namespace ChessBot.Tests.Search
 
         private void LogSearch(State state, ISearchAlgorithm searcher, ISearchInfo info)
         {
+            if (!EnableOutput) return;
+
             _output.WriteLine($"Search() on {state} with {searcher} yielded score={info.Score}, pv={string.Join(' ', info.Pv)}, nodesSearched={info.NodesSearched}");
         }
 

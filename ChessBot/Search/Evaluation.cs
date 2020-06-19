@@ -1,7 +1,4 @@
 ﻿using ChessBot.Types;
-using System;
-using System.Diagnostics;
-using System.Linq;
 
 namespace ChessBot.Search
 {
@@ -23,7 +20,7 @@ namespace ChessBot.Search
             20000  // king
         };
 
-        private static readonly int[][] PieceSquareValues =
+        private static readonly int[][] PsqValues =
         {
             // pawn
             new int[]
@@ -85,7 +82,8 @@ namespace ChessBot.Search
                 -10,  0,  5,  0,  0,  0,  0,-10,
                 -20,-10,-10, -5, -5,-10,-10,-20
             },
-            // king middlegame
+            // king
+            // todo: use separate middlegame / endgame tables
             new int[]
             {
                 -30,-40,-40,-50,-50,-40,-40,-30,
@@ -96,38 +94,32 @@ namespace ChessBot.Search
                 -10,-20,-20,-20,-20,-20,-20,-10,
                  20, 20,  0,  0,  0,  0, 20, 20,
                  20, 30, 10,  0,  0, 10, 30, 20
-            },
-            // king endgame
-            new int[]
-            {
-                -50,-40,-30,-20,-20,-30,-40,-50,
-                -30,-20,-10,  0,  0,-10,-20,-30,
-                -30,-10, 20, 30, 30, 20,-10,-30,
-                -30,-10, 30, 40, 40, 30,-10,-30,
-                -30,-10, 30, 40, 40, 30,-10,-30,
-                -30,-10, 20, 30, 30, 20,-10,-30,
-                -30,-30,  0,  0,  0,  0,-30,-30,
-                -50,-30,-30,-30,-30,-30,-30,-50
             }
         };
 
+        // note: these functions are always positive regardless of side
+
+        public static int PieceScore(PieceKind kind) => PieceValues[(int)kind];
+        
+        public static int PsqScore(Piece piece, Location location)
+        {
+            var (file, rank) = location;
+            int locationIndex = 8 * (piece.IsWhite ? (7 - (int)rank) : (int)rank) + (int)file;
+            return PsqValues[(int)piece.Kind][locationIndex];
+        }
+
         // note: Heuristic is calculated from the active player's viewpoint
-        // todo: this can probably be sped up a lot using popcount?
         public static int Heuristic(MutState state)
         {
-            bool isEndgame = false; // todo: compute this cheaply
-
             int result = 0;
             for (var bb = state.Occupied; !bb.IsZero; bb = bb.ClearNext())
             {
                 var location = bb.NextLocation();
-                var (file, rank) = location;
                 var piece = state.Board[location].Piece;
                 var (kind, side) = (piece.Kind, piece.Side);
 
-                int locationInt = 8 * (side.IsWhite() ? (7 - (int)rank) : (int)rank) + (int)file;
-                int pieceValue = PieceValues[(int)kind];
-                int pieceSquareValue = PieceSquareValues[(int)kind + Convert.ToInt32(kind == PieceKind.King && isEndgame)][locationInt];
+                int pieceValue = PieceScore(kind);
+                int pieceSquareValue = PsqScore(piece, location);
 
                 if (side == state.ActiveSide)
                 {

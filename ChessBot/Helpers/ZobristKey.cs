@@ -12,32 +12,32 @@ namespace ChessBot.Helpers
         private const int RngSeed = 0;
         private static readonly Random Rng = new Random(RngSeed);
 
-        private static readonly ulong[,] PieceSquareKeys = new ulong[12, 64];
+        private static readonly ulong[,] PsqKeys = new ulong[12, 64];
         private static readonly ulong[] ActiveSideKeys = new ulong[2];
         private static readonly ulong[] CastlingRightsKeys = new ulong[16];
         private static readonly ulong[] EnPassantFileKeys = new ulong[8];
 
         static ZobristKey()
         {
-            for (int i = 0; i < PieceSquareKeys.GetLength(0); i++)
+            for (int i = 0; i < PsqKeys.GetLength(0); i++)
             {
-                for (int j = 0; j < PieceSquareKeys.GetLength(1); j++)
+                for (int j = 0; j < PsqKeys.GetLength(1); j++)
                 {
-                    PieceSquareKeys[i, j] = Rng.NextULong();
+                    PsqKeys[i, j] = Rng.NextUlong();
                 }
             }
 
-            for (int i = 0; i < ActiveSideKeys.Length; i++) ActiveSideKeys[i] = Rng.NextULong();
-            for (int i = 0; i < CastlingRightsKeys.Length; i++) CastlingRightsKeys[i] = Rng.NextULong();
-            for (int i = 0; i < EnPassantFileKeys.Length; i++) EnPassantFileKeys[i] = Rng.NextULong();
+            for (int i = 0; i < ActiveSideKeys.Length; i++) ActiveSideKeys[i] = Rng.NextUlong();
+            for (int i = 0; i < CastlingRightsKeys.Length; i++) CastlingRightsKeys[i] = Rng.NextUlong();
+            for (int i = 0; i < EnPassantFileKeys.Length; i++) EnPassantFileKeys[i] = Rng.NextUlong();
         }
 
-        public static ulong ForPieceSquare(Piece piece, Location location)
+        public static ulong ForPsq(Piece piece, Location location)
         {
             Debug.Assert(piece.IsValid);
             Debug.Assert(location.IsValid);
             var (i, j) = (piece.ToIndex(), location.Value);
-            return PieceSquareKeys[i, j];
+            return PsqKeys[i, j];
         }
 
         public static ulong ForActiveSide(Side side)

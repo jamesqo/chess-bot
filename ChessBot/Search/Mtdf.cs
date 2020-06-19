@@ -161,7 +161,7 @@ namespace ChessBot.Search
             if (depth == 0 || maxNodes == 0)
             {
                 if (maxNodes == 0) pvTable.SetNone(depth);
-                return Evaluation.Heuristic(state);
+                return state.Heuristic;
             }
 
             // TT lookup
