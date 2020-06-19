@@ -2,7 +2,9 @@
 using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq;
 
 namespace ChessBot.Search
 {
@@ -11,12 +13,8 @@ namespace ChessBot.Search
     /// </summary>
     public class Mtdf : ISearchAlgorithm
     {
-        public class Info
-        {
-            internal Info(int score) => Score = score;
-
-            public int Score { get; }
-        }
+        private const int MinScore = -int.MaxValue; // todo: define this elsewhere
+        private const int MaxScore = int.MaxValue;
 
         private readonly struct TtEntry : IHasDepth
         {
@@ -72,106 +70,87 @@ namespace ChessBot.Search
             }
 
             Log.Debug("Starting MTD-f search");
-
-            Move bestMove = default;
-            int bestValue = root.WhiteToMove ? int.MinValue : int.MaxValue;
-            bool isTerminal = true;
-            var state = root.ToMutable();
-
-            foreach (var move in state.GetPseudoLegalMoves())
-            {
-                if (!state.TryApply(move, out _)) continue;
-
-                isTerminal = false;
-
-                int value = RunMtdf(state, FirstGuess, Depth - 1, _tt, bestValue);
-                state.Undo();
-
-                bool better = (root.WhiteToMove ? value > bestValue : value < bestValue);
-                if (better)
-                {
-                    bestValue = value;
-                    bestMove = move;
-                }
-            }
-
-            if (isTerminal)
-            {
-                throw new ArgumentException($"A terminal state was passed to {nameof(Search)}", nameof(root));
-            }
-
-            Log.Debug("Computed {0} as the minimax value for {1}", bestValue, root);
+            _sw.Restart();
+            int score = RunMtdf(root.ToMutable(), FirstGuess, Depth, _tt, out var pv, out int nodesSearched);
+            _sw.Stop();
+            var elapsed = _sw.Elapsed;
             Log.Debug("Finished MTD-f search");
-            return new SearchInfo(
-                depth: Depth,
-                elapsed: _sw.Elapsed,
-                nodesSearched: default /* todo */,
-                pv: default /* todo */,
-                score: bestValue);
+
+            return new SearchInfo(Depth, elapsed, nodesSearched, pv, score);
         }
 
-        // todo: now that we're storing moves in each entry, this should return the pv move as well so that PickMove() can use it directly
         private static int RunMtdf(
             MutState root,
             int firstGuess,
             int depth,
             ITranspositionTable<TtEntry> tt,
-            int bestSiblingValue)
+            out ImmutableArray<Move> pv,
+            out int nodesSearched)
         {
+            nodesSearched = 0;
+
             int guess = firstGuess;
             var (lowerBound, upperBound) = (int.MinValue, int.MaxValue);
-
-            bool whiteToMoveInParent = !root.WhiteToMove;
-            if (whiteToMoveInParent)
-            {
-                lowerBound = bestSiblingValue;
-            }
-            else
-            {
-                upperBound = bestSiblingValue;
-            }
+            var pvTable = new PvTable(depth);
 
             do
             {
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
-                var unused = KillerMoves.Empty;
-                guess = NullWindowSearch(root, beta, depth, tt, killers: ref unused);
+
+                //var unused = KillerMoves.Empty;
+                guess = NullWindowSearch(root, beta, depth, tt, pvTable, out int nodesSearchedThisIteration);
+                nodesSearched += nodesSearchedThisIteration;
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
-                if (guess < beta) // alpha-cutoff: tells us that the real value is <= guess
+
+                if (guess < beta) // alpha-cutoff: the real value is <= guess
                 {
                     upperBound = guess;
                 }
-                else // beta-cutoff: tells us that the real value is >= guess
+                else // beta-cutoff: the real value is >= guess
                 {
                     lowerBound = guess;
                 }
+
                 // EXPERIMENTAL: trying binary search
                 guess = (int)(((long)lowerBound + (long)upperBound) / 2);
             }
             while (lowerBound < upperBound);
 
+            pv = pvTable.GetTop();
+            // todo: trim the array if the pv contains mate. it may get cut off before the `depth`.
             return guess;
         }
 
-        // does alpha-beta search on the null window [beta-1, beta] using a transposition table
+        // does alpha-beta search on the null window [beta-1, beta] using a transposition table.
+        // for maintainability purposes, utilities are from the active player's perspective.
         private static int NullWindowSearch(
             MutState state,
             int beta,
             int depth,
             ITranspositionTable<TtEntry> tt,
-            ref KillerMoves killers)
+            PvTable pvTable,
+            out int nodesSearched
+            //ref KillerMoves killers
+            )
         {
             Debug.Assert(depth >= 0);
+
+            int alpha = beta - 1; // null window search
+            nodesSearched = 1;
+
+            // Unfortunately, it's pretty expensive to check for mate/stalemate since it involves trying to enumerate the current state's successors.
+            // As a result, we don't bother checking for those conditions and returning the correct value when depth == 0.
 
             if (depth == 0)
             {
                 return Evaluation.Heuristic(state);
             }
 
-            int alpha = beta - 1;
+            // TT lookup
+
             TtEntry tte;
-            Move pvMove = default;
+            Move storedPvMove = default;
 
             var ttRef = tt.TryGetReference(state.Hash);
             if (ttRef != null)
@@ -199,135 +178,94 @@ namespace ChessBot.Search
                     }
 
                     // use the information to refine our bounds
-                    // todo: this may not actually work (see note below)
+                    // note: this may not actually work? (see below comment about outdated TT entries)
                     alpha = Math.Max(alpha, tte.LowerBound);
                     beta = Math.Min(beta, tte.UpperBound);
                 }
-                pvMove = ttRef.Value.PvMove;
-                Debug.Assert(!pvMove.IsDefault);
+                storedPvMove = ttRef.Value.PvMove;
+                Debug.Assert(!storedPvMove.IsDefault);
             }
 
-            int guess = state.WhiteToMove ? int.MinValue : int.MaxValue;
-            var childKillers = KillerMoves.Empty;
-            bool pvCausesCut = false;
-            if (!pvMove.IsDefault)
+            // Search the PV move first if we already stored one for this node
+
+            int guess = MinScore;
+            //var childKillers = KillerMoves.Empty;
+            bool pvCausedCut = false;
+
+            if (!storedPvMove.IsDefault)
             {
-                bool success = state.TryApply(pvMove, out _);
+                bool success = state.TryApply(storedPvMove, out _);
                 Debug.Assert(success);
-                guess = NullWindowSearch(state, beta, depth - 1, tt, ref childKillers);
+
+                guess = -NullWindowSearch(state, -alpha, depth - 1, tt, pvTable, out int childrenSearched);
+                nodesSearched += childrenSearched;
                 state.Undo();
-                if (state.WhiteToMove)
+
+                pvCausedCut = (guess >= beta);
+                if (pvCausedCut)
                 {
-                    pvCausesCut = (guess >= beta);
-                    if (pvCausesCut)
-                    {
-                        Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", pvMove, state, guess, beta);
-                        killers = killers.Add(pvMove);
-                    }
-                }
-                else
-                {
-                    pvCausesCut = (guess <= alpha);
-                    if (pvCausesCut)
-                    {
-                        Log.Debug("PV move {0} caused alpha cutoff for state {1} with guess={2} alpha={3}", pvMove, state, guess, alpha);
-                        killers = killers.Add(pvMove);
-                    }
+                    Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", storedPvMove, state, guess, beta);
+                    //killers = killers.Add(storedPvMove);
+                    pvTable.BubbleUp(depth, storedPvMove);
                 }
             }
 
-            if (!pvCausesCut)
-            {
-                int childrenSearched = 0;
-                Move bestMove = default;
+            // If the PV move failed to produce a cutoff, search the other moves
+            Move pvMove = storedPvMove;
 
+            if (!pvCausedCut)
+            {
                 Log.Debug("Commencing search of children of state {0}", state);
                 Log.IndentLevel++;
-                if (state.WhiteToMove)
+                foreach (var move in state.GetPseudoLegalMoves())
                 {
-                    foreach (var move in state.GetPseudoLegalMoves(killers))
+                    if (move == storedPvMove || !state.TryApply(move, out _)) continue;
+
+                    int value = -NullWindowSearch(state, -alpha, depth - 1, tt, pvTable, out int childrenSearched);
+                    nodesSearched += childrenSearched;
+                    state.Undo();
+
+                    bool better = value > guess;
+                    if (better)
                     {
-                        if (move == pvMove || !state.TryApply(move, out _)) continue;
+                        guess = value;
+                        pvMove = move;
 
-                        childrenSearched++;
-
-                        int value = NullWindowSearch(state, beta, depth - 1, tt, ref childKillers);
-                        state.Undo();
-                        bool better = value > guess;
-                        if (better)
+                        if (guess >= beta)
                         {
-                            guess = value;
-                            bestMove = move;
-
-                            if (guess >= beta)
-                            {
-                                Log.Debug("Beta cutoff occurred with guess={0} beta={1} move={2}", guess, beta, move);
-                                killers = killers.Add(move);
-                                break;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (var move in state.GetPseudoLegalMoves(killers))
-                    {
-                        if (move == pvMove || !state.TryApply(move, out _)) continue;
-
-                        childrenSearched++;
-
-                        int value = NullWindowSearch(state, beta, depth - 1, tt, ref childKillers);
-                        state.Undo();
-                        bool better = value < guess;
-                        if (better)
-                        {
-                            guess = value;
-                            bestMove = move;
-
-                            if (guess <= alpha)
-                            {
-                                Log.Debug("Alpha cutoff occurred with guess={0} alpha={1} move={2}", guess, alpha, move);
-                                killers = killers.Add(move);
-                                break;
-                            }
+                            Log.Debug("Beta cutoff occurred with guess={0} beta={1} move={2}", guess, beta, move);
+                            //killers = killers.Add(move);
+                            pvTable.BubbleUp(depth, move);
+                            break;
                         }
                     }
                 }
                 Log.IndentLevel--;
 
-                if (childrenSearched == 0)
+                if (nodesSearched == 1)
                 {
                     return Evaluation.Terminal(state);
                 }
-                Log.Debug("Searched {0} children of state {1}", childrenSearched, state);
-
-                pvMove = bestMove;
+                Log.Debug("Searched {0} nodes from state {1}", nodesSearched, state);
             }
 
-            Debug.Assert(!pvMove.IsDefault);
-            if (guess <= alpha) // fail-low result => upper bound
+            if (guess <= alpha) // alpha-cutoff, aka fail-low => upper bound
             {
-                tte = new TtEntry(lowerBound: int.MinValue, upperBound: guess, depth, pvMove);
+                tte = new TtEntry(lowerBound: MinScore, upperBound: guess, depth, pvMove);
             }
-            else // fail-high result => lower bound
+            else // beta-cutoff, aka fail-high => lower bound
             {
-                Debug.Assert(guess >= beta); // must be true for null-window searches, where alpha == (beta - 1)
-                tte = new TtEntry(lowerBound: guess, upperBound: int.MaxValue, depth, pvMove);
+                Debug.Assert(guess >= beta); // must be true for null-window searches, as alpha == beta - 1
+                tte = new TtEntry(lowerBound: guess, upperBound: MaxScore, depth, pvMove);
             }
-            /*
-            else // neither => this is the exact minimax value
-            {
-                Debug.Assert(guess > alpha && guess < beta);
-                tte = new TtEntry(lowerBound: guess, upperBound: guess);
-            }
-            */
 
-            int ttDepth = ttRef?.Value.Depth ?? 0;
+            int ttDepth = ttRef?.Value.Depth ?? -1;
             if (depth >= ttDepth) // information about higher depths is more valuable
             {
                 if (depth == ttDepth)
                 {
                     bool overlaps = (tte.LowerBound <= ttRef.Value.UpperBound) && (ttRef.Value.LowerBound <= tte.UpperBound);
+
                     // although rare, this could be false in the following scenario:
                     //
                     // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an

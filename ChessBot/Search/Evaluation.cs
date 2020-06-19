@@ -108,7 +108,7 @@ namespace ChessBot.Search
             }
         };
 
-        // note: Heuristic is always calculated from White's viewpoint (positive = good for White)
+        // note: Heuristic is calculated from the active player's viewpoint
         public static int Heuristic(MutState state)
         {
             //Debug.Assert(state.GetMoves().Any());
@@ -140,13 +140,13 @@ namespace ChessBot.Search
                 var location = bb.NextLocation();
                 var (file, rank) = location;
                 var piece = state.Board[location].Piece;
-                var (kind, isWhite) = (piece.Kind, piece.IsWhite);
+                var (kind, side) = (piece.Kind, piece.Side);
 
-                int locationInt = 8 * (isWhite ? (7 - (int)rank) : (int)rank) + (int)file;
+                int locationInt = 8 * (side.IsWhite() ? (7 - (int)rank) : (int)rank) + (int)file;
                 int pieceValue = PieceValues[(int)kind];
                 int pieceSquareValue = PieceSquareValues[(int)kind + Convert.ToInt32(kind == PieceKind.King && isEndgame)][locationInt];
 
-                if (isWhite)
+                if (side == state.ActiveSide)
                 {
                     result += pieceValue;
                     result += pieceSquareValue;
@@ -168,7 +168,7 @@ namespace ChessBot.Search
 
             bool isStalemate = !state.IsCheck;
             if (isStalemate) return 0;
-            return state.WhiteToMove ? int.MinValue : int.MaxValue;
+            return int.MaxValue;
         }
     }
 }

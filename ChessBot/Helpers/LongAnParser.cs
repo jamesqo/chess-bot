@@ -40,7 +40,8 @@ namespace ChessBot.Helpers
 
         private Location ReadLocation()
         {
-            if (!CanRead(2)) throw something;
+            // todo
+            //if (!CanRead(2)) throw something;
 
             var locationText = new string(new char[] { Pop(), Pop() });
             return Location.Parse(locationText);
@@ -48,7 +49,8 @@ namespace ChessBot.Helpers
 
         private void ReadSeparator()
         {
-            if (!CanRead(1)) throw something;
+            // todo
+            //if (!CanRead(1)) throw something;
 
             char next = Peek();
             if (next == '-' || next == 'x') Pop();

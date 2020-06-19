@@ -9,6 +9,8 @@ namespace ChessBot.Tests.Search
 {
     public class SearchTests
     {
+        const int TtCapacity = 1 << 16;
+
         public static TheoryData<ISearchAlgorithm> Searchers
         {
             get
@@ -16,9 +18,8 @@ namespace ChessBot.Tests.Search
                 var data = new TheoryData<ISearchAlgorithm>();
                 for (int d = 1; d <= 3; d++)
                 {
-                    //data.Add(new AlphaBeta(d));
-                    data.Add(new Mtdf(d));
-                    data.Add(new MtdfIds(d));
+                    data.Add(new Mtdf(TtCapacity) { Depth = d });
+                    data.Add(new MtdfIds(TtCapacity) { Depth = d });
                 }
                 return data;
             }
