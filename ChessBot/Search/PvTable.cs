@@ -17,7 +17,7 @@ namespace ChessBot.Search
             _maxDepth = maxDepth;
         }
 
-        // copies the pv from (depth+1) to depth, along with the given move
+        // copies the pv from (depth-1) to depth, along with the given move
         public void BubbleUp(int depth, Move pvMove)
         {
             Debug.Assert(depth > 0 && depth <= _maxDepth);
@@ -25,10 +25,10 @@ namespace ChessBot.Search
             int thisIndex = GetIndex(depth);
             _buffer[thisIndex] = pvMove;
 
-            if (depth < _maxDepth)
+            if (depth > 1)
             {
-                int childIndex = GetIndex(depth + 1);
-                Array.Copy(_buffer, childIndex, _buffer, thisIndex + 1, _maxDepth - depth - 1);
+                int childIndex = GetIndex(depth - 1);
+                Array.Copy(_buffer, childIndex, _buffer, thisIndex + 1, depth - 1);
             }
         }
 
