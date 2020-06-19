@@ -107,6 +107,7 @@ namespace ChessBot.Search
                 //var unused = KillerMoves.Empty;
                 guess = NullWindowSearch(root, beta, depth, tt, maxNodes, pvTable, out int nodesSearchedThisIteration);
                 nodesSearched += nodesSearchedThisIteration;
+                maxNodes -= nodesSearchedThisIteration;
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
 
                 if (guess < beta) // alpha-cutoff: the real value is <= guess
@@ -121,10 +122,9 @@ namespace ChessBot.Search
                 // EXPERIMENTAL: trying binary search
                 guess = (int)(((long)lowerBound + (long)upperBound) / 2);
             }
-            while (lowerBound < upperBound);
+            while (lowerBound < upperBound && maxNodes > 0);
 
-            pv = pvTable.GetTop();
-            // todo: trim the array if the pv contains mate. it may get cut off before the `depth`.
+            pv = pvTable.GetTop().ToImmutableArray();
             return guess;
         }
 
@@ -145,13 +145,15 @@ namespace ChessBot.Search
             Debug.Assert(maxNodes > 0);
 
             int alpha = beta - 1; // null window search
+            maxNodes--;
             nodesSearched = 1;
 
             // Unfortunately, it's pretty expensive to check for mate/stalemate since it involves trying to enumerate the current state's successors.
             // As a result, we don't bother checking for those conditions and returning the correct value when depth == 0.
 
-            if (depth == 0 || maxNodes == 1)
+            if (depth == 0 || maxNodes == 0)
             {
+                if (maxNodes == 0) pvTable.SetNone(depth);
                 return Evaluation.Heuristic(state);
             }
 
@@ -164,24 +166,30 @@ namespace ChessBot.Search
             if (ttRef != null)
             {
                 tte = ttRef.Value;
+                storedPvMove = tte.PvMove;
+                Debug.Assert(!storedPvMove.IsDefault);
+
                 if (tte.Depth >= depth)
                 {
                     // beta-cutoff
                     if (tte.LowerBound >= beta)
                     {
                         tt.Touch(ttRef);
+                        pvTable.SetOne(depth, storedPvMove);
                         return tte.LowerBound;
                     }
                     // alpha-cutoff
                     if (tte.UpperBound <= alpha)
                     {
                         tt.Touch(ttRef);
+                        pvTable.SetOne(depth, storedPvMove);
                         return tte.UpperBound;
                     }
                     // we know the exact value
                     if (tte.LowerBound == tte.UpperBound)
                     {
                         tt.Touch(ttRef);
+                        pvTable.SetOne(depth, storedPvMove);
                         return tte.LowerBound;
                     }
 
@@ -190,8 +198,6 @@ namespace ChessBot.Search
                     alpha = Math.Max(alpha, tte.LowerBound);
                     beta = Math.Min(beta, tte.UpperBound);
                 }
-                storedPvMove = ttRef.Value.PvMove;
-                Debug.Assert(!storedPvMove.IsDefault);
             }
 
             // Search the PV move first if we already stored one for this node
@@ -210,12 +216,13 @@ namespace ChessBot.Search
                 maxNodes -= childrenSearched;
                 state.Undo();
 
+                pvTable.BubbleUpTo(depth, storedPvMove);
+
                 pvCausedCut = (guess >= beta);
                 if (pvCausedCut || maxNodes <= 0)
                 {
-                    Log.Debug("PV move {0} caused beta cutoff for state {1} with guess={2} beta={3}", storedPvMove, state, guess, beta);
+                    Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} storedPvMove={3}", state, guess, beta, storedPvMove);
                     //killers = killers.Add(storedPvMove);
-                    pvTable.BubbleUp(depth, storedPvMove);
                 }
             }
 
@@ -241,13 +248,13 @@ namespace ChessBot.Search
                     {
                         guess = value;
                         pvMove = move;
+                        pvTable.BubbleUpTo(depth, move);
                     }
 
                     if (guess >= beta || maxNodes <= 0)
                     {
-                        Log.Debug("Beta cutoff occurred with guess={0} beta={1} move={2}", guess, beta, move);
+                        Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} pvMove={3}", state, guess, beta, pvMove);
                         //killers = killers.Add(move);
-                        pvTable.BubbleUp(depth, move);
                         break;
                     }
                 }
@@ -255,10 +262,13 @@ namespace ChessBot.Search
 
                 if (nodesSearched == 1)
                 {
+                    pvTable.SetNone(depth);
                     return Evaluation.OfTerminal(state);
                 }
                 Log.Debug("Searched {0} nodes from state {1}", nodesSearched, state);
             }
+
+            // Store information from the search in TT
 
             if (guess <= alpha) // alpha-cutoff, aka fail-low => upper bound
             {

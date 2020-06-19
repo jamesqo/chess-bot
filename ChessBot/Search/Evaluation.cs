@@ -150,7 +150,7 @@ namespace ChessBot.Search
 
             bool isStalemate = !state.IsCheck;
             if (isStalemate) return 0;
-            return MaxScore;
+            return MinScore;
         }
     }
 }

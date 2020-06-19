@@ -7,7 +7,11 @@ namespace ChessBot.Search
 {
     internal class PvTable
     {
-        private readonly Move[] _buffer; // triangular array
+        // PvTable stores the most recent PV for each depth level in a triangular array, with d moves stored for depth=d.
+        // If the PV is cut off early (ie. due to an early mate, TT hit meaning we only know the next best move),
+        // then we "null-terminate" it with 0-valued moves.
+
+        private readonly Move[] _buffer;
         private readonly int _maxDepth;
 
         public PvTable(int maxDepth)
@@ -18,12 +22,12 @@ namespace ChessBot.Search
         }
 
         // copies the pv from (depth-1) to depth, along with the given move
-        public void BubbleUp(int depth, Move pvMove)
+        public void BubbleUpTo(int depth, Move firstMove)
         {
             Debug.Assert(depth > 0 && depth <= _maxDepth);
 
             int thisIndex = GetIndex(depth);
-            _buffer[thisIndex] = pvMove;
+            _buffer[thisIndex] = firstMove;
 
             if (depth > 1)
             {
@@ -32,9 +36,31 @@ namespace ChessBot.Search
             }
         }
 
-        public ImmutableArray<Move> GetTop()
+        // indicates there is no PV for the given depth (eg. because of an early mate)
+        public void SetNone(int depth)
         {
-            return ImmutableArray.Create(_buffer, GetIndex(_maxDepth), _maxDepth);
+            Array.Clear(_buffer, GetIndex(depth), depth);
+        }
+
+        // indicates we only know the next best move for the given depth (eg. TT hit)
+        public void SetOne(int depth, Move onlyMove)
+        {
+            int index = GetIndex(depth);
+            _buffer[index] = onlyMove;
+            if (depth > 1) Array.Clear(_buffer, index + 1, depth - 1);
+        }
+
+        public Span<Move> GetTop(bool excludeZeros = true) => GetPv(_maxDepth, excludeZeros);
+
+        private Span<Move> GetPv(int depth, bool excludeZeros)
+        {
+            var result = _buffer.AsSpan(GetIndex(depth), depth);
+            if (excludeZeros)
+            {
+                int count = result.IndexOf(default(Move));
+                if (count != -1) result = result.Slice(0, count);
+            }
+            return result;
         }
 
         private int GetIndex(int depth)
