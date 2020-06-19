@@ -21,6 +21,7 @@ namespace ChessBot.Search
         }
 
         public int Depth { get; set; } = 0;
+        public int MaxNodes { get; set; } = int.MaxValue;
 
         public IObservable<ISearchInfo> IterationCompleted => _iterationCompleted;
 
@@ -28,7 +29,12 @@ namespace ChessBot.Search
         {
             if (Depth <= 0)
             {
-                throw new InvalidOperationException("Depth wasn't set");
+                throw new InvalidOperationException($"{nameof(Depth)} wasn't set");
+            }
+
+            if (MaxNodes <= 0)
+            {
+                throw new InvalidOperationException($"Bad value for {nameof(MaxNodes)}");
             }
 
             Log.Debug("Starting IDS search");
@@ -36,6 +42,7 @@ namespace ChessBot.Search
             ImmutableArray<Move> pv = default;
             int score = 0;
             int nodesSearched = 0;
+            int remainingNodes = MaxNodes;
             var elapsed = TimeSpan.Zero;
 
             for (int d = 1; d <= Depth; d++)
@@ -43,6 +50,7 @@ namespace ChessBot.Search
                 Log.Debug("Running mtdf with depth={0}, f={1}", d, score);
                 _inner.Depth = d;
                 _inner.FirstGuess = score;
+                _inner.MaxNodes = remainingNodes;
 
                 Log.IndentLevel++;
                 var icInfo = _inner.Search(root);
@@ -52,9 +60,10 @@ namespace ChessBot.Search
                 pv = icInfo.Pv;
                 score = icInfo.Score;
                 nodesSearched += icInfo.NodesSearched;
+                remainingNodes -= icInfo.NodesSearched;
                 elapsed += icInfo.Elapsed;
 
-                if (_stop) break;
+                if (_stop || remainingNodes <= 0) break;
             }
             _iterationCompleted.OnCompleted();
 

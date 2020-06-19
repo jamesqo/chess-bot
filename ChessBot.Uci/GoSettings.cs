@@ -4,7 +4,7 @@ using System.Collections.Immutable;
 
 namespace ChessBot.Uci
 {
-    class GoParams
+    class GoSettings
     {
         public ImmutableArray<Move> SearchMoves { get; set; } = default;
         public bool Ponder { get; set; } = false;

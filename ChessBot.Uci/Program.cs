@@ -11,7 +11,7 @@ namespace ChessBot.Uci
 {
     class Program
     {
-        // todo: synchronize accesses to the console w/ a lock?
+        // todo: synchronize accesses to the console
 
         State _root;
         volatile bool _ponder;
@@ -61,7 +61,7 @@ namespace ChessBot.Uci
 
             // todo: if we have an ongoing search, kill it
 
-            var paras = new GoParams();
+            var settings = new GoSettings();
             while (tokens.TryPop(out var paramName))
             {
                 switch (paramName)
@@ -72,37 +72,44 @@ namespace ChessBot.Uci
                         {
                             searchMoves.Add(Move.ParseLong(move));
                         }
-                        paras.SearchMoves = searchMoves.ToImmutableArray();
+                        settings.SearchMoves = searchMoves.ToImmutableArray();
                         break;
                     case "ponder":
-                        paras.Ponder = true;
+                        settings.Ponder = true;
                         break;
                     case "depth":
-                        paras.Depth = int.Parse(tokens.Pop());
+                        settings.Depth = int.Parse(tokens.Pop());
                         break;
                     case "nodes":
-                        paras.Nodes = int.Parse(tokens.Pop());
+                        settings.Nodes = int.Parse(tokens.Pop());
                         break;
                     case "mate":
-                        paras.Mate = int.Parse(tokens.Pop());
+                        settings.Mate = int.Parse(tokens.Pop());
                         break;
                     case "movetime":
-                        paras.MoveTime = TimeSpan.FromMilliseconds(int.Parse(tokens.Pop()));
+                        settings.MoveTime = TimeSpan.FromMilliseconds(int.Parse(tokens.Pop()));
                         break;
                     case "infinite":
-                        paras.Infinite = true;
+                        settings.Infinite = true;
                         break;
                 }
             }
+
+            if (settings.Depth == null && settings.Nodes == null && !settings.Infinite)
+            {
+                // error: one of depth, nodes, or infinite must be specified
+            }
+
             // start the search
             Task.Run(() =>
             {
                 var searcher = new MtdfIds(ttCapacity: (1 << 16));
-                //searcher.Depth = options.Depth ?? ...;
-                //searcher.MaxNodes = options.Nodes;
+                searcher.Depth = settings.Depth ?? int.MaxValue;
+                searcher.MaxNodes = settings.Nodes ?? int.MaxValue;
+
                 searcher.IterationCompleted.Subscribe(icInfo =>
                 {
-                    var output = $"info depth {icInfo.Depth} time {icInfo.Elapsed} nodes {icInfo.NodesSearched} pv {icInfo.Pv} score cp {icInfo.Score}";
+                    var output = $"info depth {icInfo.Depth} time {icInfo.Elapsed} nodes {icInfo.NodesSearched} pv {string.Join(' ', icInfo.Pv)} score cp {icInfo.Score}";
                     WriteLine(output);
                     if (_stop)
                     {
@@ -112,11 +119,12 @@ namespace ChessBot.Uci
 
                 var info = searcher.Search(_root);
 
-                // if infinite is true, then busy wait once we reach the max depth, or just keep searching if none.
-                // what if neither depth nor infinite is spec'd, eg. "go"?
-                while (!_stop && (paras.Infinite || _ponder)) { } // if we finished but we're in ponder or infinite mode, busy wait until we received "ponderhit"
+                // if we finished but we're in ponder or infinite mode, busy wait until we receive "ponderhit" or "stop"
+                while (!_stop && (settings.Infinite || _ponder))
+                    ;
 
-                // output the bestmove. if there's not a mate in 1 and we searched more than depth 1, output that too
+                // output the best move. if there's not a mate in 1 and we searched more than depth 1, output that too
+                // as the next move we expect the user to play.
 
                 var output = $"bestmove {info.Pv[0]}";
                 if (info.Pv.Length > 1)
