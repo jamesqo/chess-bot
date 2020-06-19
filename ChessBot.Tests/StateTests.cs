@@ -1,4 +1,5 @@
 ﻿using ChessBot.Exceptions;
+using ChessBot.Search;
 using ChessBot.Tests.TestHelpers;
 using ChessBot.Types;
 using System.Collections.Generic;

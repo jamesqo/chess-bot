@@ -17,7 +17,10 @@ using Snapshot = System.ValueTuple<
     ChessBot.Types.Location?,
     int,
     int,
-    System.ValueTuple<ulong>
+    System.ValueTuple<
+        ulong,
+        ChessBot.Types.Move
+    >
 >;
 
 namespace ChessBot
@@ -94,9 +97,10 @@ namespace ChessBot
         public int FullMoveNumber { get; private set; }
         public ulong Hash { get; internal set; }
 
-        private Snapshot Snapshot() => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash);
+        // `move` isn't a field, it's just *very* helpful for debugging purposes
+        private Snapshot Snapshot(Move move) => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, move);
         private void Restore(in Snapshot snapshot) =>
-            (_board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash) = snapshot;
+            (_board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, _) = snapshot;
 
         #endregion
 
@@ -273,9 +277,13 @@ namespace ChessBot
             // Killer moves (non-captures)
             foreach (var killer in killers)
             {
-                // Ensure we haven't already returned this move in case it happens to be a capture in this state
-                bool isPseudoLegalAndNonCapture = GetNonCaptureDestinations(killer.Source)[killer.Destination];
-                if (isPseudoLegalAndNonCapture) yield return killer;
+                var source = killer.Source;
+                if (board[source].HasPiece && board[source].Piece.Side == activeSide)
+                {
+                    // Ensure we haven't already returned this move in case it happens to be a capture in this state
+                    bool isPseudoLegalAndNonCapture = GetNonCaptureDestinations(source)[killer.Destination];
+                    if (isPseudoLegalAndNonCapture) yield return killer;
+                }
             }
 
             // Non-captures
@@ -372,7 +380,7 @@ namespace ChessBot
 
             // Before we do anything, push our old state to the history stack
 
-            _history.Push(Snapshot());
+            _history.Push(Snapshot(move));
 
             // Update the board
 
