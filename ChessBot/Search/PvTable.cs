@@ -5,12 +5,16 @@ using System.Diagnostics;
 
 namespace ChessBot.Search
 {
+    /// <summary>
+    /// Stores the most recent PV for each depth level during a search.
+    /// </summary>
+    /// <remarks>
+    /// Internally, this class uses a triangular array with d moves stored for depth = d.
+    /// If the PV is cut off early (ie. due to mate, or a TT hit meaning we only know the next best move),
+    /// then we "null-terminate" it with zero-valued moves.
+    /// </remarks>
     internal class PvTable
     {
-        // PvTable stores the most recent PV for each depth level in a triangular array, with d moves stored for depth=d.
-        // If the PV is cut off early (ie. due to an early mate, TT hit meaning we only know the next best move),
-        // then we "null-terminate" it with 0-valued moves.
-
         private readonly Move[] _buffer;
         private readonly int _maxDepth;
 
@@ -21,7 +25,7 @@ namespace ChessBot.Search
             _maxDepth = maxDepth;
         }
 
-        // copies the pv from (depth-1) to depth, along with the given move
+        // copies the pv from (depth - 1) to depth along with the given first move
         public void BubbleUpTo(int depth, Move firstMove)
         {
             Debug.Assert(depth > 0 && depth <= _maxDepth);
@@ -36,7 +40,7 @@ namespace ChessBot.Search
             }
         }
 
-        // indicates there is no PV for the given depth (eg. because of an early mate)
+        // indicates there is no PV for the given depth (eg. because of mate)
         public void SetNone(int depth)
         {
             Array.Clear(_buffer, GetIndex(depth), depth);

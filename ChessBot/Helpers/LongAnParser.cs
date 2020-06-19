@@ -1,7 +1,11 @@
-﻿using ChessBot.Types;
+﻿using ChessBot.Exceptions;
+using ChessBot.Types;
 
 namespace ChessBot.Helpers
 {
+    /// <summary>
+    /// Helper class for parsing long algebraic notation (LAN).
+    /// </summary>
     internal class LongAnParser
     {
         private readonly string _input;
@@ -40,8 +44,7 @@ namespace ChessBot.Helpers
 
         private Location ReadLocation()
         {
-            // todo
-            //if (!CanRead(2)) throw something;
+            if (!CanRead(2)) throw new InvalidMoveException(InvalidMoveReason.BadAlgebraicNotation);
 
             var locationText = new string(new char[] { Pop(), Pop() });
             return Location.Parse(locationText);
@@ -49,8 +52,7 @@ namespace ChessBot.Helpers
 
         private void ReadSeparator()
         {
-            // todo
-            //if (!CanRead(1)) throw something;
+            if (!CanRead(1)) throw new InvalidMoveException(InvalidMoveReason.BadAlgebraicNotation);
 
             char next = Peek();
             if (next == '-' || next == 'x') Pop();

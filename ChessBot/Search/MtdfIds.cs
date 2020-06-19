@@ -51,7 +51,7 @@ namespace ChessBot.Search
             int remainingNodes = MaxNodes;
             var elapsed = TimeSpan.Zero;
 
-            for (int d = 1; d <= Depth; d++)
+            for (int d = 1; d <= Depth && !_stop && remainingNodes > 0; d++)
             {
                 Log.Debug("Running mtdf with depth={0}, f={1}", d, score);
                 _inner.Depth = d;
@@ -68,15 +68,13 @@ namespace ChessBot.Search
                 nodesSearched += icInfo.NodesSearched;
                 remainingNodes -= icInfo.NodesSearched;
                 elapsed += icInfo.Elapsed;
-
-                if (_stop || remainingNodes <= 0) break;
             }
 
             Log.Debug("Finished IDS search");
             return new SearchInfo(Depth, elapsed, nodesSearched, pv, score);
         }
 
-        public void RequestStop()
+        public void Stop()
         {
             _stop = true;
         }

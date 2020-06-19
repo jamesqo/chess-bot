@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using static System.Console;
 
@@ -12,8 +13,6 @@ namespace ChessBot.Uci
 {
     class Program
     {
-        // todo: synchronize accesses to the console
-
         State _root;
         MtdfIds _searcher;
         volatile bool _ponder = false;
@@ -43,7 +42,7 @@ namespace ChessBot.Uci
         void UciNewGame()
         {
             _root = null;
-            _searcher = new MtdfIds(ttCapacity: (1 << 16));
+            _searcher = null;
         }
 
         void Position(Stack<string> tokens)
@@ -106,10 +105,10 @@ namespace ChessBot.Uci
                     case "nodes":
                         settings.Nodes = int.Parse(tokens.Pop());
                         break;
-                    case "mate":
+                    case "mate": // todo
                         settings.Mate = int.Parse(tokens.Pop());
                         break;
-                    case "movetime":
+                    case "movetime": // todo
                         settings.MoveTime = TimeSpan.FromMilliseconds(int.Parse(tokens.Pop()));
                         break;
                     case "infinite":
@@ -123,6 +122,8 @@ namespace ChessBot.Uci
                 // error: one of depth, nodes, or infinite must be specified
                 return;
             }
+
+            _searcher ??= new MtdfIds(ttCapacity: (1 << 16));
 
             // reset all relevant state variables
             _ponder = false;
@@ -141,16 +142,12 @@ namespace ChessBot.Uci
                 var disp = searcherCopy.IterationCompleted.Subscribe(icInfo =>
                 {
                     // todo: even if we have cached tt info, we should be outputting the full pv
-                    // todo: multipv
-                    // todo: score mate
-                    // todo: score lowerbound, upperbound
-                    // todo: hashfull, nps, tbhits, cpuload
-                    // todo: other stuff here: https://github.com/official-stockfish/Stockfish/blob/bc3c215490edf24cef0ff87d74ab01eeb91ae1bc/src/search.cpp
+                    // todo: other info fields (see stockfish)
                     var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} score cp {icInfo.Score} pv {string.Join(' ', icInfo.Pv)}";
                     WriteLine(output);
                     if (_stop)
                     {
-                        searcherCopy.RequestStop();
+                        searcherCopy.Stop();
                     }
                 });
 
@@ -160,7 +157,7 @@ namespace ChessBot.Uci
                 // if we finished but we're in ponder or infinite mode, wait until we receive "ponderhit" or "stop"
                 while (!_stop && (settings.Infinite || _ponder))
                 {
-                    // todo: don't burn cpu too fast here
+                    Thread.Sleep(500);
                 }
 
                 // output the best move. if there's not a mate in 1 and we searched more than depth 1, output that too
@@ -204,8 +201,6 @@ namespace ChessBot.Uci
 
         void Run(string[] args)
         {
-            UciNewGame();
-
             while (true)
             {
                 string command = ReadLine().Trim();
