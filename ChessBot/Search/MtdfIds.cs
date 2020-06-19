@@ -20,8 +20,12 @@ namespace ChessBot.Search
             _inner = new Mtdf(ttCapacity);
         }
 
+        public string Name => "mtdf-ids";
+
         public int Depth { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
+
+        public override string ToString() => $"{Name} depth={Depth} maxNodes={MaxNodes}";
 
         public IObservable<ISearchInfo> IterationCompleted => _iterationCompleted;
 

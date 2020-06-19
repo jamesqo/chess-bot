@@ -55,9 +55,13 @@ namespace ChessBot.Search
             _sw = new Stopwatch();
         }
 
+        public string Name => "mtdf";
+
         public int Depth { get; set; } = 0;
         public int FirstGuess { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
+
+        public override string ToString() => $"{Name} depth={Depth} firstGuess={FirstGuess} maxNodes={MaxNodes}";
 
         public ISearchInfo Search(State root)
         {
@@ -218,8 +222,8 @@ namespace ChessBot.Search
 
                 pvTable.BubbleUpTo(depth, storedPvMove);
 
-                pvCausedCut = (guess >= beta);
-                if (pvCausedCut || maxNodes <= 0)
+                pvCausedCut = (guess >= beta || maxNodes <= 0);
+                if (pvCausedCut)
                 {
                     Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} storedPvMove={3}", state, guess, beta, storedPvMove);
                     //killers = killers.Add(storedPvMove);

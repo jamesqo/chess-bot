@@ -18,6 +18,7 @@ namespace ChessBot.Search
             return Search(root).Pv[0];
         }
 
+        string Name { get; }
         int Depth { get; }
         int MaxNodes { get; }
 
