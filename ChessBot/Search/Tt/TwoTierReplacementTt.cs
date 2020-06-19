@@ -9,18 +9,13 @@ namespace ChessBot.Search.Tt
     /// <typeparam name="TValue">The type of the value.</typeparam>
     public class TwoTierReplacementTt<TValue> : ITranspositionTable<TValue> where TValue : IHasDepth
     {
-        private const int DefaultCapacity = 8192;
-
         private readonly LruReplacementTt<TValue> _lruTt;
         private readonly DepthReplacementTt<TValue> _depthTt;
 
-        public TwoTierReplacementTt() : this(DefaultCapacity) { }
-
-        public TwoTierReplacementTt(int? capacity = null)
+        public TwoTierReplacementTt(int capacity)
         {
-            int cap = capacity ?? DefaultCapacity;
-            _lruTt = new LruReplacementTt<TValue>(cap / 2);
-            _depthTt = new DepthReplacementTt<TValue>(cap / 2);
+            _lruTt = new LruReplacementTt<TValue>(capacity / 2);
+            _depthTt = new DepthReplacementTt<TValue>(capacity / 2);
         }
 
         public bool Add(ulong key, TValue value)

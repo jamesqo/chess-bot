@@ -33,13 +33,16 @@ namespace ChessBot.Console
             ISearchAlgorithm inner;
             while (true)
             {
-                Write("Pick ai strategy [mtdf (default), ids]: ");
+                Write("Pick ai strategy [mtdf (default), mtdf-ids]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
-                    //case "alphabeta": inner = new AlphaBeta(depth: 6); break;
-                    case "":  case "mtdf": inner = new Mtdf(depth: 7, ttCapacity: (1 << 16)); break;
-                    case "ids": inner = new Ids(depth: 7, ttCapacity: (1 << 16)); break;
+                    case "": case "mtdf":
+                        inner = new Mtdf(ttCapacity: (1 << 16)) { Depth = 7 };
+                        break;
+                    case "mtdf-ids":
+                        inner = new MtdfIds(ttCapacity: (1 << 16)) { Depth = 7 };
+                        break;
                     default: continue;
                 }
                 return new AI(inner);

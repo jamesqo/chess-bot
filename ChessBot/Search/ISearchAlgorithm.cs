@@ -1,4 +1,6 @@
 ﻿using ChessBot.Types;
+using System;
+
 namespace ChessBot.Search
 {
     /// <summary>
@@ -6,17 +8,20 @@ namespace ChessBot.Search
     /// </summary>
     public interface ISearchAlgorithm
     {
-        Move PickMove(State root);
-    }
+        Move PickMove(State root)
+        {
+            if (root.IsTerminal)
+            {
+                throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(root));
+            }
 
-    /// <summary>
-    /// The interface for search algorithms.
-    /// </summary>
-    /// <typeparam name="TInfo">The type of additional info computed by the search algorithm.</typeparam>
-    public interface ISearchAlgorithm<TInfo> : ISearchAlgorithm
-    {
-        Move ISearchAlgorithm.PickMove(State root) => PickMove(root, out _);
+            return Search(root).Pv[0];
+        }
 
-        Move PickMove(State root, out TInfo info);
+        string Name { get; }
+        int Depth { get; }
+        int MaxNodes { get; }
+
+        ISearchInfo Search(State root);
     }
 }
