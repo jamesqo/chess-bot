@@ -156,11 +156,6 @@ namespace ChessBot
         public int FullMoveNumber => _inner.FullMoveNumber;
 
         /// <summary>
-        /// The Zobrist hash value for this state.
-        /// </summary>
-        public ulong Hash => _inner.Hash;
-
-        /// <summary>
         /// Contains information about the white player.
         /// </summary>
         public Player White => _inner.White;
@@ -232,7 +227,6 @@ namespace ChessBot
         {
             if (other == null) return false;
 
-            // todo: board no longer implements iequatable
             if (!Board.Equals(other.Board) ||
                 ActiveSide != other.ActiveSide ||
                 CastlingRights != other.CastlingRights ||
@@ -243,7 +237,8 @@ namespace ChessBot
                 return false;
             }
 
-            Debug.Assert(Hash == other.Hash);
+            Debug.Assert(_inner.Hash == other._inner.Hash);
+            Debug.Assert(_inner.Heuristic == other._inner.Heuristic);
             return true;
         }
 

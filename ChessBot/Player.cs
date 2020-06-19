@@ -7,7 +7,6 @@ using static ChessBot.StaticInfo;
 
 namespace ChessBot
 {
-    // todo: make this a class again but lazily initialize it
     /// <summary>
     /// Describes the state of a player in a chess game.
     /// </summary>

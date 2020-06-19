@@ -11,7 +11,6 @@ namespace ChessBot
         int HalfMoveClock { get; }
         int FullMoveNumber { get; }
 
-        ulong Hash { get; }
         bool IsCheck { get; }
         Bitboard Occupied { get; }
 
