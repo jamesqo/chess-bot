@@ -71,6 +71,7 @@ namespace ChessBot.Uci
 
             while (tokens.TryPop(out token))
             {
+                // todo: castling moves are sent in the form of king "takes" his own rook. account for these
                 _root = _root.Apply(Move.ParseLong(token));
             }
         }
@@ -139,7 +140,13 @@ namespace ChessBot.Uci
 
                 var disp = searcherCopy.IterationCompleted.Subscribe(icInfo =>
                 {
-                    var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} pv {string.Join(' ', icInfo.Pv)} score cp {icInfo.Score}";
+                    // todo: even if we have cached tt info, we should be outputting the full pv
+                    // todo: multipv
+                    // todo: score mate
+                    // todo: score lowerbound, upperbound
+                    // todo: hashfull, nps, tbhits, cpuload
+                    // todo: other stuff here: https://github.com/official-stockfish/Stockfish/blob/bc3c215490edf24cef0ff87d74ab01eeb91ae1bc/src/search.cpp
+                    var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} score cp {icInfo.Score} pv {string.Join(' ', icInfo.Pv)}";
                     WriteLine(output);
                     if (_stop)
                     {
@@ -150,9 +157,11 @@ namespace ChessBot.Uci
                 var info = searcherCopy.Search(rootCopy);
                 disp.Dispose();
 
-                // if we finished but we're in ponder or infinite mode, busy wait until we receive "ponderhit" or "stop"
+                // if we finished but we're in ponder or infinite mode, wait until we receive "ponderhit" or "stop"
                 while (!_stop && (settings.Infinite || _ponder))
-                    ;
+                {
+                    // todo: don't burn cpu too fast here
+                }
 
                 // output the best move. if there's not a mate in 1 and we searched more than depth 1, output that too
                 // as the next move we expect the user to play.
