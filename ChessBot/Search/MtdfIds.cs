@@ -43,6 +43,8 @@ namespace ChessBot.Search
 
             Log.Debug("Starting IDS search");
 
+            _stop = false;
+
             ImmutableArray<Move> pv = default;
             int score = 0;
             int nodesSearched = 0;
@@ -69,7 +71,6 @@ namespace ChessBot.Search
 
                 if (_stop || remainingNodes <= 0) break;
             }
-            _iterationCompleted.OnCompleted();
 
             Log.Debug("Finished IDS search");
             return new SearchInfo(Depth, elapsed, nodesSearched, pv, score);

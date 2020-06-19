@@ -7,7 +7,6 @@ namespace ChessBot.Uci
     class GoSettings
     {
         public ImmutableArray<Move> SearchMoves { get; set; } = default;
-        public bool Ponder { get; set; } = false;
         public int? Depth { get; set; }
         public int? Nodes { get; set; }
         public int? Mate { get; set; }

@@ -1,6 +1,7 @@
 ﻿using ChessBot.Search;
 using ChessBot.Types;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -14,8 +15,12 @@ namespace ChessBot.Uci
         // todo: synchronize accesses to the console
 
         State _root;
-        volatile bool _ponder;
-        volatile bool _stop;
+        MtdfIds _searcher;
+        volatile bool _ponder = false;
+        volatile bool _stop = false;
+
+        volatile bool _searchInProgress = false;
+        readonly ConcurrentQueue<Task> _searchQueue = new ConcurrentQueue<Task>();
 
         void Uci()
         {
@@ -35,19 +40,38 @@ namespace ChessBot.Uci
             // todo: set the option
         }
 
-        void UciNewGame() => _root = null;
+        void UciNewGame()
+        {
+            _root = null;
+            _searcher = new MtdfIds(ttCapacity: (1 << 16));
+        }
 
         void Position(Stack<string> tokens)
         {
-            var fen = tokens.Pop();
-            if (fen == "startpos") fen = State.StartFen;
-            _root = State.ParseFen(fen);
-            if (tokens.TryPop(out var movesToken) && movesToken == "moves")
+            // todo: better error handling here
+
+            string fen = "";
+            string token = tokens.Pop();
+            switch (token)
             {
-                while (tokens.TryPop(out var move))
-                {
-                    _root = _root.Apply(Move.ParseLong(move));
-                }
+                case "startpos":
+                    fen = State.StartFen;
+                    tokens.TryPop(out _); // pop moves token
+                    break;
+                case "fen":
+                    fen = tokens.Pop();
+                    while (tokens.TryPop(out token) && token != "moves")
+                        fen += ' ' + token;
+                    break;
+                default:
+                    // todo: error
+                    break;
+            }
+            _root = State.ParseFen(fen);
+
+            while (tokens.TryPop(out token))
+            {
+                _root = _root.Apply(Move.ParseLong(token));
             }
         }
 
@@ -58,8 +82,6 @@ namespace ChessBot.Uci
                 // todo: error message
                 return;
             }
-
-            // todo: if we have an ongoing search, kill it
 
             var settings = new GoSettings();
             while (tokens.TryPop(out var paramName))
@@ -75,7 +97,7 @@ namespace ChessBot.Uci
                         settings.SearchMoves = searchMoves.ToImmutableArray();
                         break;
                     case "ponder":
-                        settings.Ponder = true;
+                        _ponder = true;
                         break;
                     case "depth":
                         settings.Depth = int.Parse(tokens.Pop());
@@ -98,26 +120,35 @@ namespace ChessBot.Uci
             if (settings.Depth == null && settings.Nodes == null && !settings.Infinite)
             {
                 // error: one of depth, nodes, or infinite must be specified
+                return;
             }
 
-            // start the search
-            Task.Run(() =>
-            {
-                var searcher = new MtdfIds(ttCapacity: (1 << 16));
-                searcher.Depth = settings.Depth ?? int.MaxValue;
-                searcher.MaxNodes = settings.Nodes ?? int.MaxValue;
+            // reset all relevant state variables
+            _ponder = false;
+            _stop = false;
 
-                searcher.IterationCompleted.Subscribe(icInfo =>
+            // define the task and either run it straight away, or add it to the queue
+
+            // we don't want later changes to these fields to be picked up on by the task.
+            // eg. "go / go / ucinewgame" should not use a different searcher for the second task.
+            var (rootCopy, searcherCopy) = (_root, _searcher);
+            var searchTask = new Task(() =>
+            {
+                searcherCopy.Depth = settings.Depth ?? int.MaxValue;
+                searcherCopy.MaxNodes = settings.Nodes ?? int.MaxValue;
+
+                var disp = searcherCopy.IterationCompleted.Subscribe(icInfo =>
                 {
-                    var output = $"info depth {icInfo.Depth} time {icInfo.Elapsed} nodes {icInfo.NodesSearched} pv {string.Join(' ', icInfo.Pv)} score cp {icInfo.Score}";
+                    var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} pv {string.Join(' ', icInfo.Pv)} score cp {icInfo.Score}";
                     WriteLine(output);
                     if (_stop)
                     {
-                        searcher.RequestStop();
+                        searcherCopy.RequestStop();
                     }
                 });
 
-                var info = searcher.Search(_root);
+                var info = searcherCopy.Search(rootCopy);
+                disp.Dispose();
 
                 // if we finished but we're in ponder or infinite mode, busy wait until we receive "ponderhit" or "stop"
                 while (!_stop && (settings.Infinite || _ponder))
@@ -132,7 +163,18 @@ namespace ChessBot.Uci
                     output += $" ponder {info.Pv[1]}";
                 }
                 WriteLine(output);
+
+                // run the next task
+                _searchInProgress = _searchQueue.TryDequeue(out var next);
+                next?.Start();
             });
+
+            if (!_searchInProgress)
+            {
+                _searchInProgress = true;
+                searchTask.Start();
+            }
+            else _searchQueue.Enqueue(searchTask);
         }
 
         void PonderHit()
@@ -153,6 +195,8 @@ namespace ChessBot.Uci
 
         void Run(string[] args)
         {
+            UciNewGame();
+
             while (true)
             {
                 string command = ReadLine().Trim();
