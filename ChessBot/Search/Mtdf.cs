@@ -4,7 +4,6 @@ using ChessBot.Types;
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Linq;
 
 namespace ChessBot.Search
 {
@@ -13,9 +12,6 @@ namespace ChessBot.Search
     /// </summary>
     public class Mtdf : ISearchAlgorithm
     {
-        private const int MinScore = -int.MaxValue; // todo: define this elsewhere
-        private const int MaxScore = int.MaxValue;
-
         private readonly struct TtEntry : IHasDepth
         {
             public TtEntry(int lowerBound, int upperBound, int depth, Move pvMove)
@@ -69,12 +65,15 @@ namespace ChessBot.Search
                 throw new InvalidOperationException("Depth wasn't set");
             }
 
-            Log.Debug("Starting MTD-f search");
+            Log.Debug("Starting MTD-f search of {0} with f={1} d={2}", root, FirstGuess, Depth);
             _sw.Restart();
             int score = RunMtdf(root.ToMutable(), FirstGuess, Depth, _tt, out var pv, out int nodesSearched);
             _sw.Stop();
             var elapsed = _sw.Elapsed;
-            Log.Debug("Finished MTD-f search");
+            Log.Debug("Finished MTD-f search of {0} with f={1} d={2}", root, FirstGuess, Depth);
+            Log.Debug(
+                "Got score={0} pv={1}, searched {2} nodes in {3} ms",
+                score, string.Join(' ', pv), nodesSearched, elapsed.TotalMilliseconds);
 
             return new SearchInfo(Depth, elapsed, nodesSearched, pv, score);
         }
@@ -90,7 +89,7 @@ namespace ChessBot.Search
             nodesSearched = 0;
 
             int guess = firstGuess;
-            var (lowerBound, upperBound) = (int.MinValue, int.MaxValue);
+            var (lowerBound, upperBound) = (Evaluation.MinScore, Evaluation.MaxScore);
             var pvTable = new PvTable(depth);
 
             do
@@ -188,7 +187,7 @@ namespace ChessBot.Search
 
             // Search the PV move first if we already stored one for this node
 
-            int guess = MinScore;
+            int guess = Evaluation.MinScore;
             //var childKillers = KillerMoves.Empty;
             bool pvCausedCut = false;
 
@@ -210,7 +209,8 @@ namespace ChessBot.Search
                 }
             }
 
-            // If the PV move failed to produce a cutoff, search the other moves
+            // If we haven't stored a PV move or it failed to produce a cutoff, search the other moves
+
             Move pvMove = storedPvMove;
 
             if (!pvCausedCut)
@@ -244,19 +244,19 @@ namespace ChessBot.Search
 
                 if (nodesSearched == 1)
                 {
-                    return Evaluation.Terminal(state);
+                    return Evaluation.OfTerminal(state);
                 }
                 Log.Debug("Searched {0} nodes from state {1}", nodesSearched, state);
             }
 
             if (guess <= alpha) // alpha-cutoff, aka fail-low => upper bound
             {
-                tte = new TtEntry(lowerBound: MinScore, upperBound: guess, depth, pvMove);
+                tte = new TtEntry(lowerBound: Evaluation.MinScore, upperBound: guess, depth, pvMove);
             }
             else // beta-cutoff, aka fail-high => lower bound
             {
                 Debug.Assert(guess >= beta); // must be true for null-window searches, as alpha == beta - 1
-                tte = new TtEntry(lowerBound: guess, upperBound: MaxScore, depth, pvMove);
+                tte = new TtEntry(lowerBound: guess, upperBound: Evaluation.MaxScore, depth, pvMove);
             }
 
             int ttDepth = ttRef?.Value.Depth ?? -1;

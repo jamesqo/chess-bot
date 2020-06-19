@@ -10,6 +10,9 @@ namespace ChessBot.Search
     /// </summary>
     internal static class Evaluation
     {
+        public const int MinScore = -int.MaxValue; // not int.MinValue because it can't be negated
+        public const int MaxScore = int.MaxValue;
+
         private static readonly int[] PieceValues =
         {
             100,   // pawn
@@ -111,28 +114,7 @@ namespace ChessBot.Search
         // note: Heuristic is calculated from the active player's viewpoint
         public static int Heuristic(MutState state)
         {
-            //Debug.Assert(state.GetMoves().Any());
-
-            // temporarily disabling this for perf reasons
-            /*
-            bool CheckForEndgame(PlayerInfo player)
-            {
-                var remainingPieces = player.GetOccupiedTiles()
-                    .Select(t => t.Piece)
-                    .Where(p => p.Kind != PieceKind.Pawn && p.Kind != PieceKind.King);
-                if (!remainingPieces.Any(p => p.Kind == PieceKind.Queen)) return true;
-
-                remainingPieces = remainingPieces.Where(p => p.Kind != PieceKind.Queen);
-                int count = remainingPieces.Count();
-                if (count == 0) return true;
-                if (count > 1) return false;
-                var piece = remainingPieces.Single();
-                return (piece.Kind == PieceKind.Bishop || piece.Kind == PieceKind.Knight);
-            }
-            bool isEndgame = CheckForEndgame(state.White) && CheckForEndgame(state.Black);
-            */
-
-            bool isEndgame = false;
+            bool isEndgame = false; // todo: compute this cheaply
 
             int result = 0;
             for (var bb = state.Occupied; !bb.IsZero; bb = bb.ClearNext())
@@ -161,14 +143,14 @@ namespace ChessBot.Search
             return result;
         }
 
-        // todo: give preference to checkmates that occur in fewer moves
-        public static int Terminal(MutState state)
+        public static int OfTerminal(MutState state)
         {
+            // this assert is pretty costly
             //Debug.Assert(!state.GetMoves().Any());
 
             bool isStalemate = !state.IsCheck;
             if (isStalemate) return 0;
-            return int.MaxValue;
+            return MaxScore;
         }
     }
 }
