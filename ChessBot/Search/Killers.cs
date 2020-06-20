@@ -21,6 +21,11 @@ namespace ChessBot.Search
 
         public int Count => Convert.ToInt32(!_move0.IsDefault) + Convert.ToInt32(!_move1.IsDefault);
 
+        public Move this[int index] =>
+            (index >= 0 && index < Count)
+            ? (index switch { 0 => _move0, 1 => _move1 })
+            : throw new ArgumentOutOfRangeException(nameof(index));
+
         public Killers Add(Move move)
         {
             switch (Count)
@@ -28,7 +33,7 @@ namespace ChessBot.Search
                 case 0:
                     return new Killers(move, default);
                 case 1:
-                case MaxCount:
+                case MaxCount: // more recent move takes priority
                     return new Killers(move, _move0);
                 default:
                     Debug.Assert(false, $"Unrecognized count: {Count}");
@@ -37,32 +42,5 @@ namespace ChessBot.Search
         }
 
         public bool Contains(Move move) => move == _move0 || move == _move1;
-
-        public Enumerator GetEnumerator() => new Enumerator(this);
-
-        public struct Enumerator
-        {
-            private readonly Killers _killers;
-            private int _position;
-
-            internal Enumerator(Killers killers)
-            {
-                _killers = killers;
-                _position = -1;
-            }
-
-            public Move Current => _position switch
-            {
-                0 => _killers._move0,
-                1 => _killers._move1,
-                _ => throw new InvalidOperationException()
-            };
-
-            public bool MoveNext()
-            {
-                int p = ++_position;
-                return p >= 0 && p < _killers.Count;
-            }
-        }
     }
 }
