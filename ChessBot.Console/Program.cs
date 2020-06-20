@@ -69,6 +69,7 @@ namespace ChessBot.Console
 
         static void Main(string[] args)
         {
+            Log.Enabled = true;
             Log.IncludeCallerNames = false;
 
             WriteLine("Welcome! This is a simple chess bot written in C#.");

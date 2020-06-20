@@ -39,6 +39,8 @@ namespace ChessBot.Helpers
         }
 #endif
 
+        public static bool Enabled { get; set; } = false;
+
         public static int IndentLevel
         {
             get => Trace.IndentLevel;
@@ -50,20 +52,29 @@ namespace ChessBot.Helpers
         [Conditional("DEBUG")]
         public static void Debug(
             string message,
-            [CallerMemberName] string callerName = null) => DebugCore(message, callerName);
+            [CallerMemberName] string callerName = null)
+        {
+            if (Enabled) DebugCore(message, callerName);
+        }
 
         [Conditional("DEBUG")]
         public static void Debug<T0>(
             string message,
             T0 arg0,
-            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString()), callerName);
+            [CallerMemberName] string callerName = null)
+        {
+            if (Enabled) DebugCore(string.Format(message, arg0.ToString()), callerName);
+        }
 
         [Conditional("DEBUG")]
         public static void Debug<T0, T1>(
             string message,
             T0 arg0,
             T1 arg1,
-            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString()), callerName);
+            [CallerMemberName] string callerName = null)
+        {
+            if (Enabled) DebugCore(string.Format(message, arg0.ToString(), arg1.ToString()), callerName);
+        }
 
         [Conditional("DEBUG")]
         public static void Debug<T0, T1, T2>(
@@ -71,7 +82,10 @@ namespace ChessBot.Helpers
             T0 arg0,
             T1 arg1,
             T2 arg2,
-            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString()), callerName);
+            [CallerMemberName] string callerName = null)
+        {
+            if (Enabled) DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString()), callerName);
+        }
 
         [Conditional("DEBUG")]
         public static void Debug<T0, T1, T2, T3>(
@@ -80,7 +94,10 @@ namespace ChessBot.Helpers
             T1 arg1,
             T2 arg2,
             T3 arg3,
-            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString(), arg3.ToString()), callerName);
+            [CallerMemberName] string callerName = null)
+        {
+            if (Enabled) DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString(), arg3.ToString()), callerName);
+        }
 
         [Conditional("DEBUG")]
         public static void Debug<T0, T1, T2, T3, T4>(
@@ -90,10 +107,15 @@ namespace ChessBot.Helpers
             T2 arg2,
             T3 arg3,
             T4 arg4,
-            [CallerMemberName] string callerName = null) => DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString(), arg3.ToString(), arg4.ToString()), callerName);
+            [CallerMemberName] string callerName = null)
+        {
+            if (Enabled) DebugCore(string.Format(message, arg0.ToString(), arg1.ToString(), arg2.ToString(), arg3.ToString(), arg4.ToString()), callerName);
+        }
 
         private static void DebugCore(string message, string callerName)
         {
+            System.Diagnostics.Debug.Assert(Enabled);
+
             if (IncludeCallerNames)
             {
                 Trace.Write("[");
