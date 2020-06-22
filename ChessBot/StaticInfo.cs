@@ -14,7 +14,6 @@ namespace ChessBot
     internal static class StaticInfo
     {
         private static readonly Bitboard[,] AttackBitboards;
-        private static readonly Bitboard[,] StopMasks;
 
         static StaticInfo()
         {
@@ -25,16 +24,6 @@ namespace ChessBot
                 {
                     var source = Location.FromIndex(i);
                     AttackBitboards[(int)kind, i] = ComputeAttackBitboard(kind, source);
-                }
-            }
-
-            StopMasks = new Bitboard[8, 64];
-            for (var d = Direction.Start; d <= Direction.End; d++)
-            {
-                for (int i = 0; i < Location.NumberOfValues; i++)
-                {
-                    var location = Location.FromIndex(i);
-                    StopMasks[(int)d, i] = ComputeStopMask(location, d);
                 }
             }
         }
@@ -62,13 +51,6 @@ namespace ChessBot
             // For black pawns, we take the pawn attack bitboard at the mirror location (eg. b2 -> g7) and flip it.
             int sourceIndex = (Location.NumberOfValues - 1) - source.ToIndex();
             return AttackBitboards[(int)PieceKind.Pawn, sourceIndex].Reverse();
-        }
-
-        public static Bitboard GetStopMask(Location location, Direction direction)
-        {
-            Debug.Assert(location.IsValid);
-            Debug.Assert(direction.IsValid());
-            return StopMasks[(int)direction, location.ToIndex()];
         }
 
         public static Location GetStartLocation(Side side, PieceKind kind, bool? kingside = null)
@@ -241,72 +223,6 @@ namespace ChessBot
             }
 
             return result;
-        }
-
-        private static Bitboard ComputeStopMask(Location location, Direction direction)
-        {
-            var result = Bitboard.CreateBuilder(Bitboard.AllOnes);
-            Location next;
-            switch (direction)
-            {
-                case Direction.North:
-                    for (var prev = location; prev.Rank < Rank8; prev = next)
-                    {
-                        next = prev.Up(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.East:
-                    for (var prev = location; prev.File < FileH; prev = next)
-                    {
-                        next = prev.Right(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.South:
-                    for (var prev = location; prev.Rank > Rank1; prev = next)
-                    {
-                        next = prev.Down(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.West:
-                    for (var prev = location; prev.File > FileA; prev = next)
-                    {
-                        next = prev.Left(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.Northeast:
-                    for (var prev = location; prev.Rank < Rank8 && prev.File < FileH; prev = next)
-                    {
-                        next = prev.Up(1).Right(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.Southeast:
-                    for (var prev = location; prev.Rank > Rank1 && prev.File < FileH; prev = next)
-                    {
-                        next = prev.Down(1).Right(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.Southwest:
-                    for (var prev = location; prev.Rank > Rank1 && prev.File > FileA; prev = next)
-                    {
-                        next = prev.Down(1).Left(1);
-                        result.Clear(next);
-                    }
-                    break;
-                case Direction.Northwest:
-                    for (var prev = location; prev.Rank < Rank8 && prev.File > FileA; prev = next)
-                    {
-                        next = prev.Up(1).Left(1);
-                        result.Clear(next);
-                    }
-                    break;
-            }
-            return result.Value;
         }
     }
 }

@@ -541,13 +541,19 @@ namespace ChessBot
             var kind = piece.Kind;
             var attacks = GetAttackBitboard(piece, source);
 
-            if (kind == PieceKind.Bishop || kind == PieceKind.Queen)
+            switch (kind)
             {
-                attacks = RestrictDiagonally(attacks, occupied, source);
-            }
-            if (kind == PieceKind.Rook || kind == PieceKind.Queen)
-            {
-                attacks = RestrictOrthogonally(attacks, occupied, source);
+                case PieceKind.Bishop:
+                    attacks = Magic.BishopAttacks(attacks, occupied, source);
+                    break;
+                case PieceKind.Rook:
+                    attacks = Magic.RookAttacks(attacks, occupied, source);
+                    break;
+                case PieceKind.Queen:
+                    // note: it doesn't matter that we're passing in extra squares as part of the attack vector.
+                    // the magic algorithm will eliminate them when it does (* magic) >> shift.
+                    attacks = Magic.BishopAttacks(attacks, occupied, source) | Magic.RookAttacks(attacks, occupied, source);
+                    break;
             }
             // It's possible we may have left in squares that are occupied by our own camp. This doesn't affect
             // any of the use cases for this bitboard, though.
@@ -601,100 +607,6 @@ namespace ChessBot
             }
 
             return result;
-        }
-
-        private static Bitboard RestrictDiagonally(Bitboard attacks, Bitboard occupied, Location source)
-        {
-            Location next;
-
-            for (var prev = source; prev.Rank < Rank8 && prev.File < FileH; prev = next)
-            {
-                next = prev.Add(1, 1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Northeast);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank > Rank1 && prev.File < FileH; prev = next)
-            {
-                next = prev.Add(1, -1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Southeast);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank > Rank1 && prev.File > FileA; prev = next)
-            {
-                next = prev.Add(-1, -1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Southwest);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank < Rank8 && prev.File > FileA; prev = next)
-            {
-                next = prev.Add(-1, 1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Northwest);
-                    break;
-                }
-            }
-
-            return attacks;
-        }
-
-        private static Bitboard RestrictOrthogonally(Bitboard attacks, Bitboard occupied, Location source)
-        {
-            Location next;
-
-            for (var prev = source; prev.Rank < Rank8; prev = next)
-            {
-                next = prev.Up(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.North);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.File < FileH; prev = next)
-            {
-                next = prev.Right(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.East);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank > Rank1; prev = next)
-            {
-                next = prev.Down(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.South);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.File > FileA; prev = next)
-            {
-                next = prev.Left(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.West);
-                    break;
-                }
-            }
-
-            return attacks;
         }
 
         internal MutState Copy() => new MutState(this);

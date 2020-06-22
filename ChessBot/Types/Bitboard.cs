@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -27,6 +29,13 @@ namespace ChessBot.Types
         public static bool operator !=(Bitboard left, Bitboard right) => !(left == right);
         public static Bitboard operator &(Bitboard left, Bitboard right) => new Bitboard(left._value & right._value);
         public static Bitboard operator |(Bitboard left, Bitboard right) => new Bitboard(left._value | right._value);
+
+        public static Bitboard FromLocations(IEnumerable<Location> locations)
+        {
+            var result = Zero;
+            foreach (var location in locations) result |= location.GetMask();
+            return result;
+        }
 
         private readonly ulong _value;
 
@@ -65,6 +74,9 @@ namespace ChessBot.Types
         {
             unchecked
             {
+                // TODO (important): ensure this works for 0
+                // TODO (important): ensure this works for MaxValue (i don't see 64)
+
                 ulong v = _value;
                 v = v - ((v >> 1) & 0x5555555555555555UL);
                 v = (v & 0x3333333333333333UL) + ((v >> 2) & 0x3333333333333333UL);
@@ -72,7 +84,46 @@ namespace ChessBot.Types
             }
         }
 
+        public IEnumerable<Location> Locations()
+        {
+            for (Bitboard bb = this; !bb.IsZero; bb = bb.ClearNext())
+            {
+                yield return bb.NextLocation();
+            }
+        }
+
         public Location NextLocation() => new Location((byte)IndexOfNext());
+
+        public bool OverlapsWith(Bitboard other) => (_value & other._value) != 0;
+
+        // todo: speed this up
+        public IEnumerable<Bitboard> PowerSet()
+        {
+            int n = CountSetBits();
+            Debug.Assert(n >= 0 && n <= 64);
+            ulong N = (1UL << n); // enumerate all n-bit integers (todo: what about 64)
+
+            var shifts = new int[n];
+
+            Bitboard v = this;
+            for (int i = 0; i < n; i++)
+            {
+                shifts[i] = v.IndexOfNext();
+                v = v.ClearNext();
+            }
+            Debug.Assert(v.IsZero);
+
+            for (ulong I = 0; I < N; I++)
+            {
+                var ret = Zero;
+                for (int i = 0; i < n; i++)
+                {
+                    ulong mask = 1UL << i;
+                    if ((I & mask) != 0) ret |= (1UL << shifts[i]);
+                }
+                yield return ret;
+            }
+        }
 
         public Bitboard Reverse()
         {
@@ -103,7 +154,10 @@ namespace ChessBot.Types
         {
             unchecked
             {
-                Debug.Assert(_value != 0);
+                // todo: speed this up
+                if (_value == 0) return 0;
+                if (_value == ulong.MaxValue) return 64;
+
                 return MultiplyDeBruijnBitPosition[((_value & (ulong)(-(long)_value)) * 0x022FDD63CC95386DUL) >> 58];
             }
         }
