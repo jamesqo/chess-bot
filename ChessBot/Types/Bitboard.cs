@@ -100,13 +100,13 @@ namespace ChessBot.Types
 
             var shifts = new int[numBits];
 
-            Bitboard value = this;
+            Bitboard bb = this;
             for (int i = 0; i < numBits; i++)
             {
-                shifts[i] = value.IndexOfNext();
-                value = value.ClearNext();
+                shifts[i] = bb.IndexOfNext();
+                bb = bb.ClearNext();
             }
-            Debug.Assert(value.IsZero);
+            Debug.Assert(bb.IsZero);
 
             for (ulong i = 0; i < numSubsets; i++)
             {

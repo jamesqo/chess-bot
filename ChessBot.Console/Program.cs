@@ -29,6 +29,7 @@ namespace ChessBot.Console
             }
         }
 
+        // todo: should be able to change this during the course of the program, as well as other parameters like depth, TT cap, etc
         static AI GetAI()
         {
             ISearchAlgorithm inner;
@@ -39,7 +40,7 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "mtdf":
-                        inner = new Mtdf(ttCapacity: (1 << 16)) { Depth = 7 };
+                        inner = new Mtdf(ttCapacity: (1 << 16)) { Depth = 6 };
                         break;
                     case "mtdf-ids":
                         inner = new MtdfIds(ttCapacity: (1 << 16)) { Depth = 7 };

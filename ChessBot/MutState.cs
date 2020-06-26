@@ -551,7 +551,7 @@ namespace ChessBot
                     break;
                 case PieceKind.Queen:
                     // note: it doesn't matter that we're passing in extra squares as part of the attack vector.
-                    // the magic algorithm will eliminate them when it does (* magic) >> shift.
+                    // the magic bitboard algorithm will eliminate them when it does (* magic) >> shift.
                     attacks = Magic.BishopAttacks(attacks, occupied, source) | Magic.RookAttacks(attacks, occupied, source);
                     break;
             }

@@ -5,15 +5,16 @@ using static ChessBot.Types.Rank;
 
 namespace ChessBot.Helpers
 {
+    // todo: the code here could be consolidated with StaticInfo
     /// <summary>
     /// Uses magic bitboards to quickly compute sliding piece (bishop, rook, queen) attack vectors.
     /// </summary>
     internal static class Magic
     {
         private static readonly Bitboard InnerSquares = ComputeInnerSquares();
-        private static readonly Bitboard OuterSquares = ~InnerSquares;
 
-        private static readonly Bitboard[] RookMagics = new Bitboard[64] {
+        private static readonly Bitboard[] RookMagics = new Bitboard[64]
+        {
             0xa8002c000108020UL, 0x6c00049b0002001UL, 0x100200010090040UL, 0x2480041000800801UL, 0x280028004000800UL,
             0x900410008040022UL, 0x280020001001080UL, 0x2880002041000080UL, 0xa000800080400034UL, 0x4808020004000UL,
             0x2290802004801000UL, 0x411000d00100020UL, 0x402800800040080UL, 0xb000401004208UL, 0x2409000100040200UL,
@@ -29,7 +30,8 @@ namespace ChessBot.Helpers
             0x489a000810200402UL, 0x1004400080a13UL, 0x4000011008020084UL, 0x26002114058042UL
         };
 
-        private static readonly Bitboard[] BishopMagics = new Bitboard[64] {
+        private static readonly Bitboard[] BishopMagics = new Bitboard[64]
+        {
             0x89a1121896040240UL, 0x2004844802002010UL, 0x2068080051921000UL, 0x62880a0220200808UL, 0x4042004000000UL,
             0x100822020200011UL, 0xc00444222012000aUL, 0x28808801216001UL, 0x400492088408100UL, 0x201c401040c0084UL,
             0x840800910a0010UL, 0x82080240060UL, 0x2000840504006000UL, 0x30010c4108405004UL, 0x1008005410080802UL,
@@ -56,7 +58,7 @@ namespace ChessBot.Helpers
             for (int i = 0; i < Location.NumberOfValues; i++)
             {
                 var source = new Location((byte)i);
-                var occupancy = StaticInfo.GetAttackBitboard(Piece.WhiteBishop, source) & InnerSquares;
+                var occupancy = BishopOccupancy(StaticInfo.GetAttackBitboard(Piece.WhiteBishop, source));
 
                 int numBits = occupancy.CountSetBits();
                 Debug.Assert(numBits <= 11);
@@ -75,11 +77,7 @@ namespace ChessBot.Helpers
             for (int i = 0; i < Location.NumberOfValues; i++)
             {
                 var source = new Location((byte)i);
-                var occupancy = StaticInfo.GetAttackBitboard(Piece.WhiteRook, source);
-                occupancy &= ~new Location(FileA, source.Rank).GetMask();
-                occupancy &= ~new Location(FileH, source.Rank).GetMask();
-                occupancy &= ~new Location(source.File, Rank1).GetMask();
-                occupancy &= ~new Location(source.File, Rank8).GetMask();
+                var occupancy = RookOccupancy(StaticInfo.GetAttackBitboard(Piece.WhiteRook, source), source);
 
                 int numBits = occupancy.CountSetBits();
                 Debug.Assert(numBits <= 13);
@@ -98,7 +96,7 @@ namespace ChessBot.Helpers
 
         public static Bitboard BishopAttacks(Bitboard attacks, Bitboard occupied, Location source)
         {
-            var occupancy = attacks & InnerSquares;
+            var occupancy = BishopOccupancy(attacks);
             var blockers = occupancy & occupied;
             int index = source.Value;
 
@@ -108,17 +106,24 @@ namespace ChessBot.Helpers
 
         public static Bitboard RookAttacks(Bitboard attacks, Bitboard occupied, Location source)
         {
-            //var occupancy = attacks & InnerSquares;
-            var occupancy = attacks;
-            occupancy &= ~new Location(FileA, source.Rank).GetMask();
-            occupancy &= ~new Location(FileH, source.Rank).GetMask();
-            occupancy &= ~new Location(source.File, Rank1).GetMask();
-            occupancy &= ~new Location(source.File, Rank8).GetMask();
+            var occupancy = RookOccupancy(attacks, source);
             var blockers = occupancy & occupied;
             int index = source.Value;
 
             ushort key = (ushort)((blockers * RookMagics[index]) >> RookShifts[index]);
             return RookTables[index][key];
+        }
+
+        private static Bitboard BishopOccupancy(Bitboard attacks) => attacks & InnerSquares;
+
+        private static Bitboard RookOccupancy(Bitboard attacks, Location source)
+        {
+            var occupancy = attacks;
+            occupancy &= ~new Location(FileA, source.Rank).GetMask();
+            occupancy &= ~new Location(FileH, source.Rank).GetMask();
+            occupancy &= ~new Location(source.File, Rank1).GetMask();
+            occupancy &= ~new Location(source.File, Rank8).GetMask();
+            return occupancy;
         }
 
         private static Bitboard ComputeInnerSquares()
@@ -138,7 +143,6 @@ namespace ChessBot.Helpers
         {
             Debug.Assert(source.IsValid);
             Debug.Assert(!blockers.OverlapsWith(source.GetMask()));
-            Debug.Assert(!blockers.OverlapsWith(OuterSquares));
 
             var attacks = Bitboard.Zero;
             Location next;
@@ -182,7 +186,6 @@ namespace ChessBot.Helpers
         {
             Debug.Assert(source.IsValid);
             Debug.Assert(!blockers.OverlapsWith(source.GetMask()));
-            //Debug.Assert(!blockers.OverlapsWith(OuterSquares));
 
             var attacks = Bitboard.Zero;
             Location next;
