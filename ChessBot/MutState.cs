@@ -99,7 +99,7 @@ namespace ChessBot
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
         public ulong Hash { get; internal set; }
-        public int Heuristic { get; private set; }
+        public int Heuristic { get; internal set; }
 
         // `move` isn't a field, it's just *very* helpful for debugging purposes
         private Snapshot Snapshot(Move move) => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, Heuristic, move);
@@ -128,17 +128,17 @@ namespace ChessBot
         public bool TryApply(Move move, out InvalidMoveReason error)
         {
             var (source, destination) = (move.Source, move.Destination);
-            if (!Board[source].HasPiece)
+            if (!_board[source].HasPiece)
             {
                 error = InvalidMoveReason.EmptySource; return false;
             }
 
-            var piece = Board[source].Piece;
+            var piece = _board[source].Piece;
             if (piece.Side != ActiveSide)
             {
                 error = InvalidMoveReason.MismatchedSourcePiece; return false;
             }
-            if (Board[destination].HasPiece && Board[destination].Piece.Side == piece.Side)
+            if (_board[destination].HasPiece && _board[destination].Piece.Side == piece.Side)
             {
                 error = InvalidMoveReason.DestinationOccupiedByFriendlyPiece; return false;
             }
@@ -175,9 +175,9 @@ namespace ChessBot
         private void ApplyUnsafe(Move move)
         {
             var (source, destination) = (move.Source, move.Destination);
-            var piece = Board[source].Piece;
+            var piece = _board[source].Piece;
             bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
-            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = _board[destination].HasPiece || isEnPassantCapture;
             bool isKingsideCastle = (piece.Kind == PieceKind.King && source.File < FileG && destination == source.Right(2)); // todo: add regression tests for bounds check
             bool isQueensideCastle = (piece.Kind == PieceKind.King && source.File > FileB && destination == source.Left(2)); // todo: add regression tests for bounds check
             bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
@@ -269,16 +269,16 @@ namespace ChessBot
             bool isEnPassantCapture = false)
         {
             Debug.Assert(source != destination);
-            Debug.Assert(Board[source].HasPiece);
-            Debug.Assert(!Board[destination].HasPiece || Board[destination].Piece.Side != Board[source].Piece.Side);
+            Debug.Assert(_board[source].HasPiece);
+            Debug.Assert(!_board[destination].HasPiece || _board[destination].Piece.Side != _board[source].Piece.Side);
 
             // Store relevant info about the board
             // It's important to do all of this *before* we actually modify the board.
-            var piece = Board[source].Piece;
+            var piece = _board[source].Piece;
             var kind = piece.Kind;
             var newKind = promotionKind ?? kind;
             var newPiece = new Piece(piece.Side, newKind);
-            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = _board[destination].HasPiece || isEnPassantCapture;
 
             Location toClear = default;
             Piece capturedPiece = default;
@@ -287,7 +287,7 @@ namespace ChessBot
                 toClear = isEnPassantCapture
                     ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
                     : destination;
-                capturedPiece = Board[toClear].Piece;
+                capturedPiece = _board[toClear].Piece;
             }
 
             // Update board
@@ -421,10 +421,12 @@ namespace ChessBot
         {
             _bbs.Attacks[0] = _bbs.Attacks[1] = 0;
 
+            // todo: this is a serious perf bottleneck, consider unrolling
             for (var bb = Occupied; !bb.IsZero; bb = bb.ClearNext())
             {
                 var source = bb.NextLocation();
-                var attacks = GetModifiedAttackBitboard(source, Board[source].Piece, Occupied);
+                var piece = _board[source].Piece;
+                var attacks = GetAttackBitboard(piece, source, Occupied);
 
                 if (White.Occupies[source])
                 {
@@ -482,8 +484,8 @@ namespace ChessBot
                 return false;
             }
 
-            var sourceTile = Board[source];
-            var destinationTile = Board[destination];
+            var sourceTile = _board[source];
+            var destinationTile = _board[destination];
             var piece = sourceTile.Piece;
 
             if (destinationTile.HasPiece && destinationTile.Piece.Side == piece.Side)
@@ -532,29 +534,6 @@ namespace ChessBot
             return canMoveIfUnblocked && (!canPieceBeBlocked || (GetLocationsBetween(source, destination) & Occupied) == Bitboard.Zero);
         }
 
-        // todo: calculating this is a perf bottleneck
-        /// <summary>
-        /// Returns a list of locations that are attacked by the piece at <paramref name="source"/>.
-        /// </summary>
-        internal static Bitboard GetModifiedAttackBitboard(Location source, Piece piece, Bitboard occupied)
-        {
-            var kind = piece.Kind;
-            var attacks = GetAttackBitboard(piece, source);
-
-            if (kind == PieceKind.Bishop || kind == PieceKind.Queen)
-            {
-                attacks = RestrictDiagonally(attacks, occupied, source);
-            }
-            if (kind == PieceKind.Rook || kind == PieceKind.Queen)
-            {
-                attacks = RestrictOrthogonally(attacks, occupied, source);
-            }
-            // It's possible we may have left in squares that are occupied by our own camp. This doesn't affect
-            // any of the use cases for this bitboard, though.
-
-            return attacks;
-        }
-
         /// <summary>
         /// Returns the tiles along a vertical, horizontal, or diagonal line between <paramref name="source"/> and <paramref name="destination"/>, exclusive.
         /// </summary>
@@ -601,100 +580,6 @@ namespace ChessBot
             }
 
             return result;
-        }
-
-        private static Bitboard RestrictDiagonally(Bitboard attacks, Bitboard occupied, Location source)
-        {
-            Location next;
-
-            for (var prev = source; prev.Rank < Rank8 && prev.File < FileH; prev = next)
-            {
-                next = prev.Add(1, 1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Northeast);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank > Rank1 && prev.File < FileH; prev = next)
-            {
-                next = prev.Add(1, -1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Southeast);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank > Rank1 && prev.File > FileA; prev = next)
-            {
-                next = prev.Add(-1, -1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Southwest);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank < Rank8 && prev.File > FileA; prev = next)
-            {
-                next = prev.Add(-1, 1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.Northwest);
-                    break;
-                }
-            }
-
-            return attacks;
-        }
-
-        private static Bitboard RestrictOrthogonally(Bitboard attacks, Bitboard occupied, Location source)
-        {
-            Location next;
-
-            for (var prev = source; prev.Rank < Rank8; prev = next)
-            {
-                next = prev.Up(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.North);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.File < FileH; prev = next)
-            {
-                next = prev.Right(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.East);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.Rank > Rank1; prev = next)
-            {
-                next = prev.Down(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.South);
-                    break;
-                }
-            }
-
-            for (var prev = source; prev.File > FileA; prev = next)
-            {
-                next = prev.Left(1);
-                if (occupied[next])
-                {
-                    attacks &= GetStopMask(next, Direction.West);
-                    break;
-                }
-            }
-
-            return attacks;
         }
 
         internal MutState Copy() => new MutState(this);

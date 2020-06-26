@@ -150,7 +150,7 @@ namespace ChessBot
                                 var source = ss.NextLocation();
                                 Debug.Assert(_board[source].HasPiece && _board[source].Piece == agg);
 
-                                var sourceAttacks = MutState.GetModifiedAttackBitboard(source, _board[source].Piece, occupied);
+                                var sourceAttacks = GetAttackBitboard(_board[source].Piece, source, occupied);
                                 if (sourceAttacks[destination])
                                 {
                                     bool isPromotion = (aggKind == PieceKind.Pawn && source.Rank == SeventhRank(_activeSide));
@@ -272,7 +272,7 @@ namespace ChessBot
                 return result;
             }
 
-            result = MutState.GetModifiedAttackBitboard(source, piece, occupied);
+            result = GetAttackBitboard(piece, source, occupied);
             // we can't move to squares occupied by our own pieces, so exclude those.
             // since we already dealt with captures, exclude squares that are occupied by opposing pieces.
             result &= ~occupied;

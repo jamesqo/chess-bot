@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -27,6 +28,13 @@ namespace ChessBot.Types
         public static bool operator !=(Bitboard left, Bitboard right) => !(left == right);
         public static Bitboard operator &(Bitboard left, Bitboard right) => new Bitboard(left._value & right._value);
         public static Bitboard operator |(Bitboard left, Bitboard right) => new Bitboard(left._value | right._value);
+
+        public static Bitboard FromLocations(IEnumerable<Location> locations)
+        {
+            var result = Zero;
+            foreach (var location in locations) result |= location.GetMask();
+            return result;
+        }
 
         private readonly ulong _value;
 
@@ -72,7 +80,44 @@ namespace ChessBot.Types
             }
         }
 
+        public IEnumerable<Location> Locations()
+        {
+            for (Bitboard bb = this; !bb.IsZero; bb = bb.ClearNext())
+            {
+                yield return bb.NextLocation();
+            }
+        }
+
         public Location NextLocation() => new Location((byte)IndexOfNext());
+
+        public IEnumerable<Bitboard> PowerSet()
+        {
+            int numBits = CountSetBits();
+            Debug.Assert(numBits >= 0 && numBits < 64);
+            ulong numSubsets = (1UL << numBits);
+
+            var shifts = new int[numBits];
+
+            Bitboard bb = this;
+            for (int i = 0; i < numBits; i++)
+            {
+                shifts[i] = bb.IndexOfNext();
+                bb = bb.ClearNext();
+            }
+            Debug.Assert(bb.IsZero);
+
+            for (ulong i = 0; i < numSubsets; i++)
+            {
+                var subset = Zero;
+                // if the j-th digit of i is set, the shift[j]-th digit of the subset will be set
+                for (int j = 0; j < numBits; j++)
+                {
+                    ulong mask = 1UL << j;
+                    if ((i & mask) != 0) subset |= (1UL << shifts[j]);
+                }
+                yield return subset;
+            }
+        }
 
         public Bitboard Reverse()
         {

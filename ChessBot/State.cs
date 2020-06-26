@@ -107,13 +107,13 @@ namespace ChessBot
                 }
             }
 
-            return new State(new MutState(
+            return new MutState(
                 board: in board,
                 activeSide: activeSide,
                 castlingRights: castlingRights,
                 enPassantTarget: enPassantTarget,
                 halfMoveClock: halfMoveClock,
-                fullMoveNumber: fullMoveNumber));
+                fullMoveNumber: fullMoveNumber).ToImmutable();
         }
 
         private readonly MutState _inner;
@@ -285,13 +285,14 @@ namespace ChessBot
             }
         }
 
-        // todo: remove this from public api?
-        public State SetActiveSide(Side value)
+        // for test use only
+        internal State SetActiveSide(Side value)
         {
             var newInner = _inner.Copy();
             newInner.ActiveSide = value;
             newInner.Hash ^= ZobristKey.ForActiveSide(ActiveSide);
             newInner.Hash ^= ZobristKey.ForActiveSide(value);
+            newInner.Heuristic = -newInner.Heuristic;
             return new State(newInner);
         }
     }

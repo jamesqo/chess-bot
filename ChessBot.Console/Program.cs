@@ -29,6 +29,7 @@ namespace ChessBot.Console
             }
         }
 
+        // todo: the user should be able to change this during the course of the program, as well as other parameters like depth, TT capacity, etc
         static AI GetAI()
         {
             ISearchAlgorithm inner;
