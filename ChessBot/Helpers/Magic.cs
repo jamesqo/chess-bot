@@ -13,139 +13,36 @@ namespace ChessBot.Helpers
         private static readonly Bitboard InnerSquares = ComputeInnerSquares();
         private static readonly Bitboard OuterSquares = ~InnerSquares;
 
-        // Generated via the program at https://www.chessprogramming.org/Looking_for_Magics
-        private static readonly Bitboard[] BishopMagics = {
-            0x100420000431024UL,
-            0x280800101073404UL,
-            0x42000a00840802UL,
-            0xca800c0410c2UL,
-            0x81004290941c20UL,
-            0x400200450020250UL,
-            0x444a019204022084UL,
-            0x88610802202109aUL,
-            0x11210a0800086008UL,
-            0x400a08c08802801UL,
-            0x1301a0500111c808UL,
-            0x1280100480180404UL,
-            0x720009020028445UL,
-            0x91880a9000010a01UL,
-            0x31200940150802b2UL,
-            0x5119080c20000602UL,
-            0x242400a002448023UL,
-            0x4819006001200008UL,
-            0x222c10400020090UL,
-            0x302008420409004UL,
-            0x504200070009045UL,
-            0x210071240c02046UL,
-            0x1182219000022611UL,
-            0x400c50000005801UL,
-            0x4004010000113100UL,
-            0x2008121604819400UL,
-            0xc4a4010000290101UL,
-            0x404a000888004802UL,
-            0x8820c004105010UL,
-            0x28280100908300UL,
-            0x4c013189c0320a80UL,
-            0x42008080042080UL,
-            0x90803000c080840UL,
-            0x2180001028220UL,
-            0x1084002a040036UL,
-            0x212009200401UL,
-            0x128110040c84a84UL,
-            0x81488020022802UL,
-            0x8c0014100181UL,
-            0x2222013020082UL,
-            0xa00100002382c03UL,
-            0x1000280001005c02UL,
-            0x84801010000114cUL,
-            0x480410048000084UL,
-            0x21204420080020aUL,
-            0x2020010000424a10UL,
-            0x240041021d500141UL,
-            0x420844000280214UL,
-            0x29084a280042108UL,
-            0x84102a8080a20a49UL,
-            0x104204908010212UL,
-            0x40a20280081860c1UL,
-            0x3044000200121004UL,
-            0x1001008807081122UL,
-            0x50066c000210811UL,
-            0xe3001240f8a106UL,
-            0x940c0204030020d4UL,
-            0x619204000210826aUL,
-            0x2010438002b00a2UL,
-            0x884042004005802UL,
-            0xa90240000006404UL,
-            0x500d082244010008UL,
-            0x28190d00040014e0UL,
-            0x825201600c082444UL,
+        private static readonly Bitboard[] RookMagics = new Bitboard[64] {
+            0xa8002c000108020UL, 0x6c00049b0002001UL, 0x100200010090040UL, 0x2480041000800801UL, 0x280028004000800UL,
+            0x900410008040022UL, 0x280020001001080UL, 0x2880002041000080UL, 0xa000800080400034UL, 0x4808020004000UL,
+            0x2290802004801000UL, 0x411000d00100020UL, 0x402800800040080UL, 0xb000401004208UL, 0x2409000100040200UL,
+            0x1002100004082UL, 0x22878001e24000UL, 0x1090810021004010UL, 0x801030040200012UL, 0x500808008001000UL,
+            0xa08018014000880UL, 0x8000808004000200UL, 0x201008080010200UL, 0x801020000441091UL, 0x800080204005UL,
+            0x1040200040100048UL, 0x120200402082UL, 0xd14880480100080UL, 0x12040280080080UL, 0x100040080020080UL,
+            0x9020010080800200UL, 0x813241200148449UL, 0x491604001800080UL, 0x100401000402001UL, 0x4820010021001040UL,
+            0x400402202000812UL, 0x209009005000802UL, 0x810800601800400UL, 0x4301083214000150UL, 0x204026458e001401UL,
+            0x40204000808000UL, 0x8001008040010020UL, 0x8410820820420010UL, 0x1003001000090020UL, 0x804040008008080UL,
+            0x12000810020004UL, 0x1000100200040208UL, 0x430000a044020001UL, 0x280009023410300UL, 0xe0100040002240UL,
+            0x200100401700UL, 0x2244100408008080UL, 0x8000400801980UL, 0x2000810040200UL, 0x8010100228810400UL,
+            0x2000009044210200UL, 0x4080008040102101UL, 0x40002080411d01UL, 0x2005524060000901UL, 0x502001008400422UL,
+            0x489a000810200402UL, 0x1004400080a13UL, 0x4000011008020084UL, 0x26002114058042UL
         };
 
-        private static readonly Bitboard[] RookMagics = {
-            0x2080020500400f0UL,
-            0x28444000400010UL,
-            0x20000a1004100014UL,
-            0x20010c090202006UL,
-            0x8408008200810004UL,
-            0x1746000808002UL,
-            0x2200098000808201UL,
-            0x12c0002080200041UL,
-            0x104000208e480804UL,
-            0x8084014008281008UL,
-            0x4200810910500410UL,
-            0x100014481c20400cUL,
-            0x4014a4040020808UL,
-            0x401002001010a4UL,
-            0x202000500010001UL,
-            0x8112808005810081UL,
-            0x40902108802020UL,
-            0x42002101008101UL,
-            0x459442200810c202UL,
-            0x81001103309808UL,
-            0x8110000080102UL,
-            0x8812806008080404UL,
-            0x104020000800101UL,
-            0x40a1048000028201UL,
-            0x4100ba0000004081UL,
-            0x44803a4003400109UL,
-            0xa010a00000030443UL,
-            0x91021a000100409UL,
-            0x4201e8040880a012UL,
-            0x22a000440201802UL,
-            0x30890a72000204UL,
-            0x10411402a0c482UL,
-            0x40004841102088UL,
-            0x40230000100040UL,
-            0x40100010000a0488UL,
-            0x1410100200050844UL,
-            0x100090808508411UL,
-            0x1410040024001142UL,
-            0x8840018001214002UL,
-            0x410201000098001UL,
-            0x8400802120088848UL,
-            0x2060080000021004UL,
-            0x82101002000d0022UL,
-            0x1001101001008241UL,
-            0x9040411808040102UL,
-            0x600800480009042UL,
-            0x1a020000040205UL,
-            0x4200404040505199UL,
-            0x2020081040080080UL,
-            0x40a3002000544108UL,
-            0x4501100800148402UL,
-            0x81440280100224UL,
-            0x88008000000804UL,
-            0x8084060000002812UL,
-            0x1840201000108312UL,
-            0x5080202000000141UL,
-            0x1042a180880281UL,
-            0x900802900c01040UL,
-            0x8205104104120UL,
-            0x9004220000440aUL,
-            0x8029510200708UL,
-            0x8008440100404241UL,
-            0x2420001111000bdUL,
-            0x4000882304000041UL,
+        private static readonly Bitboard[] BishopMagics = new Bitboard[64] {
+            0x89a1121896040240UL, 0x2004844802002010UL, 0x2068080051921000UL, 0x62880a0220200808UL, 0x4042004000000UL,
+            0x100822020200011UL, 0xc00444222012000aUL, 0x28808801216001UL, 0x400492088408100UL, 0x201c401040c0084UL,
+            0x840800910a0010UL, 0x82080240060UL, 0x2000840504006000UL, 0x30010c4108405004UL, 0x1008005410080802UL,
+            0x8144042209100900UL, 0x208081020014400UL, 0x4800201208ca00UL, 0xf18140408012008UL, 0x1004002802102001UL,
+            0x841000820080811UL, 0x40200200a42008UL, 0x800054042000UL, 0x88010400410c9000UL, 0x520040470104290UL,
+            0x1004040051500081UL, 0x2002081833080021UL, 0x400c00c010142UL, 0x941408200c002000UL, 0x658810000806011UL,
+            0x188071040440a00UL, 0x4800404002011c00UL, 0x104442040404200UL, 0x511080202091021UL, 0x4022401120400UL,
+            0x80c0040400080120UL, 0x8040010040820802UL, 0x480810700020090UL, 0x102008e00040242UL, 0x809005202050100UL,
+            0x8002024220104080UL, 0x431008804142000UL, 0x19001802081400UL, 0x200014208040080UL, 0x3308082008200100UL,
+            0x41010500040c020UL, 0x4012020c04210308UL, 0x208220a202004080UL, 0x111040120082000UL, 0x6803040141280a00UL,
+            0x2101004202410000UL, 0x8200000041108022UL, 0x21082088000UL, 0x2410204010040UL, 0x40100400809000UL,
+            0x822088220820214UL, 0x40808090012004UL, 0x910224040218c9UL, 0x402814422015008UL, 0x90014004842410UL,
+            0x1000042304105UL, 0x10008830412a00UL, 0x2520081090008908UL, 0x40102000a0a60140UL,
         };
 
         private static readonly int[] BishopShifts = new int[64];
@@ -170,10 +67,7 @@ namespace ChessBot.Helpers
 
                 foreach (var blockers in occupancy.PowerSet())
                 {
-                    if (source == Location.Parse("e4") && blockers.NextLocation() == Location.Parse("c2")) Debugger.Break();
-
                     ushort key = (ushort)((blockers * BishopMagics[i]) >> shift);
-                    // todo: assert that key has the same bit count as blockers. this doesn't appear to be happening.
                     BishopTables[i][key] = ComputeBishopAttacks(source, blockers);
                 }
             }
@@ -181,7 +75,11 @@ namespace ChessBot.Helpers
             for (int i = 0; i < Location.NumberOfValues; i++)
             {
                 var source = new Location((byte)i);
-                var occupancy = StaticInfo.GetAttackBitboard(Piece.WhiteRook, source) & InnerSquares;
+                var occupancy = StaticInfo.GetAttackBitboard(Piece.WhiteRook, source);
+                occupancy &= ~new Location(FileA, source.Rank).GetMask();
+                occupancy &= ~new Location(FileH, source.Rank).GetMask();
+                occupancy &= ~new Location(source.File, Rank1).GetMask();
+                occupancy &= ~new Location(source.File, Rank8).GetMask();
 
                 int numBits = occupancy.CountSetBits();
                 Debug.Assert(numBits <= 13);
@@ -210,7 +108,12 @@ namespace ChessBot.Helpers
 
         public static Bitboard RookAttacks(Bitboard attacks, Bitboard occupied, Location source)
         {
-            var occupancy = attacks & InnerSquares;
+            //var occupancy = attacks & InnerSquares;
+            var occupancy = attacks;
+            occupancy &= ~new Location(FileA, source.Rank).GetMask();
+            occupancy &= ~new Location(FileH, source.Rank).GetMask();
+            occupancy &= ~new Location(source.File, Rank1).GetMask();
+            occupancy &= ~new Location(source.File, Rank8).GetMask();
             var blockers = occupancy & occupied;
             int index = source.Value;
 
@@ -279,7 +182,7 @@ namespace ChessBot.Helpers
         {
             Debug.Assert(source.IsValid);
             Debug.Assert(!blockers.OverlapsWith(source.GetMask()));
-            Debug.Assert(!blockers.OverlapsWith(OuterSquares));
+            //Debug.Assert(!blockers.OverlapsWith(OuterSquares));
 
             var attacks = Bitboard.Zero;
             Location next;
