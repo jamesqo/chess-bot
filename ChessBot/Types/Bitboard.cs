@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -74,9 +73,6 @@ namespace ChessBot.Types
         {
             unchecked
             {
-                // TODO (important): ensure this works for 0
-                // TODO (important): ensure this works for MaxValue (i don't see 64)
-
                 ulong v = _value;
                 v = v - ((v >> 1) & 0x5555555555555555UL);
                 v = (v & 0x3333333333333333UL) + ((v >> 2) & 0x3333333333333333UL);
@@ -96,32 +92,32 @@ namespace ChessBot.Types
 
         public bool OverlapsWith(Bitboard other) => (_value & other._value) != 0;
 
-        // todo: speed this up
         public IEnumerable<Bitboard> PowerSet()
         {
-            int n = CountSetBits();
-            Debug.Assert(n >= 0 && n <= 64);
-            ulong N = (1UL << n); // enumerate all n-bit integers (todo: what about 64)
+            int numBits = CountSetBits();
+            Debug.Assert(numBits >= 0 && numBits < 64);
+            ulong numSubsets = (1UL << numBits);
 
-            var shifts = new int[n];
+            var shifts = new int[numBits];
 
-            Bitboard v = this;
-            for (int i = 0; i < n; i++)
+            Bitboard value = this;
+            for (int i = 0; i < numBits; i++)
             {
-                shifts[i] = v.IndexOfNext();
-                v = v.ClearNext();
+                shifts[i] = value.IndexOfNext();
+                value = value.ClearNext();
             }
-            Debug.Assert(v.IsZero);
+            Debug.Assert(value.IsZero);
 
-            for (ulong I = 0; I < N; I++)
+            for (ulong i = 0; i < numSubsets; i++)
             {
-                var ret = Zero;
-                for (int i = 0; i < n; i++)
+                var subset = Zero;
+                // if the j-th digit of i is set, the shift[j]-th digit of the subset will be set
+                for (int j = 0; j < numBits; j++)
                 {
-                    ulong mask = 1UL << i;
-                    if ((I & mask) != 0) ret |= (1UL << shifts[i]);
+                    ulong mask = 1UL << j;
+                    if ((i & mask) != 0) subset |= (1UL << shifts[j]);
                 }
-                yield return ret;
+                yield return subset;
             }
         }
 
@@ -154,10 +150,7 @@ namespace ChessBot.Types
         {
             unchecked
             {
-                // todo: speed this up
-                if (_value == 0) return 0;
-                if (_value == ulong.MaxValue) return 64;
-
+                Debug.Assert(_value != 0);
                 return MultiplyDeBruijnBitPosition[((_value & (ulong)(-(long)_value)) * 0x022FDD63CC95386DUL) >> 58];
             }
         }

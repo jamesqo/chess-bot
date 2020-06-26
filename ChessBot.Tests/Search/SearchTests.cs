@@ -7,7 +7,6 @@ using Xunit.Abstractions;
 
 namespace ChessBot.Tests.Search
 {
-    // todo: find a way to disable logging when running xUnit tests
     public class SearchTests
     {
         const int TtCapacity = 1 << 8;

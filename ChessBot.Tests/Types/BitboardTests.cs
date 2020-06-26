@@ -9,6 +9,7 @@ namespace ChessBot.Tests.Types
     {
         [Theory]
         [InlineData(0, 0UL)]
+        [InlineData(3, 0b100101UL)]
         [InlineData(64, ulong.MaxValue)]
         public void CountSetBits(int expected, ulong value)
         {
