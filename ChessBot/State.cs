@@ -107,13 +107,13 @@ namespace ChessBot
                 }
             }
 
-            return new State(new MutState(
+            return new MutState(
                 board: in board,
                 activeSide: activeSide,
                 castlingRights: castlingRights,
                 enPassantTarget: enPassantTarget,
                 halfMoveClock: halfMoveClock,
-                fullMoveNumber: fullMoveNumber));
+                fullMoveNumber: fullMoveNumber).ToImmutable();
         }
 
         private readonly MutState _inner;

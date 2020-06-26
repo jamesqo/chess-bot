@@ -424,7 +424,7 @@ namespace ChessBot
             for (var bb = Occupied; !bb.IsZero; bb = bb.ClearNext())
             {
                 var source = bb.NextLocation();
-                var attacks = GetModifiedAttackBitboard(source, Board[source].Piece, Occupied);
+                var attacks = GetAttackBitboard(Board[source].Piece, source, Occupied);
 
                 if (White.Occupies[source])
                 {
@@ -530,39 +530,6 @@ namespace ChessBot
             }
 
             return canMoveIfUnblocked && (!canPieceBeBlocked || (GetLocationsBetween(source, destination) & Occupied) == Bitboard.Zero);
-        }
-
-        // todo: calculating this is a perf bottleneck
-        /// <summary>
-        /// Returns a list of locations that are attacked by the piece at <paramref name="source"/>.
-        /// </summary>
-        internal static Bitboard GetModifiedAttackBitboard(Location source, Piece piece, Bitboard occupied)
-        {
-            var kind = piece.Kind;
-            var attacks = GetAttackBitboard(piece, source);
-            Bitboard result;
-
-            switch (kind)
-            {
-                case PieceKind.Bishop:
-                    result = Magic.BishopAttacks(attacks, occupied, source);
-                    break;
-                case PieceKind.Rook:
-                    result = Magic.RookAttacks(attacks, occupied, source);
-                    break;
-                case PieceKind.Queen:
-                    // note: it doesn't matter that we're passing in extra squares as part of the attack vector.
-                    // the magic bitboard algorithm will eliminate them when it does (* magic) >> shift.
-                    result = Magic.BishopAttacks(GetAttackBitboard(Piece.WhiteBishop, source), occupied, source) | Magic.RookAttacks(GetAttackBitboard(Piece.WhiteRook, source), occupied, source);
-                    break;
-                default:
-                    result = attacks;
-                    break;
-            }
-
-            // It's possible we may have left in squares that are occupied by our own camp. This doesn't affect
-            // any of the use cases for this bitboard, though.
-            return result;
         }
 
         /// <summary>

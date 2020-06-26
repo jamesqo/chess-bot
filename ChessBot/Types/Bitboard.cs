@@ -90,8 +90,6 @@ namespace ChessBot.Types
 
         public Location NextLocation() => new Location((byte)IndexOfNext());
 
-        public bool OverlapsWith(Bitboard other) => (_value & other._value) != 0;
-
         public IEnumerable<Bitboard> PowerSet()
         {
             int numBits = CountSetBits();
