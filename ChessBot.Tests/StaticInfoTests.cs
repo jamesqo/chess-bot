@@ -31,7 +31,17 @@ namespace ChessBot.Tests
 
             Assert.Equal(expected.Select(Location.Parse), actual.Locations(), OrderInsensitiveComparer<Location>.Instance);
         }
-        
-        // todo: GetAttackBitboard_Queen
+
+        [Theory]
+        [InlineData(new[] { "a3", "b3", "c3", "c2", "d2", "c3", "b1", "a1" }, new[] { "a4", "b3", "c3", "d2" }, "b2")]
+        public void GetAttackBitboard_Queen(string[] expected, string[] occupied, string source)
+        {
+            var sourceLoc = Location.Parse(source);
+            var occupiedBb = Bitboard.FromLocations(occupied.Select(Location.Parse));
+
+            var actual = StaticInfo.GetAttackBitboard(Piece.WhiteQueen, sourceLoc, occupiedBb);
+
+            Assert.Equal(expected.Select(Location.Parse), actual.Locations(), OrderInsensitiveComparer<Location>.Instance);
+        }
     }
 }

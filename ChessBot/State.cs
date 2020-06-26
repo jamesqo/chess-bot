@@ -285,7 +285,7 @@ namespace ChessBot
             }
         }
 
-        // for test use
+        // for test use only
         internal State SetActiveSide(Side value)
         {
             var newInner = _inner.Copy();

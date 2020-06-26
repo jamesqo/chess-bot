@@ -18,7 +18,7 @@ namespace ChessBot
             public Bitboard Mask;
             public Bitboard Magic;
             public int Shift;
-            public Bitboard[] AttackTable; 
+            public Bitboard[] AttackBitboards; 
         }
 
         private static readonly Bitboard[] BishopMagics = new Bitboard[64]
@@ -78,12 +78,12 @@ namespace ChessBot
                 int shift = 64 - numBits;
                 int numValues = 1 << numBits;
                 info.Shift = shift;
-                info.AttackTable = new Bitboard[numValues];
+                info.AttackBitboards = new Bitboard[numValues];
 
                 foreach (var blockers in occupancy.PowerSet())
                 {
                     ushort key = (ushort)((blockers * magic) >> shift);
-                    info.AttackTable[key] = ComputeBishopAttacks(source, blockers);
+                    info.AttackBitboards[key] = ComputeBishopAttacks(source, blockers);
                 }
             }
 
@@ -102,12 +102,12 @@ namespace ChessBot
                 int shift = 64 - numBits;
                 int numValues = 1 << numBits;
                 info.Shift = shift;
-                info.AttackTable = new Bitboard[numValues];
+                info.AttackBitboards = new Bitboard[numValues];
 
                 foreach (var blockers in occupancy.PowerSet())
                 {
                     ushort key = (ushort)((blockers * magic) >> shift);
-                    info.AttackTable[key] = ComputeRookAttacks(source, blockers);
+                    info.AttackBitboards[key] = ComputeRookAttacks(source, blockers);
                 }
             }
 
@@ -236,12 +236,22 @@ namespace ChessBot
         private static Bitboard ComputeNoContextAttacks(Location source, PieceKind kind)
         {
             Debug.Assert(source.IsValid);
-            Debug.Assert(kind.IsValid());
+            Debug.Assert(kind == PieceKind.Knight || kind == PieceKind.King);
 
             var result = Bitboard.CreateBuilder();
 
             switch (kind)
             {
+                case PieceKind.Knight:
+                    if (source.Rank > Rank1 && source.File > FileB) result.Set(source.Down(1).Left(2));
+                    if (source.Rank < Rank8 && source.File > FileB) result.Set(source.Up(1).Left(2));
+                    if (source.Rank > Rank1 && source.File < FileG) result.Set(source.Down(1).Right(2));
+                    if (source.Rank < Rank8 && source.File < FileG) result.Set(source.Up(1).Right(2));
+                    if (source.Rank > Rank2 && source.File > FileA) result.Set(source.Down(2).Left(1));
+                    if (source.Rank < Rank7 && source.File > FileA) result.Set(source.Up(2).Left(1));
+                    if (source.Rank > Rank2 && source.File < FileH) result.Set(source.Down(2).Right(1));
+                    if (source.Rank < Rank7 && source.File < FileH) result.Set(source.Up(2).Right(1));
+                    break;
                 case PieceKind.King:
                     if (source.Rank > Rank1)
                     {
@@ -258,16 +268,6 @@ namespace ChessBot
                         if (source.File < FileH) result.Set(source.Up(1).Right(1));
                     }
                     // It isn't possible to capture by castling, so we can safely ignore that scenario.
-                    break;
-                case PieceKind.Knight:
-                    if (source.Rank > Rank1 && source.File > FileB) result.Set(source.Down(1).Left(2));
-                    if (source.Rank < Rank8 && source.File > FileB) result.Set(source.Up(1).Left(2));
-                    if (source.Rank > Rank1 && source.File < FileG) result.Set(source.Down(1).Right(2));
-                    if (source.Rank < Rank8 && source.File < FileG) result.Set(source.Up(1).Right(2));
-                    if (source.Rank > Rank2 && source.File > FileA) result.Set(source.Down(2).Left(1));
-                    if (source.Rank < Rank7 && source.File > FileA) result.Set(source.Up(2).Left(1));
-                    if (source.Rank > Rank2 && source.File < FileH) result.Set(source.Down(2).Right(1));
-                    if (source.Rank < Rank7 && source.File < FileH) result.Set(source.Up(2).Right(1));
                     break;
             }
 
@@ -386,7 +386,7 @@ namespace ChessBot
                     var info = (kind == PieceKind.Bishop ? BishopInfos : RookInfos)[source.ToIndex()];
                     var blockers = occupied & info.Mask;
                     ushort key = (ushort)((blockers * info.Magic) >> info.Shift);
-                    return info.AttackTable[key];
+                    return info.AttackBitboards[key];
                 case PieceKind.Queen:
                     // todo: optimize
                     return GetAttackBitboard(Piece.WhiteBishop, source, occupied) | GetAttackBitboard(Piece.WhiteRook, source, occupied);
