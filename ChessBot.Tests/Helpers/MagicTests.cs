@@ -34,5 +34,7 @@ namespace ChessBot.Tests.Helpers
 
             Assert.Equal(expected.Select(Location.Parse), actual.Locations(), OrderInsensitiveComparer<Location>.Instance);
         }
+        
+        // todo: QueenAttacks
     }
 }

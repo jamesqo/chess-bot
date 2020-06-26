@@ -40,7 +40,7 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "mtdf":
-                        inner = new Mtdf(ttCapacity: (1 << 16)) { Depth = 6 };
+                        inner = new Mtdf(ttCapacity: (1 << 16)) { Depth = 7 };
                         break;
                     case "mtdf-ids":
                         inner = new MtdfIds(ttCapacity: (1 << 16)) { Depth = 7 };

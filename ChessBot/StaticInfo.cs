@@ -1,5 +1,4 @@
-﻿using ChessBot.Helpers;
-using ChessBot.Types;
+﻿using ChessBot.Types;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;

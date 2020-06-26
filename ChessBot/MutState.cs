@@ -540,25 +540,29 @@ namespace ChessBot
         {
             var kind = piece.Kind;
             var attacks = GetAttackBitboard(piece, source);
+            Bitboard result;
 
             switch (kind)
             {
                 case PieceKind.Bishop:
-                    attacks = Magic.BishopAttacks(attacks, occupied, source);
+                    result = Magic.BishopAttacks(attacks, occupied, source);
                     break;
                 case PieceKind.Rook:
-                    attacks = Magic.RookAttacks(attacks, occupied, source);
+                    result = Magic.RookAttacks(attacks, occupied, source);
                     break;
                 case PieceKind.Queen:
                     // note: it doesn't matter that we're passing in extra squares as part of the attack vector.
                     // the magic bitboard algorithm will eliminate them when it does (* magic) >> shift.
-                    attacks = Magic.BishopAttacks(attacks, occupied, source) | Magic.RookAttacks(attacks, occupied, source);
+                    result = Magic.BishopAttacks(GetAttackBitboard(Piece.WhiteBishop, source), occupied, source) | Magic.RookAttacks(GetAttackBitboard(Piece.WhiteRook, source), occupied, source);
+                    break;
+                default:
+                    result = attacks;
                     break;
             }
+
             // It's possible we may have left in squares that are occupied by our own camp. This doesn't affect
             // any of the use cases for this bitboard, though.
-
-            return attacks;
+            return result;
         }
 
         /// <summary>
