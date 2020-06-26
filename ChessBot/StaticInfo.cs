@@ -13,6 +13,7 @@ namespace ChessBot
     {
         #region Initialization logic
 
+        // note: try to avoid copying this struct since it's pretty large
         private struct MagicInfo
         {
             public Bitboard Mask;
@@ -373,8 +374,12 @@ namespace ChessBot
         /// </summary>
         public static Bitboard GetAttackBitboard(Piece piece, Location source, Bitboard occupied)
         {
-            if (!piece.IsValid) throw new ArgumentException("", nameof(piece));
-            if (!source.IsValid) throw new ArgumentException("", nameof(source));
+            //if (!piece.IsValid) throw new ArgumentException("", nameof(piece));
+            //if (!source.IsValid) throw new ArgumentException("", nameof(source));
+            Debug.Assert(piece.IsValid);
+            Debug.Assert(source.IsValid);
+
+            Bitboard blockers; ushort key;
 
             var kind = piece.Kind;
             switch (kind)
@@ -382,14 +387,29 @@ namespace ChessBot
                 case PieceKind.Pawn:
                     return PawnAttackBitboards[(int)piece.Side][source.ToIndex()];
                 case PieceKind.Bishop:
+                    // workaround for "by-reference variables always need an initializer"
+                    ref MagicInfo bishopInfo = ref BishopInfos[source.ToIndex()];
+                    blockers = occupied & bishopInfo.Mask;
+                    key = (ushort)((blockers * bishopInfo.Magic) >> bishopInfo.Shift);
+                    return bishopInfo.AttackBitboards[key];
                 case PieceKind.Rook:
-                    var info = (kind == PieceKind.Bishop ? BishopInfos : RookInfos)[source.ToIndex()];
-                    var blockers = occupied & info.Mask;
-                    ushort key = (ushort)((blockers * info.Magic) >> info.Shift);
-                    return info.AttackBitboards[key];
+                    ref MagicInfo rookInfo = ref RookInfos[source.ToIndex()];
+                    blockers = occupied & rookInfo.Mask;
+                    key = (ushort)((blockers * rookInfo.Magic) >> rookInfo.Shift);
+                    return rookInfo.AttackBitboards[key];
                 case PieceKind.Queen:
-                    // todo: optimize
-                    return GetAttackBitboard(Piece.WhiteBishop, source, occupied) | GetAttackBitboard(Piece.WhiteRook, source, occupied);
+                    // Just merge the bishop's attack vector with the rook's
+                    bishopInfo = ref BishopInfos[source.ToIndex()];
+                    blockers = occupied & bishopInfo.Mask;
+                    key = (ushort)((blockers * bishopInfo.Magic) >> bishopInfo.Shift);
+                    var result = bishopInfo.AttackBitboards[key];
+
+                    rookInfo = ref RookInfos[source.ToIndex()];
+                    blockers = occupied & rookInfo.Mask;
+                    key = (ushort)((blockers * rookInfo.Magic) >> rookInfo.Shift);
+                    result |= rookInfo.AttackBitboards[key];
+
+                    return result;
                 default:
                     return NoContextAttackBitboards[(int)kind][source.ToIndex()];
             }

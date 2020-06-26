@@ -33,7 +33,7 @@ namespace ChessBot.Tests
         }
 
         [Theory]
-        [InlineData(new[] { "a3", "b3", "c3", "c2", "d2", "c3", "b1", "a1" }, new[] { "a4", "b3", "c3", "d2" }, "b2")]
+        [InlineData(new[] { "a3", "b3", "c3", "c2", "d2", "c1", "b1", "a1", "a2" }, new[] { "a4", "b3", "c3", "d2" }, "b2")]
         public void GetAttackBitboard_Queen(string[] expected, string[] occupied, string source)
         {
             var sourceLoc = Location.Parse(source);

@@ -128,17 +128,17 @@ namespace ChessBot
         public bool TryApply(Move move, out InvalidMoveReason error)
         {
             var (source, destination) = (move.Source, move.Destination);
-            if (!Board[source].HasPiece)
+            if (!_board[source].HasPiece)
             {
                 error = InvalidMoveReason.EmptySource; return false;
             }
 
-            var piece = Board[source].Piece;
+            var piece = _board[source].Piece;
             if (piece.Side != ActiveSide)
             {
                 error = InvalidMoveReason.MismatchedSourcePiece; return false;
             }
-            if (Board[destination].HasPiece && Board[destination].Piece.Side == piece.Side)
+            if (_board[destination].HasPiece && _board[destination].Piece.Side == piece.Side)
             {
                 error = InvalidMoveReason.DestinationOccupiedByFriendlyPiece; return false;
             }
@@ -175,9 +175,9 @@ namespace ChessBot
         private void ApplyUnsafe(Move move)
         {
             var (source, destination) = (move.Source, move.Destination);
-            var piece = Board[source].Piece;
+            var piece = _board[source].Piece;
             bool isEnPassantCapture = (piece.Kind == PieceKind.Pawn && destination == EnPassantTarget);
-            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = _board[destination].HasPiece || isEnPassantCapture;
             bool isKingsideCastle = (piece.Kind == PieceKind.King && source.File < FileG && destination == source.Right(2)); // todo: add regression tests for bounds check
             bool isQueensideCastle = (piece.Kind == PieceKind.King && source.File > FileB && destination == source.Left(2)); // todo: add regression tests for bounds check
             bool isPawnAdvanceBy2 = (piece.Kind == PieceKind.Pawn && source.Rank == SecondRank(ActiveSide) && destination == source.Up(ForwardStep(ActiveSide) * 2));
@@ -269,16 +269,16 @@ namespace ChessBot
             bool isEnPassantCapture = false)
         {
             Debug.Assert(source != destination);
-            Debug.Assert(Board[source].HasPiece);
-            Debug.Assert(!Board[destination].HasPiece || Board[destination].Piece.Side != Board[source].Piece.Side);
+            Debug.Assert(_board[source].HasPiece);
+            Debug.Assert(!_board[destination].HasPiece || _board[destination].Piece.Side != _board[source].Piece.Side);
 
             // Store relevant info about the board
             // It's important to do all of this *before* we actually modify the board.
-            var piece = Board[source].Piece;
+            var piece = _board[source].Piece;
             var kind = piece.Kind;
             var newKind = promotionKind ?? kind;
             var newPiece = new Piece(piece.Side, newKind);
-            bool isCapture = Board[destination].HasPiece || isEnPassantCapture;
+            bool isCapture = _board[destination].HasPiece || isEnPassantCapture;
 
             Location toClear = default;
             Piece capturedPiece = default;
@@ -287,7 +287,7 @@ namespace ChessBot
                 toClear = isEnPassantCapture
                     ? (piece.IsWhite ? destination.Down(1) : destination.Up(1))
                     : destination;
-                capturedPiece = Board[toClear].Piece;
+                capturedPiece = _board[toClear].Piece;
             }
 
             // Update board
@@ -421,10 +421,12 @@ namespace ChessBot
         {
             _bbs.Attacks[0] = _bbs.Attacks[1] = 0;
 
+            // todo: this is a serious perf bottleneck, consider unrolling
             for (var bb = Occupied; !bb.IsZero; bb = bb.ClearNext())
             {
                 var source = bb.NextLocation();
-                var attacks = GetAttackBitboard(Board[source].Piece, source, Occupied);
+                var piece = _board[source].Piece;
+                var attacks = GetAttackBitboard(piece, source, Occupied);
 
                 if (White.Occupies[source])
                 {
@@ -482,8 +484,8 @@ namespace ChessBot
                 return false;
             }
 
-            var sourceTile = Board[source];
-            var destinationTile = Board[destination];
+            var sourceTile = _board[source];
+            var destinationTile = _board[destination];
             var piece = sourceTile.Piece;
 
             if (destinationTile.HasPiece && destinationTile.Piece.Side == piece.Side)
