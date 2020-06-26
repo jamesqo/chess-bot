@@ -99,7 +99,7 @@ namespace ChessBot
         public int HalfMoveClock { get; private set; }
         public int FullMoveNumber { get; private set; }
         public ulong Hash { get; internal set; }
-        public int Heuristic { get; private set; }
+        public int Heuristic { get; internal set; }
 
         // `move` isn't a field, it's just *very* helpful for debugging purposes
         private Snapshot Snapshot(Move move) => (Board, _bbs, ActiveSide, CastlingRights, EnPassantTarget, HalfMoveClock, FullMoveNumber, Hash, Heuristic, move);

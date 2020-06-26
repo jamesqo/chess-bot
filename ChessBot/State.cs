@@ -285,13 +285,14 @@ namespace ChessBot
             }
         }
 
-        // todo: remove this from public api?
-        public State SetActiveSide(Side value)
+        // for test use
+        internal State SetActiveSide(Side value)
         {
             var newInner = _inner.Copy();
             newInner.ActiveSide = value;
             newInner.Hash ^= ZobristKey.ForActiveSide(ActiveSide);
             newInner.Hash ^= ZobristKey.ForActiveSide(value);
+            newInner.Heuristic = -newInner.Heuristic;
             return new State(newInner);
         }
     }
