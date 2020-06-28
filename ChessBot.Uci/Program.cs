@@ -157,6 +157,8 @@ namespace ChessBot.Uci
             }
 
             _searcher ??= new MtdfIds();
+            // note: this field is only used when a new search is started, so if a search is already in progress
+            // setting this shouldn't affect it
             _searcher.TtCapacity = (int)_options["Hash"].Value * EntriesPerMb;
 
             // reset all relevant state variables
