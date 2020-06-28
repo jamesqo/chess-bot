@@ -169,7 +169,12 @@ namespace ChessBot.Uci
             var searcher = new MtdfIds();
             searcher.Depth = settings.Depth ?? int.MaxValue;
             searcher.MaxNodes = settings.Nodes ?? int.MaxValue;
-            _tt ??= searcher.MakeTt(_options.Get<int>("Hash") * EntriesPerMb);
+
+            int ttCapacity = _options.Get<int>("Hash") * EntriesPerMb;
+            if (_tt == null || _tt.Capacity != ttCapacity)
+            {
+                _tt = searcher.MakeTt(ttCapacity);
+            }
             searcher.Tt = _tt;
 
             // reset all relevant state variables
