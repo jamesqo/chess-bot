@@ -22,6 +22,8 @@ namespace ChessBot.Search.Tt
             _nodes = new LruLinkedList<TValue>();
         }
 
+        public int Capacity => _capacity;
+
         public bool Add(ulong key, TValue value)
         {
             if (_dict.Count == _capacity)

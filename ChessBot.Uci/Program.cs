@@ -13,6 +13,10 @@ namespace ChessBot.Uci
 {
     class Program
     {
+        const int EntriesPerMb = (1 << 14); // todo
+
+        readonly Options _options = new Options();
+
         State _root;
         MtdfIds _searcher;
         volatile bool _ponder = false;
@@ -25,7 +29,15 @@ namespace ChessBot.Uci
         {
             WriteLine("id name chessbot_uci 1.0.0");
             WriteLine("id author James Ko");
-            // todo: write options
+
+            foreach (var option in _options)
+            {
+                Write($"option name {option.Name} type {option.Type} default {option.DefaultValue}");
+                if (option.Min != null) Write($" min {option.Min}");
+                if (option.Max != null) Write($" max {option.Max}");
+                WriteLine();
+            }
+
             WriteLine("uciok");
         }
 
@@ -36,7 +48,28 @@ namespace ChessBot.Uci
 
         void SetOption(Stack<string> tokens)
         {
-            // todo: set the option
+            string name = null, value = null;
+
+            while (tokens.TryPop(out var paramName))
+            {
+                switch (paramName)
+                {
+                    case "name":
+                        name = tokens.Pop();
+                        break;
+                    case "value":
+                        value = tokens.Pop();
+                        break;
+                }
+            }
+
+            if (name == null || value == null || !_options[name].TryParse(value, out object valueObj))
+            {
+                // todo: throw error
+                return;
+            }
+
+            _options[name].Value = valueObj;
         }
 
         void UciNewGame()
@@ -123,7 +156,8 @@ namespace ChessBot.Uci
                 return;
             }
 
-            _searcher ??= new MtdfIds(ttCapacity: (1 << 16));
+            _searcher ??= new MtdfIds();
+            _searcher.TtCapacity = (int)_options["Hash"].Value * EntriesPerMb;
 
             // reset all relevant state variables
             _ponder = false;

@@ -25,6 +25,8 @@ namespace ChessBot.Search.Tt
             _minDepth = -1;
         }
 
+        public int Capacity => _capacity;
+
         public bool Add(ulong key, TValue value)
         {
             int depth = value.Depth;

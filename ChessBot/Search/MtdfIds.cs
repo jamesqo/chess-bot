@@ -15,15 +15,20 @@ namespace ChessBot.Search
         private readonly Subject<ISearchInfo> _iterationCompleted = new Subject<ISearchInfo>();
         private bool _stop = false;
 
-        public MtdfIds(int ttCapacity)
+        public MtdfIds()
         {
-            _inner = new Mtdf(ttCapacity);
+            _inner = new Mtdf();
         }
 
         public string Name => "mtdf-ids";
 
         public int Depth { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
+        public int TtCapacity
+        {
+            get => _inner.TtCapacity;
+            set => _inner.TtCapacity = value;
+        }
 
         public override string ToString() => $"{Name} depth={Depth} maxNodes={MaxNodes}";
 

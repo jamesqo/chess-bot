@@ -18,6 +18,8 @@ namespace ChessBot.Search.Tt
             _depthTt = new DepthReplacementTt<TValue>(capacity / 2);
         }
 
+        public int Capacity => _lruTt.Capacity + _depthTt.Capacity;
+
         public bool Add(ulong key, TValue value)
         {
             // NOTE: we're using | and not || because we want to add to both of them

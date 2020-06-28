@@ -49,12 +49,11 @@ namespace ChessBot.Search
             }
         }
 
-        private readonly ITranspositionTable<TtEntry> _tt;
         private readonly Stopwatch _sw;
+        private ITranspositionTable<TtEntry> _tt;
 
-        public Mtdf(int ttCapacity)
+        public Mtdf()
         {
-            _tt = new TwoTierReplacementTt<TtEntry>(ttCapacity);
             _sw = new Stopwatch();
         }
 
@@ -63,6 +62,7 @@ namespace ChessBot.Search
         public int Depth { get; set; } = 0;
         public int FirstGuess { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
+        public int TtCapacity { get; set; } = -1;
 
         public override string ToString() => $"{Name} depth={Depth} firstGuess={FirstGuess} maxNodes={MaxNodes}";
 
@@ -76,6 +76,16 @@ namespace ChessBot.Search
             if (MaxNodes <= 0)
             {
                 throw new InvalidOperationException($"Bad value for {nameof(MaxNodes)}");
+            }
+
+            if (TtCapacity < 0)
+            {
+                throw new InvalidOperationException($"{nameof(TtCapacity)} wasn't set");
+            }
+
+            if (_tt == null || _tt.Capacity != TtCapacity)
+            {
+                _tt = new TwoTierReplacementTt<TtEntry>(TtCapacity);
             }
 
             Log.Debug("Starting MTD-f search of {0} with f={1} d={2} maxNodes={3}", root, FirstGuess, Depth, MaxNodes);

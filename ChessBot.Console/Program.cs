@@ -4,8 +4,6 @@ using ChessBot.Search;
 using ChessBot.Types;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Linq;
 using static System.Console;
 
@@ -40,10 +38,10 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "mtdf":
-                        inner = new Mtdf(ttCapacity: (1 << 16)) { Depth = 7 };
+                        inner = new Mtdf() { Depth = 7, TtCapacity = (1 << 16) };
                         break;
                     case "mtdf-ids":
-                        inner = new MtdfIds(ttCapacity: (1 << 16)) { Depth = 7 };
+                        inner = new MtdfIds() { Depth = 7, TtCapacity = (1 << 16) };
                         break;
                     default: continue;
                 }

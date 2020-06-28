@@ -20,9 +20,10 @@ namespace ChessBot.Benchmarks
         [Benchmark]
         public void Mtdf()
         {
-            new Mtdf(TtCapacity)
+            new Mtdf()
             {
-                Depth = Depth
+                Depth = Depth,
+                TtCapacity = TtCapacity
             }
             .Search(State.Start);
         }
@@ -30,9 +31,10 @@ namespace ChessBot.Benchmarks
         [Benchmark]
         public void MtdfIds()
         {
-            new MtdfIds(TtCapacity)
+            new MtdfIds()
             {
-                Depth = Depth
+                Depth = Depth,
+                TtCapacity = TtCapacity
             }
             .Search(State.Start);
         }
