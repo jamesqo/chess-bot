@@ -4,6 +4,7 @@ using ChessBot.Types;
 using System;
 using System.Collections.Immutable;
 using System.Reactive.Subjects;
+using System.Threading;
 
 namespace ChessBot.Search
 {
@@ -14,7 +15,6 @@ namespace ChessBot.Search
     {
         private readonly Mtdf _inner;
         private readonly Subject<ISearchInfo> _iterationCompleted = new Subject<ISearchInfo>();
-        private bool _stop = false;
 
         public MtdfIds()
         {
@@ -37,7 +37,7 @@ namespace ChessBot.Search
 
         public ITranspositionTable MakeTt(int capacity) => _inner.MakeTt(capacity);
 
-        public ISearchInfo Search(State root)
+        public ISearchInfo Search(State root, CancellationToken cancellationToken = default)
         {
             if (Depth <= 0)
             {
@@ -51,15 +51,13 @@ namespace ChessBot.Search
 
             Log.Debug("Starting IDS search");
 
-            _stop = false;
-
             ImmutableArray<Move> pv = default;
             int score = 0;
             int nodesSearched = 0;
             int remainingNodes = MaxNodes;
             var elapsed = TimeSpan.Zero;
 
-            for (int d = 1; d <= Depth && !_stop && remainingNodes > 0; d++)
+            for (int d = 1; d <= Depth && remainingNodes > 0 && !cancellationToken.IsCancellationRequested; d++)
             {
                 Log.Debug("Running mtdf with depth={0}, f={1}", d, score);
                 _inner.Depth = d;
@@ -67,7 +65,7 @@ namespace ChessBot.Search
                 _inner.MaxNodes = remainingNodes;
 
                 Log.IndentLevel++;
-                var icInfo = _inner.Search(root);
+                var icInfo = _inner.Search(root, cancellationToken);
                 Log.IndentLevel--;
 
                 _iterationCompleted.OnNext(icInfo);
@@ -80,11 +78,6 @@ namespace ChessBot.Search
 
             Log.Debug("Finished IDS search");
             return new SearchInfo(Depth, elapsed, nodesSearched, pv, score);
-        }
-
-        public void Stop()
-        {
-            _stop = true;
         }
     }
 }

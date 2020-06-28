@@ -4,6 +4,7 @@ using ChessBot.Types;
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Threading;
 
 namespace ChessBot.Search
 {
@@ -58,19 +59,19 @@ namespace ChessBot.Search
 
         public string Name => "mtdf";
 
-        public int Depth { get; set; } = 0;
         public int FirstGuess { get; set; } = 0;
+        public int Depth { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
         public ITranspositionTable Tt { get; set; }
 
-        public override string ToString() => $"{Name} depth={Depth} firstGuess={FirstGuess} maxNodes={MaxNodes}";
+        public override string ToString() => $"{Name} firstGuess={FirstGuess} depth={Depth} maxNodes={MaxNodes}";
 
         public ITranspositionTable MakeTt(int capacity)
         {
             return new TwoTierReplacementTt<TtEntry>(capacity);
         }
 
-        public ISearchInfo Search(State root)
+        public ISearchInfo Search(State root, CancellationToken cancellationToken = default)
         {
             if (Depth <= 0)
             {
@@ -89,7 +90,7 @@ namespace ChessBot.Search
 
             Log.Debug("Starting MTD-f search of {0} with f={1} d={2} maxNodes={3}", root, FirstGuess, Depth, MaxNodes);
             _sw.Restart();
-            int score = RunMtdf(root.ToMutable(), FirstGuess, Depth, tt, MaxNodes, out var pv, out int nodesSearched);
+            int score = RunMtdf(root.ToMutable(), FirstGuess, Depth, tt, cancellationToken, MaxNodes, out var pv, out int nodesSearched);
             _sw.Stop();
             var elapsed = _sw.Elapsed;
             Log.Debug("Finished MTD-f search of {0} with f={1} d={2} maxNodes={3}", root, FirstGuess, Depth, MaxNodes);
@@ -105,6 +106,7 @@ namespace ChessBot.Search
             int firstGuess,
             int depth,
             ITranspositionTable<TtEntry> tt,
+            CancellationToken ct,
             int maxNodes,
             out ImmutableArray<Move> pv,
             out int nodesSearched)
@@ -121,7 +123,7 @@ namespace ChessBot.Search
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
 
                 var unused = Killers.Empty;
-                guess = NullWindowSearch(root, beta, depth, tt, maxNodes, pvTable, out int nodesSearchedThisIteration, ref unused);
+                guess = NullWindowSearch(root, beta, depth, tt, ct, maxNodes, pvTable, out int nodesSearchedThisIteration, ref unused);
                 nodesSearched += nodesSearchedThisIteration;
                 maxNodes -= nodesSearchedThisIteration;
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
@@ -151,6 +153,7 @@ namespace ChessBot.Search
             int beta,
             int depth,
             ITranspositionTable<TtEntry> tt,
+            CancellationToken ct,
             int maxNodes,
             PvTable pvTable,
             out int nodesSearched,
@@ -167,9 +170,11 @@ namespace ChessBot.Search
             // Unfortunately, it's pretty expensive to check for mate/stalemate since it involves trying to enumerate the current state's successors.
             // As a result, we don't bother checking for those conditions and returning the correct value when depth == 0.
 
-            if (depth == 0 || maxNodes == 0)
+            bool reachedDepth = depth == 0;
+            bool shouldEval = reachedDepth || maxNodes == 0 || ct.IsCancellationRequested;
+            if (shouldEval)
             {
-                if (maxNodes == 0) pvTable.SetNone(depth);
+                if (!reachedDepth) pvTable.SetNone(depth);
                 return state.Heuristic;
             }
 
@@ -226,7 +231,7 @@ namespace ChessBot.Search
                 bool success = state.TryApply(storedPvMove, out _);
                 Debug.Assert(success);
 
-                guess = -NullWindowSearch(state, -alpha, depth - 1, tt, maxNodes, pvTable, out int childrenSearched, ref childKillers);
+                guess = -NullWindowSearch(state, -alpha, depth - 1, tt, ct, maxNodes, pvTable, out int childrenSearched, ref childKillers);
                 nodesSearched += childrenSearched;
                 maxNodes -= childrenSearched;
                 state.Undo();
@@ -253,7 +258,7 @@ namespace ChessBot.Search
                 {
                     if (move == storedPvMove || !state.TryApply(move, out _)) continue;
 
-                    int value = -NullWindowSearch(state, -alpha, depth - 1, tt, maxNodes, pvTable, out int childrenSearched, ref childKillers);
+                    int value = -NullWindowSearch(state, -alpha, depth - 1, tt, ct, maxNodes, pvTable, out int childrenSearched, ref childKillers);
                     nodesSearched += childrenSearched;
                     maxNodes -= childrenSearched;
                     state.Undo();

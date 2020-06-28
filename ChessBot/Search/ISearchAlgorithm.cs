@@ -1,6 +1,8 @@
 ﻿using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
+using System.Diagnostics;
+using System.Threading;
 
 namespace ChessBot.Search
 {
@@ -16,7 +18,9 @@ namespace ChessBot.Search
                 throw new ArgumentException($"A terminal state was passed to {nameof(PickMove)}", nameof(root));
             }
 
-            return Search(root).Pv[0];
+            var pv = Search(root).Pv;
+            Debug.Assert(pv.Length > 0);
+            return pv[0];
         }
 
         string Name { get; }
@@ -27,6 +31,6 @@ namespace ChessBot.Search
 
         ITranspositionTable MakeTt(int capacity);
 
-        ISearchInfo Search(State root);
+        ISearchInfo Search(State root, CancellationToken cancellationToken = default);
     }
 }

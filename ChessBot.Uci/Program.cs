@@ -19,11 +19,13 @@ namespace ChessBot.Uci
         readonly Options _options = new Options();
         readonly ConcurrentQueue<Task> _searchQueue = new ConcurrentQueue<Task>();
 
+        // these fields correspond to the most recently requested search
         State _root;
         ITranspositionTable _tt;
-
+        
+        // these fields correspond to the ongoing search
+        volatile CancellationTokenSource _cts;
         volatile bool _ponder = false;
-        volatile bool _stop = false;
         volatile bool _searchInProgress = false;
 
         void Uci()
@@ -177,22 +179,38 @@ namespace ChessBot.Uci
             }
             searcher.Tt = _tt;
 
-            // reset all relevant state variables
-
             _ponder = false;
-            _stop = false;
+            var cts = new CancellationTokenSource();
 
             // define the task and either run it straight away, or add it to the queue if there's one in progress
 
-            var rootCopy = _root;
+            var rootCopy = _root; // if a new search is requested before this one is started, we don't want to pick up on a new position
             var searchTask = new Task(() =>
             {
-                Search(rootCopy, searcher, settings, this);
+                _cts = cts;
+                using (cts)
+                {
+                    Search(rootCopy, searcher, settings, this, cts.Token);
+                }
+                _cts = null;
 
                 // run the next task if one is queued
 
-                _searchInProgress = _searchQueue.TryDequeue(out var nextTask);
-                nextTask?.Start();
+                if (_searchQueue.TryDequeue(out var nextTask))
+                {
+                    nextTask.Start();
+                }
+                else
+                {
+                    _searchInProgress = false;
+                }
+            });
+
+            // Task.Start() won't automatically propagate exceptions to the main thread
+
+            searchTask = searchTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted) throw t.Exception;
             });
 
             if (!_searchInProgress)
@@ -207,7 +225,8 @@ namespace ChessBot.Uci
             State root,
             MtdfIds searcher,
             GoSettings settings,
-            Program program)
+            Program program,
+            CancellationToken ct)
         {
             ISearchInfo info;
 
@@ -218,18 +237,14 @@ namespace ChessBot.Uci
                     // todo: output other info fields (see stockfish)
                     var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} score cp {icInfo.Score} pv {string.Join(' ', icInfo.Pv)}";
                     WriteLine(output);
-                    if (program._stop)
-                    {
-                        searcher.Stop();
-                    }
                 });
 
-                info = searcher.Search(root);
+                info = searcher.Search(root, ct);
             }
 
             // if we finished but we're in ponder or infinite mode, wait until we receive "ponderhit" or "stop"
 
-            while (!program._stop && (settings.Infinite || program._ponder))
+            while (!ct.IsCancellationRequested && (settings.Infinite || program._ponder))
             {
                 Thread.Sleep(500);
             }
@@ -253,7 +268,13 @@ namespace ChessBot.Uci
 
         void Stop()
         {
-            _stop = true;
+            if (_cts == null)
+            {
+                Error.WriteLine("No search in progress");
+                return;
+            }
+
+            _cts.Cancel();
         }
 
         void Quit()
