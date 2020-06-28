@@ -187,30 +187,31 @@ namespace ChessBot.Uci
             var rootCopy = _root; // if a new search is requested before this one is started, we don't want to pick up on a new position
             var searchTask = new Task(() =>
             {
-                _cts = cts;
-                using (cts)
+                try
                 {
-                    Search(rootCopy, searcher, settings, this, cts.Token);
+                    _cts = cts;
+                    using (cts)
+                    {
+                        Search(rootCopy, searcher, settings, this, cts.Token);
+                    }
+                    _cts = null;
+
+                    // run the next task if one is queued
+
+                    if (_searchQueue.TryDequeue(out var nextTask))
+                    {
+                        nextTask.Start();
+                    }
+                    else
+                    {
+                        _searchInProgress = false;
+                    }
                 }
-                _cts = null;
-
-                // run the next task if one is queued
-
-                if (_searchQueue.TryDequeue(out var nextTask))
+                // exceptions don't propagate to the main thread unless they are explicitly handled like this
+                catch (Exception e)
                 {
-                    nextTask.Start();
+                    Error.WriteLine(e);
                 }
-                else
-                {
-                    _searchInProgress = false;
-                }
-            });
-
-            // Task.Start() won't automatically propagate exceptions to the main thread
-
-            searchTask = searchTask.ContinueWith(t =>
-            {
-                if (t.IsFaulted) throw t.Exception;
             });
 
             if (!_searchInProgress)
@@ -252,12 +253,15 @@ namespace ChessBot.Uci
             // output the best move. if the pv contains more than 1 move (eg. there's not a mate in 1 and we searched more than depth 1),
             // output that too as the next move we expect the user to play.
 
-            var output = $"bestmove {info.Pv[0]}";
-            if (info.Pv.Length > 1)
+            if (!info.Pv.IsEmpty)
             {
-                output += $" ponder {info.Pv[1]}";
+                var output = $"bestmove {info.Pv[0]}";
+                if (info.Pv.Length > 1)
+                {
+                    output += $" ponder {info.Pv[1]}";
+                }
+                WriteLine(output);
             }
-            WriteLine(output);
         }
 
         void PonderHit()
