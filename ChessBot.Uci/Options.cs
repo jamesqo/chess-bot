@@ -20,7 +20,20 @@ namespace ChessBot.Uci
             }
         }
 
-        public Option this[string optionName] => _dict[optionName];
+        public Option this[string name] => _dict[name];
+
+        public T Get<T>(string name) => (T)_dict[name].Value;
+
+        public bool TrySet(string name, string valueText)
+        {
+            if (!_dict.TryGetValue(name, out var option) || !option.TryParse(valueText, out object value))
+            {
+                return false;
+            }
+
+            option.Value = value;
+            return true;
+        }
 
         public IEnumerator<Option> GetEnumerator() => _dict.Values.GetEnumerator();
 

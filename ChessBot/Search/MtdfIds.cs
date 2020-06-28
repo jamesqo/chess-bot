@@ -1,4 +1,5 @@
 ﻿using ChessBot.Helpers;
+using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
 using System.Collections.Immutable;
@@ -24,15 +25,17 @@ namespace ChessBot.Search
 
         public int Depth { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
-        public int TtCapacity
+        public ITranspositionTable Tt
         {
-            get => _inner.TtCapacity;
-            set => _inner.TtCapacity = value;
+            get => _inner.Tt;
+            set => _inner.Tt = value;
         }
 
         public override string ToString() => $"{Name} depth={Depth} maxNodes={MaxNodes}";
 
         public IObservable<ISearchInfo> IterationCompleted => _iterationCompleted;
+
+        public ITranspositionTable MakeTt(int capacity) => _inner.MakeTt(capacity);
 
         public ISearchInfo Search(State root)
         {

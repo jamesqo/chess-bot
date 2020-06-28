@@ -23,8 +23,13 @@ namespace ChessBot.Tests.Search
                 foreach (var depth in depths)
                     foreach (var limit in limits)
                     {
-                        data.Add(new Mtdf() { Depth = depth, MaxNodes = limit, TtCapacity = TtCapacity });
-                        data.Add(new MtdfIds() { Depth = depth, MaxNodes = limit, TtCapacity = TtCapacity });
+                        var mtdf = new Mtdf() { Depth = depth, MaxNodes = limit };
+                        mtdf.Tt = mtdf.MakeTt(TtCapacity);
+                        data.Add(mtdf);
+
+                        var ids = new MtdfIds() { Depth = depth, MaxNodes = limit };
+                        ids.Tt = ids.MakeTt(TtCapacity);
+                        data.Add(ids);
                     }
 
                 return data;

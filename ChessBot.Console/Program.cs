@@ -27,7 +27,7 @@ namespace ChessBot.Console
             }
         }
 
-        // todo: the user should be able to change this during the course of the program, as well as other parameters like depth, TT capacity, etc
+        // todo: the user should be able to change the search algorithm during the course of the program, as well as other parameters like depth, TT capacity, etc
         static AI GetAI()
         {
             ISearchAlgorithm inner;
@@ -38,10 +38,12 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "mtdf":
-                        inner = new Mtdf() { Depth = 7, TtCapacity = (1 << 16) };
+                        inner = new Mtdf() { Depth = 7 };
+                        inner.Tt = inner.MakeTt(capacity: 1 << 16);
                         break;
                     case "mtdf-ids":
-                        inner = new MtdfIds() { Depth = 7, TtCapacity = (1 << 16) };
+                        inner = new MtdfIds() { Depth = 7 };
+                        inner.Tt = inner.MakeTt(capacity: 1 << 16);
                         break;
                     default: continue;
                 }

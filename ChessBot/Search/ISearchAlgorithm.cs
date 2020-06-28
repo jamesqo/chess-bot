@@ -1,4 +1,5 @@
-﻿using ChessBot.Types;
+﻿using ChessBot.Search.Tt;
+using ChessBot.Types;
 using System;
 
 namespace ChessBot.Search
@@ -19,8 +20,12 @@ namespace ChessBot.Search
         }
 
         string Name { get; }
-        int Depth { get; }
-        int MaxNodes { get; }
+
+        int Depth { get; set; }
+        int MaxNodes { get; set; }
+        ITranspositionTable Tt { get; set; }
+
+        ITranspositionTable MakeTt(int capacity);
 
         ISearchInfo Search(State root);
     }

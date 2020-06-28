@@ -50,7 +50,6 @@ namespace ChessBot.Search
         }
 
         private readonly Stopwatch _sw;
-        private ITranspositionTable<TtEntry> _tt;
 
         public Mtdf()
         {
@@ -62,9 +61,14 @@ namespace ChessBot.Search
         public int Depth { get; set; } = 0;
         public int FirstGuess { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
-        public int TtCapacity { get; set; } = -1;
+        public ITranspositionTable Tt { get; set; }
 
         public override string ToString() => $"{Name} depth={Depth} firstGuess={FirstGuess} maxNodes={MaxNodes}";
+
+        public ITranspositionTable MakeTt(int capacity)
+        {
+            return new TwoTierReplacementTt<TtEntry>(capacity);
+        }
 
         public ISearchInfo Search(State root)
         {
@@ -78,19 +82,14 @@ namespace ChessBot.Search
                 throw new InvalidOperationException($"Bad value for {nameof(MaxNodes)}");
             }
 
-            if (TtCapacity < 0)
+            if (!(Tt is ITranspositionTable<TtEntry> tt))
             {
-                throw new InvalidOperationException($"{nameof(TtCapacity)} wasn't set");
-            }
-
-            if (_tt == null || _tt.Capacity != TtCapacity)
-            {
-                _tt = new TwoTierReplacementTt<TtEntry>(TtCapacity);
+                throw new InvalidOperationException($"Bad value for {nameof(Tt)}");
             }
 
             Log.Debug("Starting MTD-f search of {0} with f={1} d={2} maxNodes={3}", root, FirstGuess, Depth, MaxNodes);
             _sw.Restart();
-            int score = RunMtdf(root.ToMutable(), FirstGuess, Depth, _tt, MaxNodes, out var pv, out int nodesSearched);
+            int score = RunMtdf(root.ToMutable(), FirstGuess, Depth, tt, MaxNodes, out var pv, out int nodesSearched);
             _sw.Stop();
             var elapsed = _sw.Elapsed;
             Log.Debug("Finished MTD-f search of {0} with f={1} d={2} maxNodes={3}", root, FirstGuess, Depth, MaxNodes);

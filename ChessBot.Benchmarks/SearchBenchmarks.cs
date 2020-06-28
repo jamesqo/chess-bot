@@ -20,23 +20,23 @@ namespace ChessBot.Benchmarks
         [Benchmark]
         public void Mtdf()
         {
-            new Mtdf()
+            var mtdf = new Mtdf()
             {
                 Depth = Depth,
-                TtCapacity = TtCapacity
-            }
-            .Search(State.Start);
+            };
+            mtdf.Tt = mtdf.MakeTt(TtCapacity);
+            mtdf.Search(State.Start);
         }
 
         [Benchmark]
         public void MtdfIds()
         {
-            new MtdfIds()
+            var ids = new MtdfIds()
             {
                 Depth = Depth,
-                TtCapacity = TtCapacity
-            }
-            .Search(State.Start);
+            };
+            ids.Tt = ids.MakeTt(TtCapacity);
+            ids.Search(State.Start);
         }
     }
 }

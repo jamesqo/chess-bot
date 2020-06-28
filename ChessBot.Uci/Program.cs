@@ -1,4 +1,5 @@
 ﻿using ChessBot.Search;
+using ChessBot.Search.Tt;
 using ChessBot.Types;
 using System;
 using System.Collections.Concurrent;
@@ -16,14 +17,14 @@ namespace ChessBot.Uci
         const int EntriesPerMb = (1 << 14); // todo
 
         readonly Options _options = new Options();
+        readonly ConcurrentQueue<Task> _searchQueue = new ConcurrentQueue<Task>();
 
         State _root;
-        MtdfIds _searcher;
+        ITranspositionTable _tt;
+
         volatile bool _ponder = false;
         volatile bool _stop = false;
-
         volatile bool _searchInProgress = false;
-        readonly ConcurrentQueue<Task> _searchQueue = new ConcurrentQueue<Task>();
 
         void Uci()
         {
@@ -32,10 +33,10 @@ namespace ChessBot.Uci
 
             foreach (var option in _options)
             {
-                Write($"option name {option.Name} type {option.Type} default {option.DefaultValue}");
-                if (option.Min != null) Write($" min {option.Min}");
-                if (option.Max != null) Write($" max {option.Max}");
-                WriteLine();
+                string desc = $"option name {option.Name} type {option.Type} default {option.DefaultValue}";
+                if (option.Min != null) desc += $" min {option.Min}";
+                if (option.Max != null) desc += $" max {option.Max}";
+                WriteLine(desc);
             }
 
             WriteLine("uciok");
@@ -60,35 +61,42 @@ namespace ChessBot.Uci
                     case "value":
                         value = tokens.Pop();
                         break;
+                    default:
+                        Error.WriteLine($"Unrecognized parameter: {paramName}");
+                        return;
                 }
             }
 
-            if (name == null || value == null || !_options[name].TryParse(value, out object valueObj))
+            if (name == null || value == null)
             {
-                // todo: throw error
+                Error.WriteLine("Name and value must be specified");
                 return;
             }
 
-            _options[name].Value = valueObj;
+            if (!_options.TrySet(name, value))
+            {
+                Error.WriteLine($"Could not set {name}={value}");
+                return;
+            }
         }
 
         void UciNewGame()
         {
             _root = null;
-            _searcher = null;
+            _tt = null;
         }
 
         void Position(Stack<string> tokens)
         {
             // todo: better error handling here
 
-            string fen = "";
+            string fen;
             string token = tokens.Pop();
             switch (token)
             {
                 case "startpos":
                     fen = State.StartFen;
-                    tokens.TryPop(out _); // pop moves token
+                    tokens.TryPop(out _); // pop moves token, if any
                     break;
                 case "fen":
                     fen = tokens.Pop();
@@ -96,8 +104,8 @@ namespace ChessBot.Uci
                         fen += ' ' + token;
                     break;
                 default:
-                    // todo: error
-                    break;
+                    Error.WriteLine($"Unrecognized parameter: {token}");
+                    return;
             }
             _root = State.ParseFen(fen);
 
@@ -112,7 +120,7 @@ namespace ChessBot.Uci
         {
             if (_root == null)
             {
-                // todo: error message
+                Error.WriteLine("Position not set, use the 'position' command to set it");
                 return;
             }
 
@@ -152,63 +160,34 @@ namespace ChessBot.Uci
 
             if (settings.Depth == null && settings.Nodes == null && !settings.Infinite)
             {
-                // error: one of depth, nodes, or infinite must be specified
+                Error.WriteLine("One of depth, nodes, or infinite must be specified");
                 return;
             }
 
-            _searcher ??= new MtdfIds();
-            // note: this field is only used when a new search is started, so if a search is already in progress
-            // setting this shouldn't affect it
-            _searcher.TtCapacity = (int)_options["Hash"].Value * EntriesPerMb;
+            // go ahead with the search
+
+            var searcher = new MtdfIds();
+            searcher.Depth = settings.Depth ?? int.MaxValue;
+            searcher.MaxNodes = settings.Nodes ?? int.MaxValue;
+            _tt ??= searcher.MakeTt(_options.Get<int>("Hash") * EntriesPerMb);
+            searcher.Tt = _tt;
 
             // reset all relevant state variables
+
             _ponder = false;
             _stop = false;
 
-            // define the task and either run it straight away, or add it to the queue
+            // define the task and either run it straight away, or add it to the queue if there's one in progress
 
-            // we don't want later changes to these fields to be picked up on by the task.
-            // eg. "go / go / ucinewgame" should not use a different searcher for the second task.
-            var (rootCopy, searcherCopy) = (_root, _searcher);
+            var rootCopy = _root;
             var searchTask = new Task(() =>
             {
-                searcherCopy.Depth = settings.Depth ?? int.MaxValue;
-                searcherCopy.MaxNodes = settings.Nodes ?? int.MaxValue;
+                Search(rootCopy, searcher, settings, this);
 
-                var disp = searcherCopy.IterationCompleted.Subscribe(icInfo =>
-                {
-                    // todo: even if we have cached tt info, we should be outputting the full pv
-                    // todo: other info fields (see stockfish)
-                    var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} score cp {icInfo.Score} pv {string.Join(' ', icInfo.Pv)}";
-                    WriteLine(output);
-                    if (_stop)
-                    {
-                        searcherCopy.Stop();
-                    }
-                });
+                // run the next task if one is queued
 
-                var info = searcherCopy.Search(rootCopy);
-                disp.Dispose();
-
-                // if we finished but we're in ponder or infinite mode, wait until we receive "ponderhit" or "stop"
-                while (!_stop && (settings.Infinite || _ponder))
-                {
-                    Thread.Sleep(500);
-                }
-
-                // output the best move. if there's not a mate in 1 and we searched more than depth 1, output that too
-                // as the next move we expect the user to play.
-
-                var output = $"bestmove {info.Pv[0]}";
-                if (info.Pv.Length > 1)
-                {
-                    output += $" ponder {info.Pv[1]}";
-                }
-                WriteLine(output);
-
-                // run the next task
-                _searchInProgress = _searchQueue.TryDequeue(out var next);
-                next?.Start();
+                _searchInProgress = _searchQueue.TryDequeue(out var nextTask);
+                nextTask?.Start();
             });
 
             if (!_searchInProgress)
@@ -219,9 +198,51 @@ namespace ChessBot.Uci
             else _searchQueue.Enqueue(searchTask);
         }
 
+        static void Search(
+            State root,
+            MtdfIds searcher,
+            GoSettings settings,
+            Program program)
+        {
+            ISearchInfo info;
+
+            {
+                using var _ = searcher.IterationCompleted.Subscribe(icInfo =>
+                {
+                    // todo: even if we have cached tt info, we should be outputting the full pv
+                    // todo: output other info fields (see stockfish)
+                    var output = $"info depth {icInfo.Depth} time {(int)icInfo.Elapsed.TotalMilliseconds} nodes {icInfo.NodesSearched} score cp {icInfo.Score} pv {string.Join(' ', icInfo.Pv)}";
+                    WriteLine(output);
+                    if (program._stop)
+                    {
+                        searcher.Stop();
+                    }
+                });
+
+                info = searcher.Search(root);
+            }
+
+            // if we finished but we're in ponder or infinite mode, wait until we receive "ponderhit" or "stop"
+
+            while (!program._stop && (settings.Infinite || program._ponder))
+            {
+                Thread.Sleep(500);
+            }
+
+            // output the best move. if the pv contains more than 1 move (eg. there's not a mate in 1 and we searched more than depth 1),
+            // output that too as the next move we expect the user to play.
+
+            var output = $"bestmove {info.Pv[0]}";
+            if (info.Pv.Length > 1)
+            {
+                output += $" ponder {info.Pv[1]}";
+            }
+            WriteLine(output);
+        }
+
         void PonderHit()
         {
-            // move that was played matched the move that we were pondering
+            // move that was played by the user matched the move that we were pondering
             _ponder = false;
         }
 
