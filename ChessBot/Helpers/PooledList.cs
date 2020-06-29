@@ -16,7 +16,7 @@ namespace ChessBot.Helpers
         {
             Debug.Assert(capacity > 0);
 
-            Log.Debug("Renting buffer, capacity={0}", capacity);
+            //Log.Debug("Renting buffer, capacity={0}", capacity);
             _array = ArrayPool<T>.Shared.Rent(capacity);
             _count = 0;
             _capacity = capacity;
@@ -43,7 +43,7 @@ namespace ChessBot.Helpers
         {
             Debug.Assert(_array != null);
 
-            Log.Debug("Returning buffer, capacity={0} len={1}", _capacity, _array.Length);
+            //Log.Debug("Returning buffer, capacity={0} len={1}", _capacity, _array.Length);
             ArrayPool<T>.Shared.Return(_array);
 
             // note: since this is a mutable struct, zeroing out the fields is just a best attempt.

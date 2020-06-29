@@ -35,9 +35,9 @@ namespace ChessBot.Search
             {
                 var sb = StringBuilderCache.Acquire();
                 sb.Append('[');
-                sb.Append(LowerBound);
+                if (LowerBound != Evaluation.MinScore) sb.Append(LowerBound);
                 sb.Append(", ");
-                sb.Append(UpperBound);
+                if (UpperBound != Evaluation.MaxScore) sb.Append(UpperBound);
                 sb.Append("], ");
                 sb.Append(nameof(Depth));
                 sb.Append(" = ");
@@ -147,7 +147,7 @@ namespace ChessBot.Search
             }
             while (lowerBound < upperBound && _nodesRemaining > 0);
 
-            pv = _pvt.GetTop().ToImmutableArray();
+            pv = _pvt.GetTopPv().ToImmutableArray();
             return guess;
         }
 
@@ -247,12 +247,12 @@ namespace ChessBot.Search
                     int value = -NullWindowSearch(state, -alpha, depth - 1);
                     state.Undo();
 
-                    bool better = value > guess;
+                    bool better = value > guess || pvMove.IsDefault; // in case we get the minimum possible score
                     if (better)
                     {
                         guess = value;
                         pvMove = move;
-                        _pvt.BubbleUp(depth, move);
+                        _pvt.BubbleUp(depth, pvMove);
                     }
 
                     if (guess >= beta || Canceled)
@@ -279,6 +279,11 @@ namespace ChessBot.Search
             // Store information from the search in TT
 
             TtStore(state, guess, alpha, beta, depth, pvMove, ttRef);
+
+            // Postconditions
+
+            Debug.Assert(!pvMove.IsDefault);
+            CheckPv(state, _pvt.GetPv(depth));
 
             return guess;
         }
@@ -367,6 +372,10 @@ namespace ChessBot.Search
 
         private void TtStore(MutState state, int guess, int alpha, int beta, int depth, Move pvMove, ITtReference<TtEntry> existingRef)
         {
+            Debug.Assert(alpha < beta);
+            Debug.Assert(depth > 0 && depth <= Depth);
+            Debug.Assert(pvMove.IsValid);
+
             int lowerBound, upperBound;
 
             if (guess <= alpha) // fail-low => upper bound
@@ -418,6 +427,18 @@ namespace ChessBot.Search
 
             bool updated = _tt.Update(existingRef, new TtEntry(lowerBound, upperBound, depth, pvMove));
             Debug.Assert(updated);
+        }
+
+        [Conditional("DEBUG")]
+        private static void CheckPv(MutState state, Span<Move> pv)
+        {
+            foreach (var move in pv)
+            {
+                bool success = state.TryApply(move, out _);
+                Debug.Assert(success);
+            }
+
+            for (int i = 0; i < pv.Length; i++) state.Undo();
         }
 
         #endregion

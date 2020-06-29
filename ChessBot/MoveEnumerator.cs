@@ -56,7 +56,7 @@ namespace ChessBot
             _current = default;
             _buffer = default;
             _index = 0;
-            _phase = Phase.LoadCaptures;
+            _phase = Phase.Start;
         }
 
         public readonly Move Current => _current;

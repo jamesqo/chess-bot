@@ -76,6 +76,8 @@ namespace ChessBot.Types
 
         public override string ToString()
         {
+            if (IsDefault) return "<default>";
+
             var sb = StringBuilderCache.Acquire();
             sb.Append(Source);
             sb.Append(Destination);

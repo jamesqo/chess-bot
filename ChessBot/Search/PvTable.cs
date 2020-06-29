@@ -57,9 +57,9 @@ namespace ChessBot.Search
             if (depth > 1) Array.Clear(_buffer, index + 1, depth - 1);
         }
 
-        public Span<Move> GetTop(bool excludeZeros = true) => GetPv(_maxDepth, excludeZeros);
+        public Span<Move> GetTopPv(bool excludeZeros = true) => GetPv(_maxDepth, excludeZeros);
 
-        private Span<Move> GetPv(int depth, bool excludeZeros)
+        public Span<Move> GetPv(int depth, bool excludeZeros = true)
         {
             var result = _buffer.AsSpan(GetIndex(depth), depth);
             if (excludeZeros)
