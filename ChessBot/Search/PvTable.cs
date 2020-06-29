@@ -26,7 +26,7 @@ namespace ChessBot.Search
         }
 
         // copies the pv from (depth - 1) to depth along with the given first move
-        public void BubbleUpTo(int depth, Move firstMove)
+        public void BubbleUp(int depth, Move firstMove)
         {
             Debug.Assert(depth > 0 && depth <= _maxDepth);
 
@@ -41,13 +41,13 @@ namespace ChessBot.Search
         }
 
         // indicates there is no PV for the given depth (eg. because of mate)
-        public void SetNone(int depth)
+        public void SetNoPv(int depth)
         {
             Array.Clear(_buffer, GetIndex(depth), depth);
         }
 
         // indicates we only know the next best move for the given depth (eg. TT hit)
-        public void SetOne(int depth, Move onlyMove)
+        public void SetOneMovePv(int depth, Move onlyMove)
         {
             int index = GetIndex(depth);
             _buffer[index] = onlyMove;

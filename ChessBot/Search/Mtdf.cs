@@ -59,17 +59,29 @@ namespace ChessBot.Search
 
         public string Name => "mtdf";
 
+        // Search parameters
         public int FirstGuess { get; set; } = 0;
         public int Depth { get; set; } = 0;
         public int MaxNodes { get; set; } = int.MaxValue;
         public ITranspositionTable Tt { get; set; }
         public int QuiescenceDepth { get; set; } = -5;
 
+        // Search state variables
         private ITranspositionTable<TtEntry> _tt;
         private CancellationToken _ct;
         private int _nodesSearched;
         private int _nodesRemaining;
-        private PvTable _pvTable;
+        private PvTable _pvt;
+        private KillerTable _kt;
+
+        private bool Canceled
+        {
+            get
+            {
+                Debug.Assert(_nodesRemaining >= 0);
+                return _nodesRemaining == 0 || _ct.IsCancellationRequested;
+            }
+        }
 
         public override string ToString() => $"{Name} firstGuess={FirstGuess} depth={Depth} maxNodes={MaxNodes}";
 
@@ -90,7 +102,7 @@ namespace ChessBot.Search
                 throw new InvalidOperationException($"Bad value for {nameof(MaxNodes)}");
             }
 
-            if (!(Tt is ITranspositionTable<TtEntry> tt))
+            if (!(Tt is ITranspositionTable<TtEntry>))
             {
                 throw new InvalidOperationException($"Bad value for {nameof(Tt)}");
             }
@@ -105,7 +117,6 @@ namespace ChessBot.Search
                 "Got score={0} pv={1}, searched {2} nodes in {3} ms",
                 score, string.Join(' ', pv), _nodesSearched, (int)elapsed.TotalMilliseconds);
 
-            if (pv.IsDefault) Debugger.Break();
             return new SearchInfo(Depth, elapsed, _nodesSearched, pv, score);
         }
 
@@ -115,7 +126,8 @@ namespace ChessBot.Search
             _ct = ct;
             _nodesSearched = 0;
             _nodesRemaining = MaxNodes;
-            _pvTable = new PvTable(Depth); // todo: incorporate into SearchStack?
+            _pvt = new PvTable(Depth);
+            _kt = new KillerTable(Depth);
 
             int guess = FirstGuess;
             var (lowerBound, upperBound) = (Evaluation.MinScore, Evaluation.MaxScore);
@@ -125,9 +137,7 @@ namespace ChessBot.Search
                 int beta = guess == lowerBound ? (guess + 1) : guess;
                 Log.Debug("Starting null-window search for state {0} with beta={1}", root, beta);
 
-                // todo: incorporate into SearchStack?
-                var unused = Killers.Empty;
-                guess = NullWindowSearch(root, beta, Depth, ref unused);
+                guess = NullWindowSearch(root, beta, Depth);
                 Log.Debug("Null-window search for state {0} with beta={1} returned {2}", root, beta, guess);
 
                 if (guess < beta) // the real value is <= guess
@@ -144,20 +154,14 @@ namespace ChessBot.Search
             }
             while (lowerBound < upperBound && _nodesRemaining > 0);
 
-            pv = _pvTable.GetTop().ToImmutableArray();
-            if (pv.IsDefault) Debugger.Break();
+            pv = _pvt.GetTop().ToImmutableArray();
             return guess;
         }
 
         // does alpha-beta search on the null window [beta-1, beta] using a transposition table.
-        // for maintainability purposes, the score returned is from the active player's perspective.
-        private int NullWindowSearch(
-            MutState state,
-            int beta,
-            int depth,
-            ref Killers killers)
+        // the score returned is from the active player's perspective.
+        private int NullWindowSearch(MutState state, int beta, int depth)
         {
-            Debug.Assert(beta != int.MinValue); // doesn't negate properly
             Debug.Assert(depth >= 0);
             Debug.Assert(_nodesRemaining > 0);
 
@@ -176,9 +180,9 @@ namespace ChessBot.Search
 
             // Check for cancellation
 
-            if (_nodesRemaining == 0 || _ct.IsCancellationRequested)
+            if (Canceled)
             {
-                _pvTable.SetNone(depth);
+                _pvt.SetNoPv(depth);
                 return state.Heuristic;
             }
 
@@ -199,21 +203,21 @@ namespace ChessBot.Search
                     if (tte.LowerBound >= beta)
                     {
                         _tt.Touch(ttRef);
-                        _pvTable.SetOne(depth, storedPvMove);
+                        _pvt.SetOneMovePv(depth, storedPvMove);
                         return tte.LowerBound;
                     }
                     // fail-low
                     if (tte.UpperBound <= alpha)
                     {
                         _tt.Touch(ttRef);
-                        _pvTable.SetNone(depth);
+                        _pvt.SetNoPv(depth);
                         return tte.UpperBound;
                     }
                     // we know the exact value
                     if (tte.LowerBound == tte.UpperBound)
                     {
                         _tt.Touch(ttRef);
-                        _pvTable.SetOne(depth, storedPvMove);
+                        _pvt.SetOneMovePv(depth, storedPvMove);
                         return tte.LowerBound;
                     }
 
@@ -227,25 +231,26 @@ namespace ChessBot.Search
             // Search the PV move first if we already stored one for this node
 
             int guess = Evaluation.MinScore;
-            var childKillers = Killers.Empty;
             bool pvCausedCut = false;
 
             if (!storedPvMove.IsDefault)
             {
+                Log.IndentLevel++;
                 bool success = state.TryApply(storedPvMove, out _);
                 Debug.Assert(success);
 
-                guess = -NullWindowSearch(state, -alpha, depth - 1, ref childKillers);
+                guess = -NullWindowSearch(state, -alpha, depth - 1);
                 state.Undo();
 
-                _pvTable.BubbleUpTo(depth, storedPvMove);
+                _pvt.BubbleUp(depth, storedPvMove);
 
-                pvCausedCut = (guess >= beta || _nodesRemaining <= 0 || _ct.IsCancellationRequested);
+                pvCausedCut = (guess >= beta || Canceled);
                 if (guess >= beta)
                 {
                     Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} storedPvMove={3}", state, guess, beta, storedPvMove);
-                    killers = killers.Add(storedPvMove);
+                    _kt.Add(depth, storedPvMove);
                 }
+                Log.IndentLevel--;
             }
 
             // If we haven't stored a PV move or it failed to produce a cutoff, search the other moves
@@ -258,12 +263,15 @@ namespace ChessBot.Search
 
                 Log.Debug("Commencing search of children of state {0}", state);
                 Log.IndentLevel++;
+
+                if (depth > 1) _kt.Clear(depth - 1); // clear child killers
+                var killers = _kt[depth];
                 foreach (var move in state.GetPseudoLegalMoves(killers))
                 {
                     if (move == storedPvMove || !state.TryApply(move, out _)) continue;
                     isTerminal = false;
 
-                    int value = -NullWindowSearch(state, -alpha, depth - 1, ref childKillers);
+                    int value = -NullWindowSearch(state, -alpha, depth - 1);
                     state.Undo();
 
                     bool better = value > guess;
@@ -271,24 +279,25 @@ namespace ChessBot.Search
                     {
                         guess = value;
                         pvMove = move;
-                        _pvTable.BubbleUpTo(depth, move);
+                        _pvt.BubbleUp(depth, move);
                     }
 
-                    if (guess >= beta || _nodesRemaining <= 0 || _ct.IsCancellationRequested)
+                    if (guess >= beta || Canceled)
                     {
                         if (guess >= beta)
                         {
                             Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} pvMove={3}", state, guess, beta, pvMove);
-                            killers = killers.Add(move);
+                            _kt.Add(depth, pvMove);
                         }
                         break;
                     }
                 }
+
                 Log.IndentLevel--;
 
                 if (isTerminal)
                 {
-                    _pvTable.SetNone(depth);
+                    _pvt.SetNoPv(depth);
                     return Evaluation.OfTerminal(state);
                 }
                 Log.Debug("Finished search of children of state {0}", state);
