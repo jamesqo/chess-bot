@@ -29,6 +29,7 @@ namespace ChessBot.Search
         public void BubbleUp(int depth, Move firstMove)
         {
             Debug.Assert(depth > 0 && depth <= _maxDepth);
+            Debug.Assert(firstMove.IsValid);
 
             int thisIndex = GetIndex(depth);
             _buffer[thisIndex] = firstMove;
@@ -49,6 +50,8 @@ namespace ChessBot.Search
         // indicates we only know the next best move for the given depth (eg. TT hit)
         public void SetOneMovePv(int depth, Move onlyMove)
         {
+            Debug.Assert(onlyMove.IsValid);
+
             int index = GetIndex(depth);
             _buffer[index] = onlyMove;
             if (depth > 1) Array.Clear(_buffer, index + 1, depth - 1);

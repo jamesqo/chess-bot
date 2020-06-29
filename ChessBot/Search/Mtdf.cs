@@ -74,21 +74,14 @@ namespace ChessBot.Search
         private PvTable _pvt;
         private KillerTable _kt;
 
-        private bool Canceled
-        {
-            get
-            {
-                Debug.Assert(_nodesRemaining >= 0);
-                return _nodesRemaining == 0 || _ct.IsCancellationRequested;
-            }
-        }
-
         public override string ToString() => $"{Name} firstGuess={FirstGuess} depth={Depth} maxNodes={MaxNodes}";
 
         public ITranspositionTable MakeTt(int capacity)
         {
             return new TwoTierReplacementTt<TtEntry>(capacity);
         }
+
+        #region Search implementation
 
         public ISearchInfo Search(State root, CancellationToken cancellationToken = default)
         {
@@ -191,36 +184,17 @@ namespace ChessBot.Search
             TtEntry tte;
             Move storedPvMove = default;
 
-            var ttRef = _tt.TryGetReference(state.Hash);
-            if (ttRef != null)
+            if (TtLookup(state, alpha, beta, depth, out var ttRef, out int bound))
+            {
+                return bound;
+            }
+            else if (ttRef != null)
             {
                 tte = ttRef.Value;
                 storedPvMove = tte.PvMove;
 
                 if (tte.Depth >= depth)
                 {
-                    // beta-cutoff / fail-high
-                    if (tte.LowerBound >= beta)
-                    {
-                        _tt.Touch(ttRef);
-                        _pvt.SetOneMovePv(depth, storedPvMove);
-                        return tte.LowerBound;
-                    }
-                    // fail-low
-                    if (tte.UpperBound <= alpha)
-                    {
-                        _tt.Touch(ttRef);
-                        _pvt.SetNoPv(depth);
-                        return tte.UpperBound;
-                    }
-                    // we know the exact value
-                    if (tte.LowerBound == tte.UpperBound)
-                    {
-                        _tt.Touch(ttRef);
-                        _pvt.SetOneMovePv(depth, storedPvMove);
-                        return tte.LowerBound;
-                    }
-
                     // use the information to refine our bounds
                     // note: this may not actually work? (see below comment about outdated TT entries)
                     alpha = Math.Max(alpha, tte.LowerBound);
@@ -305,48 +279,118 @@ namespace ChessBot.Search
 
             // Store information from the search in TT
 
+            TtStore(state, guess, alpha, beta, depth, pvMove, ttRef);
+
+            return guess;
+        }
+
+        #endregion
+
+        #region Search helpers
+
+        private bool Canceled
+        {
+            get
+            {
+                Debug.Assert(_nodesRemaining >= 0);
+                return _nodesRemaining == 0 || _ct.IsCancellationRequested;
+            }
+        }
+
+        private bool TtLookup(MutState state, int alpha, int beta, int depth, out ITtReference<TtEntry> ttRef, out int bound)
+        {
+            ttRef = _tt.TryGetReference(state.Hash);
+            if (ttRef != null)
+            {
+                var tte = ttRef.Value;
+                if (tte.Depth >= depth)
+                {
+                    // beta-cutoff / fail-high
+                    if (tte.LowerBound >= beta)
+                    {
+                        _tt.Touch(ttRef);
+                        _pvt.SetOneMovePv(depth, tte.PvMove);
+                        bound = tte.LowerBound;
+                        return true;
+                    }
+                    // fail-low
+                    if (tte.UpperBound <= alpha)
+                    {
+                        _tt.Touch(ttRef);
+                        _pvt.SetNoPv(depth);
+                        bound = tte.UpperBound;
+                        return true;
+                    }
+                    // we know the exact value
+                    if (tte.LowerBound == tte.UpperBound)
+                    {
+                        _tt.Touch(ttRef);
+                        _pvt.SetOneMovePv(depth, tte.PvMove);
+                        bound = tte.LowerBound;
+                        return true;
+                    }
+                }
+            }
+
+            bound = default;
+            return false;
+        }
+
+        private void TtStore(MutState state, int guess, int alpha, int beta, int depth, Move pvMove, ITtReference<TtEntry> existingRef)
+        {
+            int lowerBound, upperBound;
+
             if (guess <= alpha) // fail-low => upper bound
             {
                 // We don't store the "PV move" for alpha cutoffs. Since we've only been maximizing over upper bounds,
                 // we only know that no move is good enough to produce a score greater than alpha; we can't tell which one is best.
-                // Also, if the move caused an alpha cutoff this time, there's little reason to expect it would cause a beta cutoff next time.
+                // Also, if the move failed low this time, there's little reason to expect it would cause a beta cutoff next time.
+
                 pvMove = default;
-                tte = new TtEntry(lowerBound: Evaluation.MinScore, upperBound: guess, depth, pvMove);
+                lowerBound = Evaluation.MinScore;
+                upperBound = guess;
             }
             else // beta-cutoff, aka fail-high => lower bound
             {
                 Debug.Assert(guess >= beta); // must be true for null-window searches, as alpha == beta - 1
-                tte = new TtEntry(lowerBound: guess, upperBound: Evaluation.MaxScore, depth, pvMove);
+                lowerBound = guess;
+                upperBound = Evaluation.MaxScore;
             }
 
-            int ttDepth = ttRef?.Value.Depth ?? -1;
-            if (depth >= ttDepth) // information about higher depths is more valuable
+            if (existingRef == null || existingRef.HasExpired)
             {
-                if (depth == ttDepth)
-                {
-                    bool overlaps = (tte.LowerBound <= ttRef.Value.UpperBound) && (ttRef.Value.LowerBound <= tte.UpperBound);
-
-                    // although rare, this could be false in the following scenario:
-                    //
-                    // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
-                    // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
-                    // make the earlier bounds obsolete) even though we're passing the same depth both times.
-                    //
-                    // in this case, we just assume the old range is obsolete and replace it entirely.
-                    if (overlaps)
-                    {
-                        // improve on what we already know
-                        if (pvMove.IsDefault) pvMove = storedPvMove;
-                        tte = new TtEntry(
-                            lowerBound: Math.Max(tte.LowerBound, ttRef.Value.LowerBound),
-                            upperBound: Math.Min(tte.UpperBound, ttRef.Value.UpperBound),
-                            depth,
-                            pvMove);
-                    }
-                }
-                _tt.UpdateOrAdd(ttRef, state.Hash, tte);
+                _tt.Add(state.Hash, new TtEntry(lowerBound, upperBound, depth, pvMove));
+                return;
             }
-            return guess;
+
+            var tte = existingRef.Value;
+            if (depth < tte.Depth) return; // information about higher depths is more valuable
+
+            if (depth == tte.Depth)
+            {
+                bool overlaps = (lowerBound <= tte.UpperBound) && (tte.LowerBound <= upperBound);
+
+                // although rare, this could be false in the following scenario:
+                //
+                // suppose our utility is computed based off of the utility of a child with depth = x. later, the child gets a tt entry with an
+                // associated depth = y. the child entry could differ greatly from its earlier value, which could affect our minimax value (and
+                // make the earlier bounds obsolete) even though we're passing the same depth both times.
+                //
+                // in this case, we just assume the old range is obsolete and replace it entirely.
+
+                if (overlaps)
+                {
+                    // improve on what we already know
+                    if (pvMove.IsDefault) pvMove = tte.PvMove;
+                    lowerBound = Math.Max(lowerBound, tte.LowerBound);
+                    upperBound = Math.Max(upperBound, tte.UpperBound);
+                }
+            }
+
+            bool updated = _tt.Update(existingRef, new TtEntry(lowerBound, upperBound, depth, pvMove));
+            Debug.Assert(updated);
         }
+
+        #endregion
     }
 }
