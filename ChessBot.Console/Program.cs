@@ -11,6 +11,9 @@ namespace ChessBot.Console
 {
     class Program
     {
+        const int SearchDepth = 7;
+        const int TtCapacity = 1 << 16;
+
         static readonly ICommands Commands = new Commands();
 
         static Side GetHumanSide()
@@ -38,12 +41,12 @@ namespace ChessBot.Console
                 switch (input)
                 {
                     case "": case "mtdf":
-                        inner = new Mtdf() { Depth = 7 };
-                        inner.Tt = inner.MakeTt(capacity: 1 << 16);
+                        inner = new Mtdf() { Depth = SearchDepth };
+                        inner.Tt = inner.MakeTt(TtCapacity);
                         break;
                     case "mtdf-ids":
-                        inner = new MtdfIds() { Depth = 7 };
-                        inner.Tt = inner.MakeTt(capacity: 1 << 16);
+                        inner = new MtdfIds() { Depth = SearchDepth };
+                        inner.Tt = inner.MakeTt(TtCapacity);
                         break;
                     default: continue;
                 }

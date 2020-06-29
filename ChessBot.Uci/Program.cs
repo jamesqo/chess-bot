@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ namespace ChessBot.Uci
     class Program
     {
         const int EntriesPerMb = (1 << 14); // todo
+        const int DefaultSearchDepth = 7;
 
         readonly Options _options = new Options();
         readonly ConcurrentQueue<Task> _searchQueue = new ConcurrentQueue<Task>();
@@ -160,16 +162,10 @@ namespace ChessBot.Uci
                 }
             }
 
-            if (settings.Depth == null && settings.Nodes == null && !settings.Infinite)
-            {
-                Error.WriteLine("One of depth, nodes, or infinite must be specified");
-                return;
-            }
-
             // go ahead with the search
 
             var searcher = new MtdfIds();
-            searcher.Depth = settings.Depth ?? int.MaxValue;
+            searcher.Depth = settings.Depth ?? ((settings.Infinite || settings.Nodes != null) ? int.MaxValue : DefaultSearchDepth);
             searcher.MaxNodes = settings.Nodes ?? int.MaxValue;
 
             int ttCapacity = _options.Get<int>("Hash") * EntriesPerMb;
@@ -253,16 +249,13 @@ namespace ChessBot.Uci
             // output the best move. if the pv contains more than 1 move (eg. there's not a mate in 1 and we searched more than depth 1),
             // output that too as the next move we expect the user to play.
 
-            // todo: we should still output something if the search was cancelled early
-            if (!info.Pv.IsEmpty)
+            Debug.Assert(!info.Pv.IsEmpty);
+            var output = $"bestmove {info.Pv[0]}";
+            if (info.Pv.Length > 1)
             {
-                var output = $"bestmove {info.Pv[0]}";
-                if (info.Pv.Length > 1)
-                {
-                    output += $" ponder {info.Pv[1]}";
-                }
-                WriteLine(output);
+                output += $" ponder {info.Pv[1]}";
             }
+            WriteLine(output);
         }
 
         void PonderHit()
@@ -275,7 +268,7 @@ namespace ChessBot.Uci
         {
             if (_cts == null)
             {
-                Error.WriteLine("No search in progress");
+                //Error.WriteLine("No search in progress");
                 return;
             }
 

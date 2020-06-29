@@ -57,7 +57,7 @@ namespace ChessBot.Search
             int remainingNodes = MaxNodes;
             var elapsed = TimeSpan.Zero;
 
-            for (int d = 1; d <= Depth && remainingNodes > 0 && !cancellationToken.IsCancellationRequested; d++)
+            for (int d = 1; d <= Depth; d++)
             {
                 Log.Debug("Running mtdf with depth={0}, f={1}", d, score);
                 _inner.Depth = d;
@@ -68,12 +68,20 @@ namespace ChessBot.Search
                 var icInfo = _inner.Search(root, cancellationToken);
                 Log.IndentLevel--;
 
-                _iterationCompleted.OnNext(icInfo);
-                pv = icInfo.Pv;
-                score = icInfo.Score;
                 nodesSearched += icInfo.NodesSearched;
                 remainingNodes -= icInfo.NodesSearched;
                 elapsed += icInfo.Elapsed;
+
+                if (remainingNodes > 0 && !cancellationToken.IsCancellationRequested)
+                {
+                    pv = icInfo.Pv;
+                    score = icInfo.Score;
+                    _iterationCompleted.OnNext(icInfo);
+                }
+                else
+                {
+                    break;
+                }
             }
 
             Log.Debug("Finished IDS search");

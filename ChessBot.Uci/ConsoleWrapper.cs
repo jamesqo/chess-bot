@@ -9,7 +9,7 @@ namespace ChessBot.Uci
     {
 #if UCI_TRACE
         private static string LogFilePath = GetLogFilePath();
-        private static readonly StreamWriter LogFile = new StreamWriter(LogFilePath, append: false, new UTF8Encoding(false));
+        private static readonly TextWriter LogFile = TextWriter.Synchronized(new StreamWriter(LogFilePath, append: false, new UTF8Encoding(false)));
 
         static ConsoleWrapper()
         {
@@ -32,7 +32,7 @@ namespace ChessBot.Uci
             return Path.Combine(logsFolder, fileName);
         }
 #else
-        private static readonly StreamWriter LogFile = StreamWriter.Null;
+        private static readonly TextWriter LogFile = TextWriter.Null;
 #endif
 
         public static class Error
