@@ -123,7 +123,7 @@ namespace ChessBot
 
         public Player GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        public MoveEnumerator GetPseudoLegalMoves(Killers killers = default) => new MoveEnumerator(this, killers);
+        public MoveEnumerator GetPseudoLegalMoves(MoveFlags flags = MoveFlags.Default, Killers killers = default) => new MoveEnumerator(this, flags, killers);
 
         public bool TryApply(Move move, out InvalidMoveReason error)
         {

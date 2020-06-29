@@ -155,7 +155,7 @@ namespace ChessBot.Search
         // the score returned is from the active player's perspective.
         private int NullWindowSearch(MutState state, int beta, int depth)
         {
-            Debug.Assert(depth >= 0);
+            Debug.Assert(depth >= 0 && depth <= Depth);
             Debug.Assert(_nodesRemaining > 0);
 
             int alpha = beta - 1; // null window search
@@ -167,8 +167,7 @@ namespace ChessBot.Search
 
             if (depth == 0)
             {
-                // todo: quiescence search
-                return state.Heuristic;
+                return Quiesce(state, alpha, beta, depth: 0);
             }
 
             // Check for cancellation
@@ -240,7 +239,7 @@ namespace ChessBot.Search
 
                 if (depth > 1) _kt.Clear(depth - 1); // clear child killers
                 var killers = _kt[depth];
-                foreach (var move in state.GetPseudoLegalMoves(killers))
+                foreach (var move in state.GetPseudoLegalMoves(killers: killers))
                 {
                     if (move == storedPvMove || !state.TryApply(move, out _)) continue;
                     isTerminal = false;
@@ -281,6 +280,36 @@ namespace ChessBot.Search
 
             TtStore(state, guess, alpha, beta, depth, pvMove, ttRef);
 
+            return guess;
+        }
+
+        // todo: make use of TT
+        private int Quiesce(MutState state, int alpha, int beta, int depth)
+        {
+            Debug.Assert(alpha < beta);
+            Debug.Assert(depth <= 0 && depth >= QuiescenceDepth);
+
+            int guess = state.Heuristic;
+            if (depth == QuiescenceDepth) return guess;
+
+            // fail-soft lower bound based on null move observation: we assume that we're not in zugzwang
+            // and that there is at least one move in the current position that would improve the heuristic.
+            if (guess >= beta) return guess;
+            alpha = Math.Max(alpha, guess);
+
+            foreach (var capture in state.GetPseudoLegalMoves(flags: MoveFlags.Captures))
+            {
+                if (!state.TryApply(capture, out _)) continue;
+                int value = -Quiesce(state, -beta, -alpha, depth - 1);
+                state.Undo();
+
+                guess = Math.Max(guess, value);
+                if (guess >= beta) return guess;
+                alpha = Math.Max(alpha, guess);
+            }
+
+            // fail-soft upper bound
+            Debug.Assert(guess <= alpha);
             return guess;
         }
 

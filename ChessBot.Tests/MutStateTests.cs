@@ -13,7 +13,7 @@ namespace ChessBot.Tests
             var killer = new Move(Location.Parse("c4"), Location.Parse("b3"));
             var killers = Killers.Empty.Add(killer);
 
-            Assert.DoesNotContain(killer, state.GetPseudoLegalMoves(killers));
+            Assert.DoesNotContain(killer, state.GetPseudoLegalMoves(killers: killers));
         }
     }
 }
