@@ -8,7 +8,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Console;
+using static ChessBot.Uci.ConsoleWrapper;
 
 namespace ChessBot.Uci
 {
@@ -253,6 +253,7 @@ namespace ChessBot.Uci
             // output the best move. if the pv contains more than 1 move (eg. there's not a mate in 1 and we searched more than depth 1),
             // output that too as the next move we expect the user to play.
 
+            // todo: we should still output something if the search was cancelled early
             if (!info.Pv.IsEmpty)
             {
                 var output = $"bestmove {info.Pv[0]}";
