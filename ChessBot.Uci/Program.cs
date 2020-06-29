@@ -115,7 +115,6 @@ namespace ChessBot.Uci
 
             while (tokens.TryPop(out token))
             {
-                // todo: castling moves are sent in the form of king "takes" his own rook. account for these
                 _root = _root.Apply(Move.ParseLong(token));
             }
         }
