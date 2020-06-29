@@ -238,7 +238,7 @@ namespace ChessBot.Search
 
                 pvTable.BubbleUpTo(depth, storedPvMove);
 
-                pvCausedCut = (guess >= beta || maxNodes <= 0); // todo: ct.IsCancellationRequested?
+                pvCausedCut = (guess >= beta || maxNodes <= 0 || ct.IsCancellationRequested);
                 if (guess >= beta)
                 {
                     Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} storedPvMove={3}", state, guess, beta, storedPvMove);
@@ -271,7 +271,7 @@ namespace ChessBot.Search
                         pvTable.BubbleUpTo(depth, move);
                     }
 
-                    if (guess >= beta || maxNodes <= 0) // todo: ct.IsCancellationRequested?
+                    if (guess >= beta || maxNodes <= 0 || ct.IsCancellationRequested)
                     {
                         if (guess >= beta)
                         {

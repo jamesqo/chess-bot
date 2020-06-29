@@ -185,10 +185,16 @@ namespace ChessBot.Uci
                 try
                 {
                     _cts = cts;
-                    using (cts)
-                    {
-                        Search(rootCopy, searcher, settings, this, cts.Token);
-                    }
+                    Search(rootCopy, searcher, settings, this, cts.Token);
+                }
+                // exceptions don't propagate to the main thread unless they are explicitly handled like this
+                catch (Exception e)
+                {
+                    Error.WriteLine(e);
+                }
+                finally
+                {
+                    cts.Dispose();
                     _cts = null;
 
                     // run the next task if one is queued
@@ -202,15 +208,11 @@ namespace ChessBot.Uci
                         _searchInProgress = false;
                     }
                 }
-                // exceptions don't propagate to the main thread unless they are explicitly handled like this
-                catch (Exception e)
-                {
-                    Error.WriteLine(e);
-                }
             });
 
             if (!_searchInProgress)
             {
+                Debug.Assert(_searchQueue.IsEmpty);
                 _searchInProgress = true;
                 searchTask.Start();
             }
