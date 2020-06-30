@@ -9,6 +9,7 @@ namespace ChessBot.Helpers
     // todo: shouldn't have to be public
     public static class Log
     {
+        // todo: use a different conditional compilation symbol
 #if DEBUG
         private static string LogFilePath = GetOutputPath();
         private static readonly StreamWriter LogFile = new StreamWriter(LogFilePath, append: false, new UTF8Encoding(false));
@@ -33,15 +34,12 @@ namespace ChessBot.Helpers
             var fileName = $"trace_{timestamp}.log";
             return Path.Combine(logsFolder, fileName);
         }
+#else
+        private static readonly StreamWriter LogFile = StreamWriter.Null;
 #endif
 
         public static bool Enabled { get; set; } = false;
-
-        public static int IndentLevel
-        {
-            get => Trace.IndentLevel;
-            set => Trace.IndentLevel = value;
-        }
+        public static int IndentLevel { get; set; } = 0;
 
         public static bool IncludeCallerNames { get; set; } = true;
 
@@ -114,7 +112,7 @@ namespace ChessBot.Helpers
 
             for (int i = 0; i < IndentLevel; i++)
             {
-                LogFile.Write(' ');
+                LogFile.Write("    ");
             }
             if (IncludeCallerNames)
             {

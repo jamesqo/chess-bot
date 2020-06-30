@@ -234,7 +234,7 @@ namespace ChessBot.Search
             {
                 bool isTerminal = storedPvMove.IsDefault;
 
-                Log.Debug("Commencing search of children of state {0}", state);
+                Log.Debug("Searching children of state {0}", state);
                 Log.IndentLevel++;
 
                 if (depth > 1) _kt.Clear(depth - 1); // clear child killers
@@ -273,7 +273,7 @@ namespace ChessBot.Search
                     _pvt.SetNoPv(depth);
                     return Evaluation.OfTerminal(state);
                 }
-                Log.Debug("Finished search of children of state {0}", state);
+                Log.Debug("Finished searching children of state {0}", state);
             }
 
             // Store information from the search in TT
