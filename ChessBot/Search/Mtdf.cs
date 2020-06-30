@@ -162,8 +162,8 @@ namespace ChessBot.Search
             _nodesRemaining--;
             _nodesSearched++;
 
-            // Unfortunately, it's pretty expensive to check for mate/stalemate since it involves trying to enumerate the current state's successors.
-            // As a result, we don't bother checking for those conditions and returning the correct value when depth == 0.
+            // note: it's pretty expensive to check for mate/stalemate since it involves trying to enumerate the current state's successors.
+            // as a result, we don't bother checking for those conditions and returning the correct value when depth == 0.
 
             if (depth == 0)
             {
@@ -195,9 +195,9 @@ namespace ChessBot.Search
                 if (tte.Depth >= depth)
                 {
                     // use the information to refine our bounds
-                    // note: this may not actually work? (see below comment about outdated TT entries)
                     alpha = Math.Max(alpha, tte.LowerBound);
                     beta = Math.Min(beta, tte.UpperBound);
+                    Debug.Assert(alpha < beta);
                 }
             }
 
@@ -288,7 +288,7 @@ namespace ChessBot.Search
             return guess;
         }
 
-        // todo: make use of TT
+        // quiescence search shouldn't take that long, so for simplicity's sake we don't bother checking for cancellation or updating _nodesSearched.
         private int Quiesce(MutState state, int alpha, int beta, int depth)
         {
             Debug.Assert(alpha < beta);
@@ -297,24 +297,45 @@ namespace ChessBot.Search
             int guess = state.Heuristic;
             if (depth == QuiescenceDepth) return guess;
 
-            // fail-soft lower bound based on null move observation: we assume that we're not in zugzwang
-            // and that there is at least one move in the current position that would improve the heuristic.
-            if (guess >= beta) return guess;
-            alpha = Math.Max(alpha, guess);
+            TtEntry tte;
 
-            foreach (var capture in state.GetPseudoLegalMoves(flags: MoveFlags.Captures))
+            if (TtLookup(state, alpha, beta, depth, out var ttRef, out int bound))
             {
-                if (!state.TryApply(capture, out _)) continue;
-                int value = -Quiesce(state, -beta, -alpha, depth - 1);
-                state.Undo();
+                return bound;
+            }
+            else if (ttRef != null)
+            {
+                tte = ttRef.Value;
 
-                guess = Math.Max(guess, value);
-                if (guess >= beta) return guess;
-                alpha = Math.Max(alpha, guess);
+                if (tte.Depth >= depth)
+                {
+                    // use the information to refine our bounds
+                    alpha = Math.Max(alpha, tte.LowerBound);
+                    beta = Math.Min(beta, tte.UpperBound);
+                    Debug.Assert(alpha < beta);
+                }
             }
 
-            // fail-soft upper bound
-            Debug.Assert(guess <= alpha);
+            // fail-soft lower bound based on null move observation: we assume that we're not in zugzwang
+            // and that there is at least one move in the current position that would improve the heuristic.
+            if (guess < beta)
+            {
+                alpha = Math.Max(alpha, guess);
+
+                foreach (var capture in state.GetPseudoLegalMoves(flags: MoveFlags.Captures))
+                {
+                    if (!state.TryApply(capture, out _)) continue;
+                    int value = -Quiesce(state, -beta, -alpha, depth - 1);
+                    state.Undo();
+
+                    guess = Math.Max(guess, value);
+                    if (guess >= beta) break;
+                    alpha = Math.Max(alpha, guess);
+                }
+            }
+
+            // we don't store the "PV move" for quiescence searches
+            TtStore(state, guess, alpha, beta, depth, pvMove: default, ttRef);
             return guess;
         }
 
@@ -333,17 +354,22 @@ namespace ChessBot.Search
 
         private bool TtLookup(MutState state, int alpha, int beta, int depth, out ITtReference<TtEntry> ttRef, out int bound)
         {
+            Debug.Assert(alpha < beta);
+            Debug.Assert(depth >= QuiescenceDepth && depth <= Depth);
+
             ttRef = _tt.TryGetReference(state.Hash);
             if (ttRef != null)
             {
                 var tte = ttRef.Value;
                 if (tte.Depth >= depth)
                 {
+                    bool qsearch = (depth <= 0);
+
                     // beta-cutoff / fail-high
                     if (tte.LowerBound >= beta)
                     {
                         _tt.Touch(ttRef);
-                        _pvt.SetOneMovePv(depth, tte.PvMove);
+                        if (!qsearch) _pvt.SetOneMovePv(depth, tte.PvMove);
                         bound = tte.LowerBound;
                         return true;
                     }
@@ -351,7 +377,7 @@ namespace ChessBot.Search
                     if (tte.UpperBound <= alpha)
                     {
                         _tt.Touch(ttRef);
-                        _pvt.SetNoPv(depth);
+                        if (!qsearch) _pvt.SetNoPv(depth);
                         bound = tte.UpperBound;
                         return true;
                     }
@@ -359,7 +385,7 @@ namespace ChessBot.Search
                     if (tte.LowerBound == tte.UpperBound)
                     {
                         _tt.Touch(ttRef);
-                        _pvt.SetOneMovePv(depth, tte.PvMove);
+                        if (!qsearch) _pvt.SetOneMovePv(depth, tte.PvMove);
                         bound = tte.LowerBound;
                         return true;
                     }
@@ -373,8 +399,8 @@ namespace ChessBot.Search
         private void TtStore(MutState state, int guess, int alpha, int beta, int depth, Move pvMove, ITtReference<TtEntry> existingRef)
         {
             Debug.Assert(alpha < beta);
-            Debug.Assert(depth > 0 && depth <= Depth);
-            Debug.Assert(pvMove.IsValid);
+            Debug.Assert(depth >= QuiescenceDepth && depth <= Depth);
+            Debug.Assert(pvMove.IsValid || pvMove.IsDefault);
 
             int lowerBound, upperBound;
 
