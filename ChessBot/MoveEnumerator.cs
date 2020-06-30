@@ -17,6 +17,7 @@ namespace ChessBot
     {
         private enum Phase
         {
+            Start,
             LoadCaptures,
             YieldCaptures,
             YieldKillers,
@@ -31,6 +32,7 @@ namespace ChessBot
         private readonly Location? _enPassantTarget;
         private readonly bool _canReallyCastleKingside;
         private readonly bool _canReallyCastleQueenside;
+        private readonly MoveFlags _flags;
         private readonly Killers _killers;
 
         private Move _current;
@@ -38,20 +40,23 @@ namespace ChessBot
         private int _index;
         private Phase _phase;
 
-        internal MoveEnumerator(MutState state, Killers killers)
+        internal MoveEnumerator(MutState state, MoveFlags flags, Killers killers)
         {
+            Debug.Assert((flags & MoveFlags.NonCaptures) != 0 || killers.Count == 0);
+
             _board = state.Board;
             _bbs = state._bbs;
             _activeSide = state.ActiveSide;
             _enPassantTarget = state.EnPassantTarget;
             _canReallyCastleKingside = state.CanReallyCastleKingside;
             _canReallyCastleQueenside = state.CanReallyCastleQueenside;
+            _flags = flags;
             _killers = killers;
 
             _current = default;
             _buffer = default;
             _index = 0;
-            _phase = Phase.LoadCaptures;
+            _phase = Phase.Start;
         }
 
         public readonly Move Current => _current;
@@ -69,6 +74,17 @@ namespace ChessBot
         {
             switch (_phase)
             {
+                case Phase.Start:
+                    if ((_flags & MoveFlags.Captures) != 0)
+                    {
+                        _phase = Phase.LoadCaptures;
+                        goto case Phase.LoadCaptures;
+                    }
+                    else
+                    {
+                        _phase = Phase.YieldKillers;
+                        goto case Phase.YieldKillers;
+                    }
                 case Phase.LoadCaptures:
                     _buffer = LoadCaptures();
                     _phase = Phase.YieldCaptures;
@@ -77,10 +93,17 @@ namespace ChessBot
                     if (_index == _buffer.Count)
                     {
                         _buffer.Dispose();
-
                         _index = 0;
-                        _phase = Phase.YieldKillers;
-                        goto case Phase.YieldKillers;
+                        if ((_flags & MoveFlags.NonCaptures) != 0)
+                        {
+                            _phase = Phase.YieldKillers;
+                            goto case Phase.YieldKillers;
+                        }
+                        else
+                        {
+                            _phase = Phase.End;
+                            goto case Phase.End;
+                        }
                     }
                     _current = _buffer[_index++];
                     return true;
@@ -105,13 +128,13 @@ namespace ChessBot
                     if (_index == _buffer.Count)
                     {
                         _buffer.Dispose();
-
                         _index = 0;
                         _phase = Phase.End;
-                        goto default;
+                        goto case Phase.End;
                     }
                     _current = _buffer[_index++];
                     return true;
+                case Phase.End:
                 default:
                     return false;
             }

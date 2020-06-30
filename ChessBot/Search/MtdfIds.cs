@@ -51,10 +51,10 @@ namespace ChessBot.Search
 
             Log.Debug("Starting IDS search");
 
-            ImmutableArray<Move> pv = default;
+            var pv = ImmutableArray<Move>.Empty;
             int score = 0;
             int nodesSearched = 0;
-            int remainingNodes = MaxNodes;
+            int nodesRemaining = MaxNodes;
             var elapsed = TimeSpan.Zero;
 
             for (int d = 1; d <= Depth; d++)
@@ -62,17 +62,17 @@ namespace ChessBot.Search
                 Log.Debug("Running mtdf with depth={0}, f={1}", d, score);
                 _inner.Depth = d;
                 _inner.FirstGuess = score;
-                _inner.MaxNodes = remainingNodes;
+                _inner.MaxNodes = nodesRemaining;
 
                 Log.IndentLevel++;
                 var icInfo = _inner.Search(root, cancellationToken);
                 Log.IndentLevel--;
 
                 nodesSearched += icInfo.NodesSearched;
-                remainingNodes -= icInfo.NodesSearched;
+                nodesRemaining -= icInfo.NodesSearched;
                 elapsed += icInfo.Elapsed;
 
-                if (remainingNodes > 0 && !cancellationToken.IsCancellationRequested)
+                if (nodesRemaining > 0 && !cancellationToken.IsCancellationRequested)
                 {
                     pv = icInfo.Pv;
                     score = icInfo.Score;

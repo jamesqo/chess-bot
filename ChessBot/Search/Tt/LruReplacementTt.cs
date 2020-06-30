@@ -82,8 +82,6 @@ namespace ChessBot.Search.Tt
             return false;
         }
 
-        // For now, we're using an LRU cache scheme to decide who gets evicted.
-        // In the future, we could take other factors into account such as number of hits, relative depth, etc.
         private void Evict()
         {
             var lru = _nodes.Lru;

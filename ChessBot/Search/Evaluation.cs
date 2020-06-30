@@ -1,4 +1,5 @@
 ﻿using ChessBot.Types;
+using System.Diagnostics;
 
 namespace ChessBot.Search
 {
@@ -139,7 +140,7 @@ namespace ChessBot.Search
         public static int OfTerminal(MutState state)
         {
             // this assert is pretty costly
-            //Debug.Assert(!state.GetMoves().Any());
+            //Debug.Assert(state.ToImmutable().IsTerminal);
 
             bool isStalemate = !state.IsCheck;
             if (isStalemate) return 0;

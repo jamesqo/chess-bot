@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 namespace ChessBot.Search.Tt
 {
@@ -14,15 +15,14 @@ namespace ChessBot.Search.Tt
     {
         private readonly int _capacity;
         private readonly Dictionary<ulong, LruNode<TValue>> _dict;
-        private readonly List<LruLinkedList<TValue>> _lists;
-        private int _minDepth; // lowest depth value for which a node is present
+        private readonly Dictionary<int, LruLinkedList<TValue>> _lists;
+        private int? _minDepth; // lowest depth value for which a node is present
 
         public DepthReplacementTt(int capacity)
         {
             _capacity = capacity;
             _dict = new Dictionary<ulong, LruNode<TValue>>(_capacity);
-            _lists = new List<LruLinkedList<TValue>>();
-            _minDepth = -1;
+            _lists = new Dictionary<int, LruLinkedList<TValue>>();
         }
 
         public int Capacity => _capacity;
@@ -30,7 +30,6 @@ namespace ChessBot.Search.Tt
         public bool Add(ulong key, TValue value)
         {
             int depth = value.Depth;
-            Debug.Assert(depth >= 0);
 
             if (_dict.Count == _capacity)
             {
@@ -41,8 +40,14 @@ namespace ChessBot.Search.Tt
                 }
 
                 Evict();
+
+                // Although very rare, this could happen if eviction caused _minDepth to increase
+                if (depth < _minDepth)
+                {
+                    _minDepth = depth;
+                }
             }
-            else if (_minDepth == -1 || depth < _minDepth)
+            else if (_minDepth == null || depth < _minDepth)
             {
                 _minDepth = depth;
             }
@@ -90,9 +95,11 @@ namespace ChessBot.Search.Tt
             if (Touch(node))
             {
                 var (oldDepth, newDepth) = (node.Value.Depth, newValue.Depth);
+                Debug.Assert(newDepth >= oldDepth); // so we don't have to worry about updating _minDepth
                 node.Value = newValue;
+
                 // we also have to move the node to the appropriate list if its depth has changed
-                if (oldDepth != newDepth)
+                if (newDepth > oldDepth)
                 {
                     node.Remove();
                     EnsureDepth(newDepth);
@@ -105,9 +112,11 @@ namespace ChessBot.Search.Tt
 
         private void Evict()
         {
-            Debug.Assert(_minDepth >= 0 && _minDepth < _lists.Count);
+            Debug.Assert(_dict.Count == _capacity);
+            Debug.Assert(_minDepth != null);
+            Debug.Assert(_lists.ContainsKey((int)_minDepth));
 
-            var targetList = _lists[_minDepth];
+            var targetList = _lists[(int)_minDepth];
             var target = targetList.Lru;
             Log.Debug("(depth) Evicting lru node {0} for depth={1}", target, _minDepth);
             Evict(target);
@@ -123,29 +132,28 @@ namespace ChessBot.Search.Tt
 
         private void EnsureDepth(int depth)
         {
-            Debug.Assert(depth >= 0);
+            Debug.Assert(_minDepth == null || depth >= _minDepth);
 
-            if (_lists.Count <= depth)
+            if (!_lists.ContainsKey(depth))
             {
-                int delta = (depth + 1) - _lists.Count;
-                for (int i = 0; i < delta; i++)
-                {
-                    _lists.Add(new LruLinkedList<TValue>());
-                }
+                _lists.Add(depth, new LruLinkedList<TValue>());
             }
-
-            Debug.Assert(_lists.Count > depth);
         }
 
         private void UpdateMinDepth()
         {
-            Debug.Assert(_minDepth >= 0 && _minDepth < _lists.Count);
-            Debug.Assert(_lists[_minDepth].IsEmpty);
+            Debug.Assert(_minDepth != null);
+            Debug.Assert(_lists.ContainsKey((int)_minDepth));
+            Debug.Assert(_lists[(int)_minDepth].IsEmpty);
 
-            for (int depth = (_minDepth + 1); depth < _lists.Count; depth++)
+            var depths = _lists.Keys.ToArray();
+            Array.Sort(depths);
+
+            foreach (int depth in depths)
             {
                 if (!_lists[depth].IsEmpty)
                 {
+                    Debug.Assert(depth > _minDepth);
                     _minDepth = depth;
                     return;
                 }
@@ -153,7 +161,7 @@ namespace ChessBot.Search.Tt
 
             // all of the lists are empty
             Debug.Assert(_dict.Count == 0);
-            _minDepth = -1;
+            _minDepth = null;
         }
     }
 }

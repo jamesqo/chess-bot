@@ -154,25 +154,22 @@ namespace ChessBot.Console
             }
         }
 
+        // todo: We should output the board again right before we exit
         static void CheckForEnd(State state)
         {
-            bool isTerminal = !state.GetMoves().Any();
-            bool isCheckmate = isTerminal && state.IsCheck;
-            bool isStalemate = isTerminal && !state.IsCheck;
-
-            if (isCheckmate)
+            if (state.IsCheckmate)
             {
                 WriteLine($"{state.OpposingSide} wins!");
                 Environment.Exit(0);
             }
 
-            if (isStalemate)
+            if (state.IsStalemate)
             {
                 WriteLine("It's a draw.");
                 Environment.Exit(0);
             }
 
-            // todo: Check for 3-fold repetition, 50-move rule, etc.
+            // todo: Check for draw by 3-fold repetition, 50-move rule, etc.
         }
     }
 

@@ -9,22 +9,19 @@ namespace ChessBot.Helpers
     // todo: shouldn't have to be public
     public static class Log
     {
+        // todo: use a different conditional compilation symbol
 #if DEBUG
-        private static string OutputPath = GetOutputPath();
-        private static readonly StreamWriter Output = new StreamWriter(OutputPath, append: false, new UTF8Encoding(false));
+        private static string LogFilePath = GetOutputPath();
+        private static readonly StreamWriter LogFile = new StreamWriter(LogFilePath, append: false, new UTF8Encoding(false));
 
         static Log()
         {
-            // remove the default trace listener
-            Trace.Listeners.Clear();
-
-            Trace.Listeners.Add(new TextWriterTraceListener(Output));
             AppDomain.CurrentDomain.ProcessExit += Destructor;
         }
 
         private static void Destructor(object sender, EventArgs e)
         {
-            Output.Dispose();
+            LogFile.Dispose();
         }
 
         private static string GetOutputPath([CallerFilePath] string thisPath = null)
@@ -37,15 +34,12 @@ namespace ChessBot.Helpers
             var fileName = $"trace_{timestamp}.log";
             return Path.Combine(logsFolder, fileName);
         }
+#else
+        private static readonly StreamWriter LogFile = StreamWriter.Null;
 #endif
 
         public static bool Enabled { get; set; } = false;
-
-        public static int IndentLevel
-        {
-            get => Trace.IndentLevel;
-            set => Trace.IndentLevel = value;
-        }
+        public static int IndentLevel { get; set; } = 0;
 
         public static bool IncludeCallerNames { get; set; } = true;
 
@@ -116,13 +110,17 @@ namespace ChessBot.Helpers
         {
             System.Diagnostics.Debug.Assert(Enabled);
 
+            for (int i = 0; i < IndentLevel; i++)
+            {
+                LogFile.Write("    ");
+            }
             if (IncludeCallerNames)
             {
-                Trace.Write("[");
-                Trace.Write(callerName);
-                Trace.Write("] ");
+                LogFile.Write("[");
+                LogFile.Write(callerName);
+                LogFile.Write("] ");
             }
-            Trace.WriteLine(message);
+            LogFile.WriteLine(message);
         }
     }
 }

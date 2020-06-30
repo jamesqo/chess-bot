@@ -1,4 +1,5 @@
 ﻿using ChessBot.Helpers;
+using System.Diagnostics;
 
 namespace ChessBot.Search.Tt
 {
@@ -28,6 +29,8 @@ namespace ChessBot.Search.Tt
 
         public void Remove()
         {
+            Debug.Assert(Previous != null && Next != null);
+
             Previous.Next = Next;
             Next.Previous = Previous;
             Previous = null;

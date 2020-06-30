@@ -15,7 +15,7 @@ namespace ChessBot.Uci
 {
     class Program
     {
-        const int EntriesPerMb = (1 << 14); // todo
+        const int EntriesPerMb = (1 << 12);
         const int DefaultSearchDepth = 7;
 
         readonly Options _options = new Options();

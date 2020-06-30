@@ -123,7 +123,19 @@ namespace ChessBot
 
         public Player GetPlayer(Side side) => side.IsWhite() ? White : Black;
 
-        public MoveEnumerator GetPseudoLegalMoves(Killers killers = default) => new MoveEnumerator(this, killers);
+        public MoveEnumerator GetPseudoLegalMoves(MoveFlags flags = MoveFlags.Default, Killers killers = default) => new MoveEnumerator(this, flags, killers);
+
+        public bool IsCapture(Move move)
+        {
+            Debug.Assert(move.IsValid);
+            Debug.Assert(IsMovePseudoLegal(move.Source, move.Destination));
+
+            var destination = move.Destination;
+            if (_board[destination].HasPiece) return true;
+
+            var pawnPlacement = ActivePlayer.GetPiecePlacement(PieceKind.Pawn);
+            return (pawnPlacement[move.Source] && destination == EnPassantTarget);
+        }
 
         public bool TryApply(Move move, out InvalidMoveReason error)
         {
