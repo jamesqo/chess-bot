@@ -59,8 +59,11 @@ namespace ChessBot.Helpers
             while (newCapacity <= _array.Length) newCapacity *= 2;
 
             Log.Debug("Resizing buffer, capacity={0} len={1} newCapacity={2}", _capacity, _array.Length, newCapacity);
+            var newArray = ArrayPool<T>.Shared.Rent(newCapacity);
+            Array.Copy(_array, 0, newArray, 0, _count);
             ArrayPool<T>.Shared.Return(_array);
-            _array = ArrayPool<T>.Shared.Rent(newCapacity);
+
+            _array = newArray;
             _capacity = newCapacity;
         }
     }
