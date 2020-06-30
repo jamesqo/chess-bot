@@ -10,21 +10,17 @@ namespace ChessBot.Helpers
     public static class Log
     {
 #if DEBUG
-        private static string OutputPath = GetOutputPath();
-        private static readonly StreamWriter Output = new StreamWriter(OutputPath, append: false, new UTF8Encoding(false));
+        private static string LogFilePath = GetOutputPath();
+        private static readonly StreamWriter LogFile = new StreamWriter(LogFilePath, append: false, new UTF8Encoding(false));
 
         static Log()
         {
-            // remove the default trace listener
-            Trace.Listeners.Clear();
-
-            Trace.Listeners.Add(new TextWriterTraceListener(Output));
             AppDomain.CurrentDomain.ProcessExit += Destructor;
         }
 
         private static void Destructor(object sender, EventArgs e)
         {
-            Output.Dispose();
+            LogFile.Dispose();
         }
 
         private static string GetOutputPath([CallerFilePath] string thisPath = null)
@@ -116,13 +112,17 @@ namespace ChessBot.Helpers
         {
             System.Diagnostics.Debug.Assert(Enabled);
 
+            for (int i = 0; i < IndentLevel; i++)
+            {
+                LogFile.Write(' ');
+            }
             if (IncludeCallerNames)
             {
-                Trace.Write("[");
-                Trace.Write(callerName);
-                Trace.Write("] ");
+                LogFile.Write("[");
+                LogFile.Write(callerName);
+                LogFile.Write("] ");
             }
-            Trace.WriteLine(message);
+            LogFile.WriteLine(message);
         }
     }
 }

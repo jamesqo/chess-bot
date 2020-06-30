@@ -127,6 +127,7 @@ namespace ChessBot
 
         public bool IsCapture(Move move)
         {
+            Debug.Assert(move.IsValid);
             Debug.Assert(IsMovePseudoLegal(move.Source, move.Destination));
 
             var destination = move.Destination;
