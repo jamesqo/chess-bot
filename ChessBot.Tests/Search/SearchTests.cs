@@ -1,6 +1,5 @@
 ﻿using ChessBot.Search;
 using ChessBot.Tests.TestHelpers;
-using ChessBot.Types;
 using System;
 using System.Runtime.CompilerServices;
 using Xunit;
