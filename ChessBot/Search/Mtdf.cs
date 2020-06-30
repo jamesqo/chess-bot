@@ -297,25 +297,6 @@ namespace ChessBot.Search
             int guess = state.Heuristic;
             if (depth == QuiescenceDepth) return guess;
 
-            TtEntry tte;
-
-            if (TtLookup(state, alpha, beta, depth, out var ttRef, out int bound))
-            {
-                return bound;
-            }
-            else if (ttRef != null)
-            {
-                tte = ttRef.Value;
-
-                if (tte.Depth >= depth)
-                {
-                    // use the information to refine our bounds
-                    alpha = Math.Max(alpha, tte.LowerBound);
-                    beta = Math.Min(beta, tte.UpperBound);
-                    Debug.Assert(alpha < beta);
-                }
-            }
-
             // fail-soft lower bound based on null move observation: we assume that we're not in zugzwang
             // and that there is at least one move in the current position that would improve the heuristic.
             if (guess < beta)
@@ -334,8 +315,6 @@ namespace ChessBot.Search
                 }
             }
 
-            // we don't store the "PV move" for quiescence searches
-            TtStore(state, guess, alpha, beta, depth, pvMove: default, ttRef);
             return guess;
         }
 
