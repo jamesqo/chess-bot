@@ -108,8 +108,9 @@ namespace ChessBot.Tests.Search
 
         private static RandomStateGenerator GetRsg([CallerMemberName] string callerName = null)
         {
-            // generate different states for different test methods
-            return new RandomStateGenerator(seed: callerName.GetHashCode());
+            int seed = callerName.GetHashCode(); // generate different states for different test methods
+            seed ^= (int)DateTime.Now.Subtract(new DateTime(1970, 1, 1)).TotalDays; // we want to test on new states every day
+            return new RandomStateGenerator(seed);
         }
     }
 }
