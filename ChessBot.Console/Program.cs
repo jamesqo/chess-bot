@@ -36,19 +36,21 @@ namespace ChessBot.Console
             ISearchAlgorithm inner;
             while (true)
             {
-                Write("Pick AI strategy [mtdf (default), mtdf-ids]: ");
+                Write("Pick AI strategy [mtdf, mtdf-ids (default)]: ");
                 string input = ReadLine().Trim().ToLower();
                 switch (input)
                 {
-                    case "": case "mtdf":
+                    case "mtdf":
                         inner = new Mtdf() { Depth = SearchDepth };
                         inner.Tt = inner.MakeTt(TtCapacity);
                         break;
+                    case "":
                     case "mtdf-ids":
                         inner = new MtdfIds() { Depth = SearchDepth };
                         inner.Tt = inner.MakeTt(TtCapacity);
                         break;
-                    default: continue;
+                    default:
+                        continue;
                 }
                 return new AI(inner);
             }
@@ -96,6 +98,8 @@ namespace ChessBot.Console
                     string input = ReadLine().Trim();
                     switch (input.ToLower())
                     {
+                        case "":
+                            break;
                         case "exit":
                         case "quit":
                             Commands.Exit();
@@ -119,10 +123,9 @@ namespace ChessBot.Console
                                 _ = state.Apply(move); // make sure it's valid
                                 return move;
                             }
-                            catch (InvalidMoveException e)
+                            catch (InvalidMoveException)
                             {
-                                WriteLine(e);
-                                WriteLine("Sorry, try again.");
+                                WriteLine("Didn't recognize that! Sorry, try again.");
                             }
                             break;
                     }
