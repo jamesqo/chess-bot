@@ -221,7 +221,7 @@ namespace ChessBot.Search
                 if (guess >= beta)
                 {
                     Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} storedPvMove={3}", state, guess, beta, storedPvMove);
-                    _kt.Add(depth, storedPvMove);
+                    if (!state.IsCapture(storedPvMove)) _kt.Add(depth, storedPvMove);
                 }
                 Log.IndentLevel--;
             }
@@ -260,7 +260,7 @@ namespace ChessBot.Search
                         if (guess >= beta)
                         {
                             Log.Debug("Beta cutoff occurred for state {0} with guess={1} beta={2} pvMove={3}", state, guess, beta, pvMove);
-                            _kt.Add(depth, pvMove);
+                            if (!state.IsCapture(pvMove)) _kt.Add(depth, pvMove);
                         }
                         break;
                     }

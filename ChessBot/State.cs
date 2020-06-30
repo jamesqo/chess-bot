@@ -11,6 +11,7 @@ using static ChessBot.Types.Rank;
 
 namespace ChessBot
 {
+    // todo: remove some unnecessary apis?
     /// <summary>
     /// Immutable class representing the state of a chess game.
     /// </summary>
