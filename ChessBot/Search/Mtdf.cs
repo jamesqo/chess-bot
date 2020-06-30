@@ -18,7 +18,7 @@ namespace ChessBot.Search
             public TtEntry(int lowerBound, int upperBound, int depth, Move pvMove)
             {
                 Debug.Assert(lowerBound <= upperBound);
-                Debug.Assert(depth > 0);
+                Debug.Assert(pvMove.IsValid || pvMove.IsDefault);
 
                 LowerBound = lowerBound;
                 UpperBound = upperBound;

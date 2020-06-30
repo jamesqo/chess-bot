@@ -33,13 +33,19 @@ namespace ChessBot.Search.Tt
 
             if (_dict.Count == _capacity)
             {
-                if (_minDepth != null && depth < _minDepth)
+                if (depth < _minDepth)
                 {
                     // If we're full, don't bother adding nodes below our minimum depth
                     return false;
                 }
 
                 Evict();
+
+                // Although very rare, this could happen if eviction caused _minDepth to increase
+                if (depth < _minDepth)
+                {
+                    _minDepth = depth;
+                }
             }
             else if (_minDepth == null || depth < _minDepth)
             {
@@ -89,9 +95,11 @@ namespace ChessBot.Search.Tt
             if (Touch(node))
             {
                 var (oldDepth, newDepth) = (node.Value.Depth, newValue.Depth);
+                Debug.Assert(newDepth >= oldDepth); // so we don't have to worry about updating _minDepth
                 node.Value = newValue;
+
                 // we also have to move the node to the appropriate list if its depth has changed
-                if (oldDepth != newDepth)
+                if (newDepth > oldDepth)
                 {
                     node.Remove();
                     EnsureDepth(newDepth);
@@ -104,6 +112,7 @@ namespace ChessBot.Search.Tt
 
         private void Evict()
         {
+            Debug.Assert(_dict.Count == _capacity);
             Debug.Assert(_minDepth != null);
             Debug.Assert(_lists.ContainsKey((int)_minDepth));
 
@@ -123,6 +132,8 @@ namespace ChessBot.Search.Tt
 
         private void EnsureDepth(int depth)
         {
+            Debug.Assert(_minDepth == null || depth >= _minDepth);
+
             if (!_lists.ContainsKey(depth))
             {
                 _lists.Add(depth, new LruLinkedList<TValue>());
@@ -135,8 +146,10 @@ namespace ChessBot.Search.Tt
             Debug.Assert(_lists.ContainsKey((int)_minDepth));
             Debug.Assert(_lists[(int)_minDepth].IsEmpty);
 
-            var depthsAscending = _lists.Keys.OrderBy(d => d);
-            foreach (int depth in depthsAscending)
+            var depths = _lists.Keys.ToArray();
+            Array.Sort(depths);
+
+            foreach (int depth in depths)
             {
                 if (!_lists[depth].IsEmpty)
                 {

@@ -139,8 +139,8 @@ namespace ChessBot.Search
 
         public static int OfTerminal(MutState state)
         {
-            // note: this assert is pretty costly
-            Debug.Assert(state.ToImmutable().IsTerminal);
+            // this assert is pretty costly
+            //Debug.Assert(state.ToImmutable().IsTerminal);
 
             bool isStalemate = !state.IsCheck;
             if (isStalemate) return 0;
