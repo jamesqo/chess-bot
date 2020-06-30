@@ -10,10 +10,10 @@ A simple UCI-compliant chess engine written in C#.
 - Killer heuristic
 - MVV-LVA move ordering
 - Magic bitboards
+- Quiescence search
 
 ## Todo
 
 - Better evaluation function
-- Quiescence search
 - History heuristic
 - Endgame tablebase
